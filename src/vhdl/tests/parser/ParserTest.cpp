@@ -641,6 +641,23 @@ end;
     EXPECT_EQ(loop.range.attribute->canonical, "range");
 }
 
+TEST(VHDLParserTest, PreservesDimensionedArrayRangeAttributes) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity attributes is port(a : in bit_vector(2 downto 0)); end;
+architecture rtl of attributes is begin
+  process(a) begin
+    for i in a'reverse_range(1) loop null; end loop;
+  end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& loop = parsed.syntax.architectures.front().processes.front().statements.front();
+    ASSERT_NE(loop.range.attribute, nullptr);
+    EXPECT_EQ(loop.range.attribute->kind, vhdl::Expression::Kind::Indexed);
+    EXPECT_EQ(loop.range.attribute->left->canonical, "reverse_range");
+    EXPECT_EQ(loop.range.attribute->right->text, "1");
+}
+
 TEST(VHDLParserTest, RejectsMalformedFunctionsAndProcessReturns) {
     for (const auto* function : {
         "function f return integer is begin return; end;",

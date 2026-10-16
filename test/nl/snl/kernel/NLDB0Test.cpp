@@ -1066,6 +1066,40 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_EQ(raddr->getWidth() / 2, readInputs.size());
 }
 
+TEST_F(NLDB0Test, testReadOnlyMemoryInterfaceAndTiming) {
+  NLUniverse::create();
+  const NLDB0::MemorySignature signature{5, 7, 4, 2, 0};
+  auto* model = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(model, nullptr);
+  EXPECT_EQ(model, NLDB0::getOrCreateMemory(signature));
+  EXPECT_EQ(signature, NLDB0::getMemorySignature(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryClock(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryReset(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteAddress(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteData(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteEnable(model));
+  EXPECT_EQ(2u, model->getTerms().size());
+  EXPECT_FALSE(SNLDesignModeling::isSequential(model));
+  const auto memory = SNLDesignModeling::getMemoryInterface(model);
+  EXPECT_EQ(nullptr, memory.clock);
+  EXPECT_EQ(nullptr, memory.reset);
+  EXPECT_TRUE(memory.writePorts.empty());
+  ASSERT_EQ(2u, memory.readPorts.size());
+  for (size_t port = 0; port < 2; ++port) {
+    auto* data = NLDB0::getMemoryReadData(model)->getBit(port*5);
+    const auto inputs = SNLDesignModeling::getCombinatorialInputs(data);
+    EXPECT_EQ(4u, inputs.size());
+    for (auto* input : inputs)
+      EXPECT_TRUE(std::find(memory.readPorts[port].address.begin(), memory.readPorts[port].address.end(), input) != memory.readPorts[port].address.end());
+  }
+  auto invalid = signature;
+  invalid.resetMode = NLDB0::MemoryResetMode::SyncHigh;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(invalid), NLException);
+  invalid = signature;
+  invalid.independentWriteClocks = true;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(invalid), NLException);
+}
+
 TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());

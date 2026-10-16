@@ -15,6 +15,7 @@
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLInstParameter.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLRTLPrimitives.h"
@@ -32,6 +33,32 @@ class SNLRTLPrimitivesTest: public ::testing::Test {
     NLLibrary* library_ {};
     SNLDesign* design_ {};
 };
+
+TEST_F(SNLRTLPrimitivesTest, ROMStoresInstanceContentsAndPreservesBitOrder) {
+  auto* zero = SNLScalarNet::create(design_); zero->setType(SNLNet::Type::Assign0);
+  auto* one = SNLScalarNet::create(design_); one->setType(SNLNet::Type::Assign1);
+  auto* x = SNLScalarNet::create(design_); x->setType(SNLNet::Type::AssignX);
+  auto* z = SNLScalarNet::create(design_); z->setType(SNLNet::Type::AssignZ);
+  auto* address = SNLBusNet::create(design_, 4, 5);
+  auto* output = SNLBusNet::create(design_, 7, 9);
+  SNLRTLPrimitives::Bits data{one,zero,one, zero,one,one, one,one,zero};
+  SNLRTLPrimitives::Bits select{address->getBit(5),address->getBit(4)};
+  auto* rom = SNLRTLPrimitives::createROM(design_, data, select, output);
+  const NLDB0::MemorySignature expected{3,3,2,1,0};
+  EXPECT_EQ(expected, NLDB0::getMemorySignature(rom));
+  EXPECT_EQ("9'h0f5", rom->getInstParameter(NLName("INIT"))->getValue());
+  EXPECT_EQ("1", rom->getInstParameter(NLName("INIT_ENABLE"))->getValue());
+  EXPECT_EQ(address->getBit(5), rom->getInstTerm(NLDB0::getMemoryReadAddress(rom->getModel())->getBit(0))->getNet());
+  EXPECT_EQ(output->getBit(9), rom->getInstTerm(NLDB0::getMemoryReadData(rom->getModel())->getBit(0))->getNet());
+  data[0] = x; data[1] = z;
+  auto* other = SNLRTLPrimitives::createROM(design_, data, select, SNLBusNet::create(design_,2,0));
+  EXPECT_EQ(rom->getModel(), other->getModel());
+  EXPECT_EQ("9'b0111101zx", other->getInstParameter(NLName("INIT"))->getValue());
+  const auto count = design_->getInstances().size();
+  data[0] = address->getBit(4);
+  EXPECT_THROW(SNLRTLPrimitives::createROM(design_, data, select, output), NLException);
+  EXPECT_EQ(count, design_->getInstances().size());
+}
 
 TEST_F(SNLRTLPrimitivesTest, MuxPreservesReorderedInputsAndAscendingOutput) {
   auto* select = SNLScalarNet::create(design_);

@@ -358,8 +358,11 @@ private:
     std::optional<DiscreteRange> parseDiscreteRange() {
         const auto start = current().span;
         auto leftExpression = parseExpression(0);
-        if (leftExpression && leftExpression->kind == Expression::Kind::Attribute &&
-            (leftExpression->canonical == "range" || leftExpression->canonical == "reverse_range")) {
+        const auto* attribute = leftExpression.get();
+        if (attribute && attribute->kind == Expression::Kind::Indexed)
+            attribute = attribute->left.get();
+        if (attribute && attribute->kind == Expression::Kind::Attribute &&
+            (attribute->canonical == "range" || attribute->canonical == "reverse_range")) {
             DiscreteRange range;
             range.span = leftExpression->span;
             range.attribute = std::shared_ptr<Expression>(std::move(leftExpression));
@@ -1601,7 +1604,23 @@ private:
                 return aggregate;
             }
             auto parseElement = [&]() -> std::unique_ptr<Expression> {
-                auto element = parseExpression(0);
+                auto element = parseIndex();
+                if (element && symbol("|")) {
+                    auto choices = std::make_unique<Expression>();
+                    choices->kind = Expression::Kind::Aggregate;
+                    choices->span = element->span;
+                    choices->elements.push_back(std::move(element));
+                    while (acceptSymbol("|")) {
+                        auto choice = parseIndex();
+                        if (!choice) return nullptr;
+                        choices->elements.push_back(std::move(choice));
+                    }
+                    if (!symbol("=>")) {
+                        error("aggregate choices require an association", current().span);
+                        return nullptr;
+                    }
+                    element = std::move(choices);
+                }
                 if (element && acceptSymbol("=>")) {
                     auto association = std::make_unique<Expression>();
                     association->kind = Expression::Kind::Association;

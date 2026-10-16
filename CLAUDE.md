@@ -223,6 +223,7 @@ configuration is inherited by that consumer.
 - Post-elaboration netlists must never silently encode an unsupported construct incorrectly. If faithful lowering is not available, reject the construct or emit a clear diagnostic rather than dropping a value, leaving a net undriven, or otherwise producing a plausible but wrong netlist.
 - Prefer general frontend support over fixes tailored to one reproducer: identify the shared language semantics and cover representative variations in syntax, type/shape, and downstream use where practical.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
+- When working on HDL frontends or elaboration, always stop and discuss with the user when a needed primitive or primitive capability is missing. Explain the missing representation and the options for extending an existing NLDB0 primitive or adding a new one. Wait for agreement before implementing a substitute lowering, expanding the construct into other primitives, or changing the primitive model. This applies even when an alternative lowering could preserve behavior; do not let design-loading progress bypass this discussion.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
 
 ## VHDL and SystemVerilog loading alignment

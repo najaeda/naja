@@ -330,6 +330,7 @@ module naja_mem #(
   parameter ABITS = 1,
   parameter RD_PORTS = 1,
   parameter WR_PORTS = 1,
+  parameter MULTI_CLOCK = 0,
   parameter RST_ENABLE = 0,
   parameter RST_ASYNC = 0,
   parameter RST_ACTIVE_LOW = 0,
@@ -340,12 +341,15 @@ module naja_mem #(
   input RST,
   input [RD_PORTS*ABITS-1:0] RADDR,
   output reg [RD_PORTS*WIDTH-1:0] RDATA,
-  input [WR_PORTS*ABITS-1:0] WADDR,
-  input [WR_PORTS*WIDTH-1:0] WDATA,
-  input [WR_PORTS-1:0] WE
+  input [(WR_PORTS > 0 ? WR_PORTS : 1)*ABITS-1:0] WADDR,
+  input [(WR_PORTS > 0 ? WR_PORTS : 1)*WIDTH-1:0] WDATA,
+  input [(WR_PORTS > 0 ? WR_PORTS : 1)-1:0] WE,
+  input [(WR_PORTS > 0 ? WR_PORTS : 1)-1:0] WCLK,
+  input [(WR_PORTS > 0 ? WR_PORTS : 1)*WIDTH-1:0] WMASK
 );
 
   reg [WIDTH-1:0] mem [0:DEPTH-1];
+  integer i;
   integer rp;
   integer addr_index;
   reg [ABITS-1:0] addr_value;
@@ -355,7 +359,8 @@ module naja_mem #(
     begin
       /* verilator lint_off SELRANGE */
       for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)
-        mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
+        if (INIT === '0) mem[init_idx] = {WIDTH{1'b0}};
+        else mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];
       /* verilator lint_on SELRANGE */
     end
   endtask
@@ -395,12 +400,24 @@ module naja_mem #(
       if (addr_index < DEPTH)
         RDATA[rp*WIDTH +: WIDTH] = mem[addr_index];
       else
-        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};
+        RDATA[rp*WIDTH +: WIDTH] = WR_PORTS == 0 ? {WIDTH{1'bx}} : {WIDTH{1'b0}};
     end
   end
 
   generate
-    if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset
+    if (WR_PORTS == 0) begin : read_only
+    end else if (MULTI_CLOCK) begin : independent_write_clocks
+      genvar port, bit_index;
+      for (port = 0; port < WR_PORTS; port = port + 1) begin : write_port
+        for (bit_index = 0; bit_index < WIDTH; bit_index = bit_index + 1) begin : write_bit
+          always @(posedge WCLK[port]) begin
+            if (WE[WR_PORTS-1-port] && WMASK[port*WIDTH+bit_index] &&
+                WADDR[port*ABITS +: ABITS] < DEPTH)
+              mem[WADDR[port*ABITS +: ABITS]][bit_index] <= WDATA[port*WIDTH+bit_index];
+          end
+        end
+      end
+    end else if (RST_ENABLE && RST_ASYNC && RST_ACTIVE_LOW) begin : async_low_reset
       always @(posedge CLK or negedge RST) begin
         if (!RST)
           load_init();

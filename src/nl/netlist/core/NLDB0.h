@@ -94,6 +94,7 @@ class NLDB0 {
       size_t          depth      {0};
       size_t          abits      {0};
       size_t          readPorts  {0};
+      /// Zero creates a read-only memory, without clock/reset/write terminals.
       size_t          writePorts {0};
       MemoryResetMode resetMode  {MemoryResetMode::None};
       /// Independent write clocks and per-bit masks; reads remain asynchronous.

@@ -311,6 +311,32 @@ and immediate process variables. Generated instances can bind indexed or sliced
 ports; integer constant tables can supply their generic values. Architecture
 and package constants may use positional array aggregates, including
 unconstrained array types with ``natural``, ``positive``, or ``integer`` indices.
+Constrained arrays also support static index choices, ranges, grouped choices
+(``|``), and a final ``others`` association, including nested arrays and integer
+constant tables. Positional elements follow declaration order and may precede
+``others``, but cannot be mixed with named index choices. Overlapping or out-of-range choices, missing elements, and
+associations after ``others`` are rejected. Named array aggregates require
+explicit bounds; unconstrained bound inference remains positional-only.
+
+Boolean signals, ports, and arrays use one bit per element while retaining
+boolean type checking. Boolean array constants support static indexing in
+constants and generate conditions, and dynamic indexing through the existing
+read-only memory representation. Nested and enumeration-indexed constants are
+supported. Architecture-local scalar functions can capture integer-indexed
+boolean arrays; static package-function array lookups remain unsupported.
+Intermediate integer addition/subtraction retains the supported 32-bit width;
+assignments to constrained hardware integers use their declared width.
+
+Pure functions returning a scalar integer or boolean may also accept
+one-dimensional integer-array constants or forward integer-array parameters.
+Array type identity and element subtypes are checked. Unconstrained formals
+retain the actual bounds; constrained formals map elements by position into
+their declared bounds and direction. Indexing, scalar bounds attributes, and
+``for`` loops over the parameter's ``'range`` are evaluated statically.
+Architecture-local functions capture preceding integer-array constants, including
+for default arguments. Array actuals currently must be names; array-valued
+returns, local array variables, aggregate/slice actuals, and enumeration-indexed
+integer-array parameters remain unsupported.
 
 Simple signal wiring assignments such as ``y <= a;`` use canonical DB0 Assign
 instances, one per bit. ``Equipotential.Mode.TRAVERSE_ASSIGNS`` crosses these
@@ -338,8 +364,33 @@ matches every field type. Record ports are flattened to one SNL bus in declarati
 order, recursively, with the first field at the most significant end. Original
 vector directions determine the order of bits within each field. Record type
 names remain distinct for assignment checking. ``std_ulogic`` and
-``std_ulogic_vector`` use the same binary lowering as their resolved counterparts;
-multiple drivers and nonbinary literals remain unsupported.
+``std_ulogic_vector`` use the same lowering as their resolved counterparts;
+multiple drivers remain unsupported. ``std_logic`` and ``std_ulogic`` literals
+preserve ``X`` and ``Z`` as SNL constant nets, including vector strings,
+binary/octal/hex bit strings, aggregates, constants, mux inputs, and register
+data. Other nonbinary enumeration values and lowercase ``x``/``z`` are rejected.
+``bit`` and ``bit_vector`` remain binary. Explicit ``X``/``Z`` operands in
+arithmetic and comparisons are rejected; nine-valued simulation is unsupported.
+Register initialization and asynchronous reset values must remain binary.
+
+Array objects and constrained user-defined array types support ``'left``,
+``'right``, ``'low``, ``'high``, ``'length``, and ``'ascending``. Bounds and
+direction come from the declared subtype, including ascending and nonzero-based
+ranges. Record fields, slices, and statically indexed nested arrays retain their
+own bounds. Attribute queries do not read signal or variable values, so output
+ports and uninitialized process variables can supply bounds without introducing
+hardware reads or sensitivity-list dependencies.
+``'range`` and ``'reverse_range`` may supply port, signal, and variable bounds,
+process-loop ranges, and generate ranges. The optional dimension argument must
+be the static integer ``1``. Enumeration-indexed arrays support ``'length`` and
+``'ascending``; enumeration-valued bounds and ranges remain unsupported.
+Unconstrained type prefixes, runtime-indexed prefixes, and array attributes
+inside static function bodies remain unsupported and are diagnosed.
+
+Vector conversions between ``std_logic_vector``, ``std_ulogic_vector``,
+``unsigned``, and ``signed`` preserve bit order and width, including ascending
+source ranges. These conversions require visible ``std_logic_1164`` and
+``numeric_std`` packages; they do not resize or sign-extend their operands.
 
 Identifier-based enumerated types declared in packages, architectures, and
 generate bodies support internal signals, variables, constants, record fields,
@@ -362,19 +413,35 @@ than caller-local names. Integer arithmetic includes division, ``mod``, ``rem``,
 exponentiation, and ``abs``; boolean comparisons and logical operators preserve
 short-circuit evaluation. Subtype violations, overflow, missing returns,
 ambiguous overloads, and excessive recursion or evaluation work are diagnosed.
-Function calls with runtime arguments, vector/string function evaluation, and
-impure functions remain unsupported. Array attributes and interface defaults
-are retained by the parser, but their elaboration is not yet supported.
+Static ``boolean(...)`` conversions accept boolean operands, including comparisons
+and nested conversions, in constants, generic defaults, and function bodies.
+Short-circuited operands are type-checked without evaluating their values;
+integer-to-boolean conversions are rejected.
+Pure package and architecture-local functions can also lower binary scalar and
+vector arguments and results to combinational hardware. Unconstrained vector
+formals retain actual bounds; constrained formals bind by position. Calls support
+positional/named arguments and declaration-scope defaults, nested pure calls,
+local binary variables/constants, variable initializers, bounded ``for`` loops,
+array attributes, and ``if`` statements. Both branches of a runtime condition may
+return, or both may continue after updating local variables. Function scopes
+resolve package or captured declaration constants rather than caller-local names.
+Integer and boolean function arguments must currently be static. Runtime integer
+results, string evaluation, impure functions, partially returning runtime
+branches, runtime-dependent return bounds, ``case``/``exit`` statements, and
+shadowed local declarations/loop parameters remain unsupported and are diagnosed.
+Missing returns, incompatible types/widths, reads before definite assignment,
+excessive recursion, and excessive elaboration work are errors.
 
 Architecture-local pure functions also support static integer/boolean evaluation.
 Bodies and default arguments use declarations visible at the function declaration,
-including enclosing generics and scalar constants. Runtime/vector evaluation,
-overloading, and architecture function forward declarations remain unsupported.
+including enclosing generics and scalar constants. Binary runtime functions also
+capture visible binary constants. Overloading and architecture function forward
+declarations remain unsupported.
 
-Input port maps accept binary character, string, and binary/octal/hex bit-string
+Input port maps accept character, string, and binary/octal/hex bit-string
 literals in positional or named associations, for direct entities and components.
-The formal port supplies the type and bit order. Width/type mismatches, non-binary
-values, and literals bound to output ports are rejected. General expression and
+The formal port supplies the type and bit order, including ``X``/``Z`` for logic
+types. Width/type mismatches, unsupported literal values, and literals bound to output ports are rejected. General expression and
 aggregate port actuals remain unsupported.
 
 Named port associations may select vector elements, slices, and record fields
@@ -388,8 +455,11 @@ elaboration-time generic or generate values. Component selections use the
 component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
 vector, and record ports in positional or named maps. Their instance terminals
 remain unconnected, matching SV empty output connections, without a warning.
-Input defaults are not yet supported, so open inputs remain rejected. Individual
-formal elements or slices cannot be associated with ``open``.
+Whole output ports may also be omitted from named maps or left off the end of
+positional maps, with the same unconnected result. Inputs without defaults must
+be associated; explicit ``open`` inputs remain unsupported. Individual formal
+elements or slices cannot be associated with ``open``, and partially associated
+ports must still cover every element.
 As with connected record ports, their type package currently needs to be visible
 in the instantiating scope as well as the child entity.
 
@@ -438,14 +508,20 @@ constructs still fail loading. Choose a report path or select console-only outpu
 
 The NEORV32 default ``neorv32_top`` configuration remains a development target.
 The complete core file list parses and resolves its named-library imports when
-loaded into ``library="neorv32"``. Boolean generics now elaborate; the next
-unsupported generic is ``BOOT_ADDR_CUSTOM : std_ulogic_vector(31 downto 0)``
-at ``neorv32_top.vhd:30`` in the development checkout. Vector generics, runtime
-vector helpers, and further elaboration constructs remain unsupported; the
-complete top has not been validated.
+loaded into ``library="neorv32"``. Boolean/vector generics, array attributes,
+and pure binary vector helpers now elaborate within the supported subset.
+Additional ``numeric_std`` overloads and further constructs are still needed;
+the complete top has not been validated.
 
-Dynamic array reads lower to ``naja_table_select`` for constant arrays,
-constant-driven ROM signals, and general signal or variable arrays. Identical
+Dynamic reads of constant arrays lower to read-only ``naja_mem`` instances
+with ``WR_PORTS=0`` and ``INIT_ENABLE=1``. The instance ``INIT`` parameter
+stores the contents, with address zero in the least-significant word. Binary
+images use sized hexadecimal literals; images containing X/Z use sized binary
+literals. These memories have only read address/data terminals and combinational
+timing arcs; clocked read registers and enable muxes remain separate. Both HDL
+frontends use the same representation. General signal or variable arrays use
+``naja_table_select``, including signals whose constant drivers are encountered
+after the read is lowered. Identical
 lookups within a design share the primitive. Nonnegative ascending and descending
 bounds are supported, including nonzero lower bounds. Indices can use
 ``conv_integer`` with the Synopsys packages or ``to_integer(unsigned(...))``
@@ -456,7 +532,13 @@ remain unsupported. Inferred writable memories retain their existing memory
 primitive lowering.
 
 The RTL path supports ``numeric_std.unsigned`` and ``numeric_std.signed`` addition, subtraction,
-multiplication, equality/inequality and concatenation. Static
+multiplication, equality/inequality, ordering comparisons and concatenation. Arithmetic
+and comparisons accept integer operands on either side: static signed 32-bit
+integers, or hardware integers with supported nonnegative ranges. Unsigned
+operations require natural operands. Scalar arithmetic converts the integer to
+the vector's width; addition/subtraction retain that width, while multiplication
+produces twice that width. Comparisons preserve the integer's full value, even
+when it lies outside the vector's representable range. Static
 ``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,
 and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
 ``std_logic_signed`` vector addition, subtraction, multiplication and
@@ -529,7 +611,7 @@ are supported. Bits omitted from the reset branch hold their state while reset
 is active, including at clock edges. Enables and explicit register initializers
 are preserved. Dynamic asynchronous loads, multiple reset sources, and assignments
 outside the clock/reset guard are rejected. General event-driven processes,
-nonbinary literals, multiple drivers, dynamic ``to_unsigned`` conversions and
+unsupported nonbinary values, multiple drivers, dynamic ``to_unsigned`` conversions and
 general VHDL remain unsupported and are diagnosed. Argument and path errors
 use the same Python exception categories as the other high-level loaders.
 Frontend or lowering failures are reported as :class:`RuntimeError`.

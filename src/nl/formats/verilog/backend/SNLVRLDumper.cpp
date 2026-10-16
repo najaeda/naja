@@ -1713,6 +1713,16 @@ void SNLVRLDumper::dumpInstanceInterface(
     o << '\n';
     dumpInsTermConnectivity(previousTerm, termNets, instTerms, o, naming);
   }
+  if (NLDB0::isMemory(instance->getModel())) {
+    const auto signature = NLDB0::getMemorySignature(instance->getModel());
+    // The shared Verilog module retains controls absent from specialized models.
+    if (signature.writePorts == 0) {
+      o << ",\n  .CLK(1'b0), .RST(1'b0), .WADDR('0), .WDATA('0), .WE('0)";
+    }
+    if (!signature.independentWriteClocks) {
+      o << ",\n  .WCLK('0), .WMASK('0)";
+    }
+  }
   o << '\n' << ")";
 }
 
@@ -2643,11 +2653,11 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "  input RST,\n";
   o << "  input [RD_PORTS*ABITS-1:0] RADDR,\n";
   o << "  output reg [RD_PORTS*WIDTH-1:0] RDATA,\n";
-  o << "  input [WR_PORTS*ABITS-1:0] WADDR,\n";
-  o << "  input [WR_PORTS*WIDTH-1:0] WDATA,\n";
-  o << "  input [WR_PORTS-1:0] WE,\n";
-  o << "  input [WR_PORTS-1:0] WCLK,\n";
-  o << "  input [WR_PORTS*WIDTH-1:0] WMASK\n";
+  o << "  input [(WR_PORTS > 0 ? WR_PORTS : 1)*ABITS-1:0] WADDR,\n";
+  o << "  input [(WR_PORTS > 0 ? WR_PORTS : 1)*WIDTH-1:0] WDATA,\n";
+  o << "  input [(WR_PORTS > 0 ? WR_PORTS : 1)-1:0] WE,\n";
+  o << "  input [(WR_PORTS > 0 ? WR_PORTS : 1)-1:0] WCLK,\n";
+  o << "  input [(WR_PORTS > 0 ? WR_PORTS : 1)*WIDTH-1:0] WMASK\n";
   o << ");\n\n";
   o << "  reg [WIDTH-1:0] mem [0:DEPTH-1];\n";
   o << "  integer i;\n";
@@ -2659,7 +2669,7 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "    begin\n";
   o << "      /* verilator lint_off SELRANGE */\n";
   o << "      for (init_idx = 0; init_idx < DEPTH; init_idx = init_idx + 1)\n";
-  o << "        if (INIT === 1'b0) mem[init_idx] = {WIDTH{1'b0}};\n";
+  o << "        if (INIT === '0) mem[init_idx] = {WIDTH{1'b0}};\n";
   o << "        else mem[init_idx] = INIT[init_idx*WIDTH +: WIDTH];\n";
   o << "      /* verilator lint_on SELRANGE */\n";
   o << "    end\n";
@@ -2696,11 +2706,12 @@ void SNLVRLDumper::dumpNajaMemModel(std::ostream& o) {
   o << "      if (addr_index < DEPTH)\n";
   o << "        RDATA[rp*WIDTH +: WIDTH] = mem[addr_index];\n";
   o << "      else\n";
-  o << "        RDATA[rp*WIDTH +: WIDTH] = {WIDTH{1'b0}};\n";
+  o << "        RDATA[rp*WIDTH +: WIDTH] = WR_PORTS == 0 ? {WIDTH{1'bx}} : {WIDTH{1'b0}};\n";
   o << "    end\n";
   o << "  end\n\n";
   o << "  generate\n";
-  o << "    if (MULTI_CLOCK) begin : independent_write_clocks\n";
+  o << "    if (WR_PORTS == 0) begin : read_only\n";
+  o << "    end else if (MULTI_CLOCK) begin : independent_write_clocks\n";
   o << "      genvar port, bit_index;\n";
   o << "      for (port = 0; port < WR_PORTS; port = port + 1) begin : write_port\n";
   o << "        for (bit_index = 0; bit_index < WIDTH; bit_index = bit_index + 1) begin : write_bit\n";

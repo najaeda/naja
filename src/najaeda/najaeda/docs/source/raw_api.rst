@@ -79,6 +79,18 @@ signedness. Explicit overrides equal to a generated module default may be
 omitted even when the specialized model has a different default. Ordinary
 modules retain their own declared defaults.
 
+Read-only memories use the canonical NLDB0 memory family with ``WR_PORTS=0``.
+Their models expose only ``RADDR`` and ``RDATA``; ``isSequential()`` returns
+false because clocked read registers remain separate. Instance ``INIT_ENABLE=1``
+and sized ``INIT`` literals hold the contents, with address zero occupying the
+least-significant word. Binary images use hexadecimal; X/Z images use binary.
+The existing ``getInstParameter`` API exposes these values. The model is shared
+by equal memory dimensions, while contents belong to each instance. NajaIF
+snapshots and Verilog dumps preserve the initialization. Unknown or out-of-range
+ROM read addresses produce X in the generated model. C++ ``MemoryInterface``
+accepts read-only interfaces with no write ports; NLDB0 clock/reset/write-term
+getters return null for these models.
+
 The generated division/remainder model implements signed and unsigned
 quotient and remainder operations separately. The high-level
 :meth:`najaeda.netlist.Instance.dump_verilog` uses the same dumper; raw API
@@ -601,7 +613,20 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    elaborated at the required width. Loading preserves dead RTL objects and
    can retain unused logic across intermediate signals; call
    ``NLUniverse.get().applyDLE()`` after selecting the top for a pruned netlist.
-   See :doc:`loading` for resize semantics and the remaining limits.
+   Vector casts also accept ``std_ulogic_vector`` and preserve operand width and
+   bit order. Static ``boolean(...)`` conversions require boolean operands and
+   retain short-circuit evaluation, including in generic defaults and package
+   functions. See :doc:`loading` for conversion visibility, resize semantics,
+   and the remaining limits.
+   Array bounds, length, direction, range, and reverse-range attributes use
+   declared subtype metadata without reading signal values. These attributes
+   also support bounds derived from vector generics in direct-entity and component
+   interfaces. See :doc:`loading` for supported prefixes and index-type limits.
+   Pure binary scalar/vector functions lower to combinational hardware, including
+   local variables, bounded loops, nested calls, and named/default arguments.
+   Package and architecture declaration scopes are preserved. Integer/boolean
+   actuals must be static; unsupported return paths and dynamic result bounds
+   are diagnosed. See :doc:`loading` for the runtime function subset.
    Each Python call emits a ``RuntimeWarning`` because the VHDL parser is in
    Beta mode; its supported subset and behavior may change between releases.
    RTL source files and package declarations are retained in the live design
@@ -663,8 +688,11 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    component's bounds and bind to the entity by position. Whole output ports may be associated with ``open``, including scalar,
    vector, and record ports in positional or named maps. Their instance terminals
    remain unconnected, matching SV empty output connections, without a warning.
-   Input defaults are not yet supported, so open inputs remain rejected. Individual
-   formal elements or slices cannot be associated with ``open``.
+   Whole output ports may also be omitted from named maps or left off the end
+   of positional maps. Inputs without defaults must be associated; explicit
+   ``open`` inputs remain unsupported. Individual formal elements or slices
+   cannot be associated with ``open``, and partial associations must cover every
+   element of the port.
    As with connected record ports, their type package currently needs to be visible
    in the instantiating scope as well as the child entity.
 
@@ -691,7 +719,7 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    cases that retain register/mux lowering.
 
    The experimental two-state RTL subset supports constrained arrays, package
-   array types and positional constant aggregates, binary/octal/hex literals,
+   array types and constant aggregates, binary/octal/hex literals,
    static slices and loops, nested ``for generate`` and static
    ``if``/``elsif``/``else generate`` statements containing assignments, clocked
    processes, and component/direct-entity instances. Generate-local signals,
@@ -727,13 +755,47 @@ using the raw API is not required. See :doc:`loading` for matching semantics.
    inferred indices begin at the index subtype's left bound (0 for ``natural``,
    1 for ``positive``, and -2147483648 for the supported 32-bit ``integer``).
    Explicit bounds preserve their direction and are checked against the subtype.
+   Constrained array aggregates accept positional elements or named static
+   index/range choices (including grouped choices with ``|``), with an optional
+   final ``others`` association. Positional and named index choices cannot mix.
+   This also applies to nested arrays and integer constant tables.
+   Index choices follow the declared bounds and direction; overlapping choices,
+   missing coverage, and invalid association ordering are rejected. Named
+   aggregates require explicit bounds rather than inferred unconstrained bounds.
+   Boolean scalar/array objects retain their language type and use one hardware
+   bit per element. Boolean array constant selections can drive scalar constant
+   expressions and generate conditions; dynamic selections use read-only memory
+   primitives. Nested and enumeration-indexed constants are supported.
+   Architecture-local scalar functions can capture integer-indexed boolean
+   arrays; static package-function array lookups remain unsupported. Intermediate
+   integer addition/subtraction retains 32-bit width before assignment to a
+   constrained hardware integer.
+   Scalar-returning pure functions also accept named one-dimensional integer-array
+   constants and forwarded array parameters. Array type identity, element subtypes,
+   and constrained-formal lengths are checked; constrained formals map by position,
+   while unconstrained formals retain actual bounds. Parameter indexing, bounds
+   attributes, and ``'range`` loops are evaluated statically. Architecture-local
+   functions capture preceding integer-array constants, including in defaults.
+   Array-valued returns, local array variables, aggregate/slice actuals, and
+   enumeration-indexed integer-array parameters remain unsupported.
    Hardware operates on legal subtype/index values; simulation bounds checks
-   and nine-valued initialization are not implemented. Nonbinary literals,
+   and nine-valued initialization are not implemented. Unsupported nonbinary literals,
    conflicting drivers, unsupported package bodies, and unsupported operations
    are rejected. ``numeric_std.unsigned`` and ``numeric_std.signed`` vector addition, subtraction,
-   multiplication, equality/inequality and concatenation are supported, including
+   multiplication, equality/inequality, ordering comparisons and concatenation are supported, including
    mixed operand widths for arithmetic and comparisons. Multiplication produces
    the sum of operand widths; addition/subtraction produce their maximum width.
+   Arithmetic and comparisons also accept integer operands on either side:
+   static signed 32-bit integers or supported nonnegative hardware integers.
+   Unsigned operations require natural operands. Scalar arithmetic converts the
+   integer to the vector width, giving that width for addition/subtraction and
+   twice that width for multiplication. Comparisons retain the full integer value.
+   ``std_logic``/``std_ulogic`` literals preserve ``X`` and ``Z`` as SNL constant
+   nets in scalar/vector assignments, aggregates, constants, input port actuals,
+   mux inputs, and register data. ``bit`` remains binary; other nonbinary values
+   and lowercase ``x``/``z`` are rejected. Explicit ``X``/``Z`` operands in
+   arithmetic and comparisons are rejected. Register initialization and
+   asynchronous reset parameters require binary values.
    Explicit binary signal initializers on locally clocked registers become DFF
    ``INIT`` parameters. Initialization on other drivers is rejected.
    Static ``numeric_std.to_unsigned(value, size)`` accepts natural values through

@@ -296,14 +296,20 @@ class RTLConstructor {
   void run() {
     DiagnosticScope location(entity_.span);
     prepareEntity();
+    std::vector<Shape> portShapes;
     for (const auto& port : entity_.ports) {
       if (port.mode != vhdl::PortMode::In && port.mode != vhdl::PortMode::Out)
         fail("RTL ports must be in or out");
       if (port.defaultValue && port.mode != vhdl::PortMode::In)
         fail("port defaults are supported only for input ports");
-      const auto type = shape(port.type);
+      portShapes.push_back(shape(port.type));
+    }
+    // Ports become visible after the interface clause; generic objects are
+    // already visible while resolving its bounds.
+    for (size_t i = 0; i < entity_.ports.size(); ++i) {
+      const auto& port = entity_.ports[i];
       for (const auto& name : port.names)
-        addObject(name, type, port.mode == vhdl::PortMode::In,
+        addObject(name, portShapes[i], port.mode == vhdl::PortMode::In,
                   port.mode == vhdl::PortMode::Out, false, true);
     }
     context(architecture_.context);
@@ -573,13 +579,14 @@ class RTLConstructor {
         name == "bit" || name == "bit_vector" || name == "std_logic" ||
         name == "std_logic_vector" || name == "std_ulogic" || name == "std_ulogic_vector" ||
         name == "unsigned" || name == "signed" || name == "integer" ||
-        name == "natural" || name == "positive") fail("duplicate or shadowing array type: " + name);
+        name == "natural" || name == "positive" || name == "boolean") fail("duplicate or shadowing array type: " + name);
     if (declaration.indexSubtype) {
       const auto subtype = key(*declaration.indexSubtype);
       if (subtype != "integer" && subtype != "natural" && subtype != "positive" && !enumerations_.contains(subtype))
         fail("unsupported unconstrained array index subtype: " + subtype);
     }
     arrayDeclarations_.emplace(name, &declaration);
+    if (!declaration.indexSubtype) arrayTypeRanges_.emplace(name, arrayBounds(declaration));
     const auto elementName = key(declaration.elementType.name);
     // Integer tables are evaluated as static values, without synthesizing an
     // integer memory or losing signed values through a bit-vector conversion.
@@ -688,13 +695,63 @@ class RTLConstructor {
     const int64_t lower = subtype == "natural" ? 0 : subtype == "positive" ? 1 : INT32_MIN;
     if (type.constraint) bounds = range(*type.constraint);
     else {
-      if (value.kind != Expr::Kind::Aggregate || value.elements.empty())
+      if (value.kind != Expr::Kind::Aggregate || value.elements.empty() ||
+          std::any_of(value.elements.begin(), value.elements.end(),
+              [](const auto& item) { return item->kind == Expr::Kind::Association; }))
         fail("unconstrained array constant requires a positional aggregate or explicit bounds");
       bounds = {lower, lower + int64_t(value.elements.size()) - 1, true};
     }
     if (bounds.left < lower || bounds.right < lower || bounds.left > INT32_MAX || bounds.right > INT32_MAX)
       fail("array bounds violate the index subtype");
     return bounds;
+  }
+
+  std::vector<const Expr*> arrayAggregateElements(const Expr& aggregate, const Range& bounds) {
+    std::vector<const Expr*> actuals(bounds.size(), nullptr);
+    if (aggregate.kind == Expr::Kind::Others) {
+      std::fill(actuals.begin(), actuals.end(), aggregate.left.get());
+      return actuals;
+    }
+    if (aggregate.kind != Expr::Kind::Aggregate) fail("array initializer requires an aggregate");
+    size_t position = 0;
+    bool named = false, others = false;
+    const auto place = [&](size_t destination, const Expr* value) {
+      if (destination >= actuals.size()) fail("array aggregate has too many positional elements");
+      if (actuals[destination]) fail("overlapping array aggregate choices");
+      actuals[destination] = value;
+    };
+    for (const auto& item : aggregate.elements) {
+      DiagnosticScope location(item->span);
+      if (others) fail("others must be the final array aggregate association");
+      if (item->kind != Expr::Kind::Association) {
+        if (named) fail("positional array element follows named association");
+        place(position++, item.get());
+        continue;
+      }
+      named = true;
+      const auto& choice = *item->left;
+      if (choice.kind == Expr::Kind::Name && key(choice) == "others") {
+        others = true;
+        for (auto& actual : actuals) if (!actual) actual = item->right.get();
+        continue;
+      }
+      if (position) fail("named and positional associations cannot be mixed in array aggregates");
+      const auto apply = [&](const Expr& index) {
+        if (index.kind == Expr::Kind::Range) {
+          Range selected{arrayIndex(*index.left, bounds), arrayIndex(*index.right, bounds), index.text == "to"};
+          bounds.position(selected.left);
+          bounds.position(selected.right);
+          for (size_t i = 0; i < selected.size(); ++i)
+            place(bounds.position(selected.ascending ? selected.left + i : selected.left - i), item->right.get());
+        } else place(bounds.position(arrayIndex(index, bounds)), item->right.get());
+      };
+      if (choice.kind == Expr::Kind::Aggregate)
+        for (const auto& index : choice.elements) apply(*index);
+      else apply(choice);
+    }
+    if (std::find(actuals.begin(), actuals.end(), nullptr) != actuals.end())
+      fail("array aggregate does not cover every element");
+    return actuals;
   }
 
   bool locallyStaticPortIndex(const Expr& expr) const {
@@ -749,10 +806,8 @@ class RTLConstructor {
       if (!bounds.size()) fail("null array constant is unsupported");
       const auto element = key(array.elementType.name);
       if (element == "integer" || element == "natural" || element == "positive") {
-        if (declaration.value->kind != Expr::Kind::Aggregate ||
-            declaration.value->elements.size() != bounds.size()) fail("integer table aggregate length mismatch");
-        IntegerTable table{bounds, {}};
-        for (const auto& item : declaration.value->elements) {
+        IntegerTable table{bounds, {}, &array};
+        for (const auto* item : arrayAggregateElements(*declaration.value, bounds)) {
           const auto value = integer(*item);
           checkInteger(value, array.elementType);
           table.values.push_back(value);
@@ -765,7 +820,7 @@ class RTLConstructor {
     }
     const auto target = shape(constantType);
     const auto value = expression(*declaration.value, State{}, &target);
-    for (auto* bit : value.bits) if (!constantValue(bit)) fail("constant initializer must be static and binary");
+    for (auto* bit : value.bits) if (!bit->isConstant()) fail("constant initializer must be static");
     for (const auto& id : declaration.object.names)
       objects_.emplace(key(id), Object{value, false, false, false, true});
   }
@@ -813,6 +868,7 @@ class RTLConstructor {
         arrays_.erase(key(array.name));
         arrayDeclarations_.erase(key(array.name));
         arrayTypeOffsets_.erase(key(array.name));
+        arrayTypeRanges_.erase(key(array.name));
       }
       for (const auto& record : branch.recordTypes) {
         records_.erase(key(record.name));
@@ -1025,23 +1081,20 @@ class RTLConstructor {
         child->getInstTerm(term)->setNet(net);
       }
     }
-    for (size_t declarationIndex = 0; declarationIndex < interface.ports.size(); ++declarationIndex) {
-      const auto& declaration = interface.ports[declarationIndex];
+    size_t portIndex = 0;
+    for (const auto& declaration : interface.ports) {
       for (const auto& name : declaration.names) {
         const auto id = key(name);
-        auto* port = ports.front();
-        for (auto* candidate : ports) {
-          std::string candidateName = candidate->getName().getString();
-          for (auto& c : candidateName) c = std::tolower(static_cast<unsigned char>(c));
-          if (candidateName == id) { port = candidate; break; }
-        }
+        auto* port = ports.at(portIndex++);
         const bool complete = bound.contains(port) &&
             std::find(bound.at(port).begin(), bound.at(port).end(), false) == bound.at(port).end();
         if (complete) continue;
+        if (port->getDirection() == SNLTerm::Direction::Output && !bound.contains(port)) continue;
         const auto* defaultValue = declaration.defaultValue.get();
         if (!defaultValue) fail("incomplete port association: " + port->getName().getString());
-        if (port->getDirection() != SNLTerm::Direction::Input)
+        if (port->getDirection() != SNLTerm::Direction::Input) // LCOV_EXCL_START: run() rejects non-input defaults while building the child.
           fail("port defaults are supported only for input ports");
+        // LCOV_EXCL_STOP
         const auto expected = formalShapes.at(id);
         const auto value = expression(*defaultValue, State{}, &expected);
         if (value.bits.size() != port->getWidth() || !compatible(value.shape, expected))
@@ -1112,16 +1165,164 @@ class RTLConstructor {
   }
 
   using FunctionBinding = std::pair<const vhdl::PackageDeclaration*, const vhdl::FunctionDeclaration*>;
+  struct IntegerTable {
+    Range bounds;
+    std::vector<int64_t> values;
+    const vhdl::ArrayTypeDeclaration* type = nullptr;
+  };
   struct FunctionEnvironment {
     std::map<std::string, StaticScalar> values;
     std::map<std::string, FunctionBinding> functions;
+    std::map<std::string, Object> constants;
+    std::map<std::string, IntegerTable> arrays;
+    std::map<std::string, const vhdl::ArrayTypeDeclaration*> arrayTypes;
+    bool logic = false, numeric = false, arith = false, unsignedLogic = false, signedLogic = false;
   };
   struct StaticScope {
     const FunctionEnvironment* environment = nullptr;
     const vhdl::PackageDeclaration* package = nullptr;
     std::map<std::string, StaticScalar> values;
     std::map<std::string, const vhdl::TypeMark*> variables;
+    std::map<std::string, IntegerTable> arrays;
   };
+
+  const IntegerTable* staticArray(const std::string& name, const StaticScope* scope) const {
+    if (scope) {
+      if (scope->values.contains(name)) return nullptr;
+      if (const auto found = scope->arrays.find(name); found != scope->arrays.end()) return &found->second;
+      if (scope->environment) {
+        const auto found = scope->environment->arrays.find(name);
+        if (found != scope->environment->arrays.end()) return &found->second;
+      }
+    } else {
+      const auto found = integerTables_.find(name);
+      if (found != integerTables_.end()) return &found->second;
+    }
+    return nullptr;
+  }
+
+  const vhdl::ArrayTypeDeclaration* staticArrayType(const std::string& name, const StaticScope& scope) const {
+    if (scope.environment) {
+      const auto found = scope.environment->arrayTypes.find(name);
+      if (found != scope.environment->arrayTypes.end()) return found->second;
+    }
+    if (scope.package) for (const auto& type : scope.package->arrayTypes)
+      if (key(type.name) == name) return &type;
+    return nullptr;
+  }
+
+  Range staticRange(const vhdl::DiscreteRange& range, StaticScope* scope) {
+    if (range.attribute) return attributeRange(*range.attribute, scope);
+    return {staticInteger(*range.leftExpression, scope), staticInteger(*range.rightExpression, scope), range.ascending};
+  }
+
+  IntegerTable staticArrayActual(const Expr& expression, const vhdl::TypeMark& formal, StaticScope& declarationScope,
+                                StaticScope* caller) {
+    const auto* type = staticArrayType(key(formal.name), declarationScope);
+    if (!type || !scalarFunctionType(type->elementType) || key(type->elementType.name) == "boolean")
+      fail("static array parameters require a one-dimensional integer array type");
+    if (libraryContext_.precedes(formal.name.span.start.offset, type->span.start.offset))
+      fail("array type is used before its declaration");
+    if (expression.kind != Expr::Kind::Name) fail("static array actual must name an integer array constant or parameter");
+    const auto* actual = staticArray(key(expression), caller);
+    if (!actual || actual->type != type) fail("static array argument type mismatch");
+    if (actual->bounds.indexEnumeration) fail("enumeration-indexed integer array parameters are unsupported");
+    IntegerTable value = *actual;
+    if (formal.constraint || !type->indexSubtype) {
+      if (formal.constraint && !type->indexSubtype) fail("reconstraining an array type is not supported");
+      if (type->indexType) fail("enumeration-indexed integer array parameters are unsupported");
+      const auto bounds = staticRange(formal.constraint ? *formal.constraint : type->indexRange, &declarationScope);
+      if (bounds.size() != value.values.size()) fail("static array argument length mismatch");
+      value.bounds = bounds;
+    }
+    const auto indexSubtype = type->indexSubtype ? key(*type->indexSubtype) : "integer";
+    const int64_t lower = indexSubtype == "natural" ? 0 : indexSubtype == "positive" ? 1 : INT32_MIN;
+    if (value.bounds.left < lower || value.bounds.right < lower ||
+        value.bounds.left > INT32_MAX || value.bounds.right > INT32_MAX)
+      fail("array bounds violate the index subtype");
+    for (const auto element : value.values) checkStaticType({element, false}, type->elementType, &declarationScope);
+    return value;
+  }
+
+  struct BooleanSelection {
+    const Object* object;
+    std::vector<const Expr*> indices;
+  };
+  std::optional<BooleanSelection> booleanSelection(const Expr& expr, const StaticScope* scope = nullptr) const {
+    BooleanSelection result{nullptr, {}};
+    const auto* prefix = &expr;
+    while (prefix->kind == Expr::Kind::Indexed && prefix->right->kind != Expr::Kind::Range) {
+      result.indices.push_back(prefix->right.get());
+      prefix = prefix->left.get();
+    }
+    if (prefix->kind != Expr::Kind::Name) return std::nullopt;
+    const auto name = key(*prefix);
+    if (scope) {
+      if (scope->values.contains(name) || scope->arrays.contains(name)) return std::nullopt;
+      if (scope->environment) {
+        const auto found = scope->environment->constants.find(name);
+        if (found != scope->environment->constants.end()) result.object = &found->second;
+      }
+    } else {
+      const auto found = objects_.find(name);
+      if (found != objects_.end()) result.object = &found->second;
+    }
+    if (!result.object || !result.object->constant || result.object->value.shape.types.back() != "boolean" ||
+        result.indices.empty() || result.indices.size() != result.object->value.shape.ranges.size()) return std::nullopt;
+    std::reverse(result.indices.begin(), result.indices.end());
+    return result;
+  }
+
+  static const Expr* arrayAttribute(const Expr& expression) {
+    if (expression.kind == Expr::Kind::Attribute) return &expression;
+    if (expression.kind == Expr::Kind::Indexed && expression.left->kind == Expr::Kind::Attribute)
+      return expression.left.get();
+    return nullptr;
+  }
+
+  Range attributeRange(const Expr& expression, StaticScope* scope = nullptr) {
+    DiagnosticScope location(expression.span);
+    const auto* attribute = arrayAttribute(expression);
+    if (!attribute) fail("expected an array attribute");
+    if (expression.kind == Expr::Kind::Indexed && staticInteger(*expression.right, scope) != 1)
+      fail("array attribute dimension must be 1");
+    const auto& prefix = *attribute->left;
+    if (scope) {
+      if (prefix.kind == Expr::Kind::Name)
+        if (const auto* array = staticArray(key(prefix), scope)) return array->bounds;
+      fail("static function array attribute requires an integer array constant or parameter");
+    }
+    if (prefix.kind == Expr::Kind::Name) {
+      const auto name = key(prefix);
+      if (const auto found = integerTables_.find(name); found != integerTables_.end())
+        return found->second.bounds;
+      if (const auto found = arrayDeclarations_.find(name); found != arrayDeclarations_.end()) {
+        if (found->second->indexSubtype)
+          fail("array attribute requires a constrained type or object");
+        if (libraryContext_.precedes(prefix.span.start.offset, found->second->span.start.offset))
+          fail("array type is used before its declaration: " + name);
+        return arrayTypeRanges_.at(name);
+      }
+    }
+    const auto selected = selection(prefix);
+    if (selected.shape.ranges.empty()) fail("array attribute prefix must denote an array");
+    return selected.shape.ranges.front();
+  }
+
+  StaticScalar attributeScalar(const Expr& expression, StaticScope* scope = nullptr) {
+    const auto* attribute = arrayAttribute(expression);
+    const auto name = key(*attribute);
+    if (name != "left" && name != "right" && name != "low" && name != "high" &&
+        name != "length" && name != "ascending") fail("unsupported scalar array attribute: " + name);
+    const auto bounds = attributeRange(expression, scope);
+    if (name == "length") return {int64_t(bounds.size()), false};
+    if (name == "ascending") return {bounds.ascending, true};
+    if (bounds.indexEnumeration) fail("enumeration-valued array attributes are not supported");
+    if (name == "left") return {bounds.left, false};
+    if (name == "right") return {bounds.right, false};
+    if (name == "low") return {bounds.ascending ? bounds.left : bounds.right, false};
+    return {bounds.ascending ? bounds.right : bounds.left, false};
+  }
   void addLocalFunction(const vhdl::FunctionDeclaration& function) {
     const auto name = key(function.name);
     if (!function.body) fail("architecture function forward declarations are unsupported: " + name);
@@ -1134,6 +1335,14 @@ class RTLConstructor {
     for (const auto& [id, value] : integers_) environment.values.emplace(id, StaticScalar{value, false});
     for (const auto& [id, value] : booleans_) environment.values.emplace(id, StaticScalar{value, true});
     environment.functions = functions_;
+    environment.arrays = integerTables_;
+    environment.arrayTypes = arrayDeclarations_;
+    for (const auto& [id, object] : objects_) if (object.constant) environment.constants.emplace(id, object);
+    environment.logic = stdLogic_;
+    environment.numeric = numeric_;
+    environment.arith = arith_;
+    environment.unsignedLogic = unsigned_;
+    environment.signedLogic = signed_;
   }
 
   const vhdl::PackageDeclaration* packageBody(const vhdl::PackageDeclaration& declaration) const {
@@ -1277,9 +1486,7 @@ class RTLConstructor {
         auto result = staticStatements(condition.value ? statement.statements : statement.alternative, scope);
         if (result) return result;
       } else if (statement.kind == Statement::Kind::For) {
-        if (statement.range.attribute) fail("array range attributes require vector function evaluation");
-        const Range bounds{staticInteger(*statement.range.leftExpression, &scope),
-            staticInteger(*statement.range.rightExpression, &scope), statement.range.ascending};
+        const auto bounds = staticRange(statement.range, &scope);
         const auto name = key(statement.iterator);
         const auto previous = scope.values.find(name);
         const std::optional<StaticScalar> saved = previous == scope.values.end() ? std::nullopt :
@@ -1315,7 +1522,7 @@ class RTLConstructor {
     const auto& prefix = call.kind == Expr::Kind::Name ? call : *call.left;
     if (prefix.kind != Expr::Kind::Name) fail("function prefix must name a visible package function");
     if ((!caller && (integers_.contains(key(prefix)) || booleans_.contains(key(prefix)) || objects_.contains(key(prefix)))) ||
-        (caller && caller->values.contains(key(prefix)))) fail("function name is hidden by a local object");
+        (caller && (caller->values.contains(key(prefix)) || caller->arrays.contains(key(prefix))))) fail("function name is hidden by a local object");
     const auto binding = staticFunction(key(prefix), caller);
     if (!binding.second) fail("no visible static package function: " + key(prefix));
     const auto& declaration = *binding.second;
@@ -1341,6 +1548,7 @@ class RTLConstructor {
     else if (call.kind == Expr::Kind::Call)
       for (const auto& argument : call.elements) arguments.push_back(argument.get());
     std::vector<std::optional<StaticScalar>> values(names.size());
+    std::vector<std::optional<IntegerTable>> arrays(names.size());
     bool named = false;
     size_t position = 0;
     for (const auto* argument : arguments) {
@@ -1352,18 +1560,23 @@ class RTLConstructor {
         destination = found - names.begin();
         argument = argument->right.get();
       } else if (named) fail("positional function actual follows named association");
-      if (destination >= names.size() || values[destination]) fail("invalid or duplicate function actual");
-      values[destination] = scalar(*argument, caller);
+      if (destination >= names.size() || values[destination] || arrays[destination]) fail("invalid or duplicate function actual");
+      if (staticArrayType(key(formals[destination]->type.name), local))
+        arrays[destination] = staticArrayActual(*argument, formals[destination]->type, local, caller);
+      else values[destination] = scalar(*argument, caller);
     }
     for (size_t i = 0; i < names.size(); ++i) {
-      if (!values[i]) {
+      if (!values[i] && !arrays[i]) {
         if (!formals[i]->defaultValue) fail("missing function argument: " + names[i]);
         // Defaults are evaluated in the declaration scope, never in the caller.
         StaticScope declarationScope;
         declarationScope.package = binding.first;
         declarationScope.environment = local.environment;
-        values[i] = scalar(*formals[i]->defaultValue, &declarationScope);
+        if (staticArrayType(key(formals[i]->type.name), local))
+          arrays[i] = staticArrayActual(*formals[i]->defaultValue, formals[i]->type, declarationScope, &declarationScope);
+        else values[i] = scalar(*formals[i]->defaultValue, &declarationScope);
       }
+      if (arrays[i]) { local.arrays.emplace(names[i], *arrays[i]); continue; }
       checkStaticType(*values[i], formals[i]->type, &local);
       local.values.emplace(names[i], *values[i]);
     }
@@ -1388,7 +1601,7 @@ class RTLConstructor {
       const bool variable = std::any_of(body.variables.begin(), body.variables.end(),
           [&](const auto& candidate) { return &candidate == &object; });
       for (const auto& name : object.names) {
-        if (!local.values.emplace(key(name), value).second) fail("duplicate function local declaration");
+        if (local.arrays.contains(key(name)) || !local.values.emplace(key(name), value).second) fail("duplicate function local declaration");
         if (variable) local.variables.emplace(key(name), &object.type);
       }
     }
@@ -1401,17 +1614,270 @@ class RTLConstructor {
     return *result.returned;
   }
 
-  bool staticBooleanType(const Expr& expression, const StaticScope* scope) const {
+  static bool scalarFunctionType(const vhdl::TypeMark& type) {
+    const auto name = key(type.name);
+    return name == "integer" || name == "natural" || name == "positive" || name == "boolean";
+  }
+
+  static bool scalarFunction(const vhdl::FunctionDeclaration& function) {
+    return scalarFunctionType(function.returnType) &&
+        std::all_of(function.parameters.begin(), function.parameters.end(), [](const auto& parameter) {
+          return scalarFunctionType(parameter.type);
+        });
+  }
+
+  Shape functionShape(const vhdl::TypeMark& type, const Shape* actual = nullptr) {
+    const auto name = key(type.name);
+    if (name == "boolean") return {{"boolean"}, {}};
+    const bool vector = name == "bit_vector" || name == "std_logic_vector" ||
+        name == "std_ulogic_vector" || name == "unsigned" || name == "signed";
+    if (!vector && name != "bit" && name != "std_logic" && name != "std_ulogic")
+      fail("runtime functions require binary scalar/vector or boolean values");
+    if (vector && !type.constraint) {
+      if (!actual || actual->ranges.size() != 1 || actual->integerWidth || !actual->fields.empty())
+        fail("unconstrained function vector requires a vector actual");
+      auto result = *actual;
+      // Resolve the nominal vector type and visibility using a bounded type.
+      vhdl::TypeMark bounded{type.name, vhdl::DiscreteRange{0, 0, true}};
+      const auto target = shape(bounded);
+      if (result.types != target.types || !result.declarations.empty()) fail("function argument type mismatch");
+      return result;
+    }
+    return shape(type);
+  }
+
+  std::optional<Value> runtimeStatements(const std::vector<Statement>& statements, State& state) {
+    for (const auto& statement : statements) {
+      DiagnosticScope location(statement.span);
+      if (++*runtimeSteps_ > 100000) fail("runtime function elaboration limit exceeded");
+      if (statement.kind == Statement::Kind::Null) continue;
+      if (statement.kind == Statement::Kind::Return) {
+        if (!statement.returnValue) fail("function return requires a value");
+        return expression(*statement.returnValue, state, runtimeReturnShape_ ? &*runtimeReturnShape_ : nullptr);
+      }
+      if (statement.kind == Statement::Kind::Assignment) {
+        const auto& assignment = statement.assignment;
+        const auto found = objects_.find(key(assignment.target));
+        if (assignment.kind != vhdl::AssignmentKind::Variable || found == objects_.end() || !found->second.variable)
+          fail("runtime function assignments require local variables");
+        assign(assignment, state);
+      } else if (statement.kind == Statement::Kind::For) {
+        const auto bounds = range(statement.range);
+        const auto name = key(statement.iterator);
+        if (integers_.contains(name) || booleans_.contains(name) || objects_.contains(name))
+          fail("shadowed runtime function loop parameters are unsupported");
+        for (size_t i = 0; i < bounds.size(); ++i) {
+          integers_[name] = bounds.ascending ? bounds.left + int64_t(i) : bounds.left - int64_t(i);
+          auto result = runtimeStatements(statement.statements, state);
+          if (result) { integers_.erase(name); return result; }
+        }
+        integers_.erase(name);
+      } else if (statement.kind == Statement::Kind::If) {
+        const auto condition = expression(*statement.condition, state);
+        if (condition.shape.types != std::vector<std::string>{"boolean"}) fail("function if condition must be boolean");
+        if (const auto selected = constantValue(condition.bits.front())) {
+          auto result = runtimeStatements(*selected ? statement.statements : statement.alternative, state);
+          if (result) return result;
+          continue;
+        }
+        auto yes = state, no = state;
+        auto yesResult = runtimeStatements(statement.statements, yes);
+        auto noResult = runtimeStatements(statement.alternative, no);
+        if (bool(yesResult) != bool(noResult)) fail("partially returning runtime function branches are unsupported");
+        if (yesResult) {
+          if (!compatible(yesResult->shape, noResult->shape)) fail("function return branch type mismatch");
+          for (size_t i = 0; i < yesResult->shape.ranges.size(); ++i) {
+            const auto& a = yesResult->shape.ranges[i];
+            const auto& b = noResult->shape.ranges[i];
+            if (a.left != b.left || a.right != b.right || a.ascending != b.ascending)
+              fail("runtime-dependent function return bounds are unsupported");
+          }
+          return Value{yesResult->shape, mux(condition.bits.front(), yesResult->bits, noResult->bits)};
+        }
+        merge(state, yes, no, condition.bits.front());
+      } else fail("unsupported runtime function statement");
+    }
+    return std::nullopt;
+  }
+
+  Value callRuntime(const Expr& call, const State& callerState) {
+    const auto& prefix = call.kind == Expr::Kind::Name ? call : *call.left;
+    const auto binding = staticFunction(key(prefix), nullptr);
+    if (!binding.second) fail("no visible function: " + key(prefix));
+    const auto& declaration = *binding.second;
+    if (!declaration.pure) fail("impure functions are unsupported");
+    if (libraryContext_.precedes(call.span.start.offset, declaration.span.start.offset))
+      fail("function is used before its declaration: " + key(prefix));
+    if (runtimeDepth_ >= 64) fail("runtime function recursion limit exceeded");
+    if (++*runtimeSteps_ > 100000) fail("runtime function elaboration limit exceeded");
+    const auto& body = functionBody(binding);
+    RTLConstructor frame(design_, entity_, architecture_, syntax_, libraryContext_, {}, build_);
+    frame.runtimeDepth_ = runtimeDepth_ + 1;
+    frame.runtimeSteps_ = runtimeSteps_;
+    frame.zero_ = zero_;
+    frame.one_ = one_;
+    if (binding.first) {
+      frame.work_ = libraryContext_.owner(binding.first->name.span.start.offset);
+      frame.context(binding.first->context);
+      for (const auto& function : binding.first->functions)
+        if (!frame.functions_.emplace(key(function.name), FunctionBinding{binding.first, &function}).second)
+          fail("ambiguous package function: " + key(function.name)); // LCOV_EXCL_LINE: context() rejects duplicate package functions before calls can reach this frame.
+      if (const auto* package = packageBody(*binding.first)) {
+        frame.context(package->context);
+        std::set<std::string> defined;
+        for (const auto& function : package->functions) {
+          if (!defined.insert(key(function.name)).second) fail("overloaded runtime package functions are unsupported");
+          if (!frame.functions_.contains(key(function.name)))
+            frame.functions_.emplace(key(function.name), FunctionBinding{binding.first, &function});
+        }
+      }
+      frame.declarations(binding.first->arrayTypes, binding.first->constants, binding.first->recordTypes,
+          {}, binding.first->enumerationTypes);
+    } else {
+      const auto& environment = localFunctionEnvironments_.at(&declaration);
+      frame.functions_ = environment.functions;
+      frame.localFunctionEnvironments_ = localFunctionEnvironments_;
+      frame.objects_ = environment.constants;
+      for (const auto& [name, value] : environment.values) {
+        if (value.boolean) frame.booleans_[name] = value.value;
+        else frame.integers_[name] = value.value;
+      }
+      frame.stdLogic_ = environment.logic;
+      frame.numeric_ = environment.numeric;
+      frame.arith_ = environment.arith;
+      frame.unsigned_ = environment.unsignedLogic;
+      frame.signed_ = environment.signedLogic;
+    }
+    std::vector<std::pair<std::string, const vhdl::GenericDeclaration*>> formals;
+    for (const auto& parameter : declaration.parameters) for (const auto& name : parameter.names) {
+      if (std::any_of(formals.begin(), formals.end(), [&](const auto& formal) { return formal.first == key(name); }))
+        fail("duplicate function parameter");
+      formals.emplace_back(key(name), &parameter);
+    }
+    std::vector<const Expr*> definedDefaults;
+    for (const auto& parameter : body.parameters) for (const auto& name : parameter.names)
+      definedDefaults.push_back(parameter.defaultValue.get());
+    for (size_t i = 0; i < formals.size(); ++i)
+      if (staticSignature(formals[i].second->defaultValue.get()) != staticSignature(definedDefaults[i]))
+        fail("runtime function declaration/body default mismatch");
+    std::vector<const Expr*> actuals(formals.size(), nullptr), arguments;
+    if (call.kind == Expr::Kind::Indexed) arguments.push_back(call.right.get());
+    else if (call.kind == Expr::Kind::Call) for (const auto& argument : call.elements) arguments.push_back(argument.get());
+    bool named = false;
+    size_t position = 0;
+    for (const auto* argument : arguments) {
+      size_t destination = position++;
+      if (argument->kind == Expr::Kind::Association) {
+        named = true;
+        if (argument->left->kind != Expr::Kind::Name) fail("function formal must be a name");
+        destination = 0;
+        while (destination < formals.size() && formals[destination].first != key(*argument->left)) ++destination;
+        argument = argument->right.get();
+      } else if (named) fail("positional function actual follows named association");
+      if (destination >= formals.size() || actuals[destination]) fail("invalid or duplicate function actual");
+      actuals[destination] = argument;
+    }
+    // Evaluate every actual in the caller before introducing formal names.
+    std::vector<std::optional<Value>> values(formals.size());
+    std::vector<std::optional<StaticScalar>> scalars(formals.size());
+    const State empty;
+    for (size_t i = 0; i < formals.size(); ++i) {
+      const auto& formal = *formals[i].second;
+      const auto* argument = actuals[i] ? actuals[i] : formal.defaultValue.get();
+      if (!argument) fail("missing function argument: " + formals[i].first);
+      auto& evaluator = actuals[i] ? *this : frame;
+      const auto& argumentState = actuals[i] ? callerState : empty;
+      if (scalarFunctionType(formal.type)) scalars[i] = evaluator.scalar(*argument);
+      else {
+        const auto name = key(formal.type.name);
+        const bool vector = name == "bit_vector" || name == "std_logic_vector" ||
+            name == "std_ulogic_vector" || name == "unsigned" || name == "signed";
+        auto type = formal.type.constraint || !vector ?
+            std::optional<Shape>{frame.functionShape(formal.type)} : std::nullopt;
+        values[i] = evaluator.expression(*argument, argumentState, type ? &*type : nullptr);
+      }
+    }
+    State state;
+    for (size_t i = 0; i < formals.size(); ++i) {
+      const auto& [name, formal] = formals[i];
+      frame.functions_.erase(name);
+      if (!actuals[i] && !formal->defaultValue) fail("missing function argument: " + name);
+      if (scalarFunctionType(formal->type)) {
+        const auto value = *scalars[i];
+        frame.checkStaticType(value, formal->type, nullptr);
+        frame.objects_.erase(name);
+        frame.integers_.erase(name);
+        frame.booleans_.erase(name);
+        if (value.boolean) frame.booleans_[name] = value.value;
+        else frame.integers_[name] = value.value;
+      } else {
+        auto value = *values[i];
+        const auto type = frame.functionShape(formal->type, &value.shape);
+        if (!compatible(type, value.shape)) fail("function argument type or length mismatch");
+        value.shape = type;
+        frame.integers_.erase(name);
+        frame.booleans_.erase(name);
+        frame.objects_.insert_or_assign(name, Object{std::move(value), true});
+      }
+    }
+    const auto resultName = key(declaration.returnType.name);
+    const bool vectorResult = resultName == "bit_vector" || resultName == "std_logic_vector" ||
+        resultName == "std_ulogic_vector" || resultName == "unsigned" || resultName == "signed";
+    if (!vectorResult || declaration.returnType.constraint)
+      frame.runtimeReturnShape_ = frame.functionShape(declaration.returnType);
+    std::map<size_t, std::pair<const vhdl::ObjectDeclaration*, const Expr*>> locals;
+    for (const auto& variable : body.variables)
+      locals.emplace(variable.span.start.offset, std::make_pair(&variable, variable.initializer.get()));
+    for (const auto& constant : body.constants)
+      locals.emplace(constant.object.span.start.offset, std::make_pair(&constant.object, constant.value.get()));
+    for (const auto& [offset, entry] : locals) {
+      const auto& object = *entry.first;
+      const bool variable = std::any_of(body.variables.begin(), body.variables.end(),
+          [&](const auto& candidate) { return &candidate == &object; });
+      if (!variable) {
+        frame.addConstant(*std::find_if(body.constants.begin(), body.constants.end(),
+            [&](const auto& constant) { return &constant.object == &object; }));
+        continue;
+      }
+      const auto type = frame.functionShape(object.type);
+      for (const auto& name : object.names) {
+        if (frame.objects_.contains(key(name)) || frame.integers_.contains(key(name)) || frame.booleans_.contains(key(name)))
+          fail("shadowed runtime function locals are unsupported");
+        frame.objects_.emplace(key(name), Object{{type, {}}, false, false, true});
+        state.variables[key(name)] = entry.second ? frame.expression(*entry.second, state, &type).bits : Bits(type.size(), nullptr);
+      }
+    }
+    const auto result = frame.runtimeStatements(body.statements, state);
+    if (!result) fail("function completed without returning a value: " + key(prefix));
+    const auto type = frame.functionShape(declaration.returnType, &result->shape);
+    if (!compatible(type, result->shape)) fail("function return type or length mismatch");
+    return {type, result->bits};
+  }
+
+  bool staticBooleanType(const Expr& expression, StaticScope* scope) {
+    if (const auto selected = booleanSelection(expression, scope)) {
+      for (size_t i = 0; i < selected->indices.size(); ++i) {
+        const auto enumeration = selected->object->value.shape.ranges[i].indexEnumeration;
+        const auto actualEnumeration = enumIndexType(*selected->indices[i]);
+        if (enumeration) {
+          if (actualEnumeration != enumeration) fail("array index enumeration type mismatch");
+        } else if (actualEnumeration || staticBooleanType(*selected->indices[i], scope))
+          fail("array index must have integer type");
+      }
+      return true;
+    }
     const auto scalarType = [](const std::string& name) {
       if (name == "boolean") return true;
       if (name == "integer" || name == "natural" || name == "positive") return false;
       fail("unsupported static scalar type: " + name);
     };
     if (expression.kind == Expr::Kind::IntegerLiteral) return false;
+    if (arrayAttribute(expression)) return attributeScalar(expression, scope).boolean;
     if (expression.kind == Expr::Kind::Name) {
       const auto name = key(expression);
       if (scope) {
         if (const auto found = scope->values.find(name); found != scope->values.end()) return found->second.boolean;
+        if (scope->arrays.contains(name)) fail("static scalar expression requires an array element");
         if (scope->environment) {
           const auto found = scope->environment->values.find(name);
           if (found != scope->environment->values.end()) return found->second.boolean;
@@ -1430,7 +1896,14 @@ class RTLConstructor {
         return scalarType(key(function.second->returnType.name));
     } else if ((expression.kind == Expr::Kind::Call || expression.kind == Expr::Kind::Indexed) &&
                expression.left->kind == Expr::Kind::Name) {
-      if (!scope && integerTables_.contains(key(*expression.left))) return false;
+      if (expression.kind == Expr::Kind::Indexed && key(*expression.left) == "boolean") {
+        if (!staticBooleanType(*expression.right, scope)) fail("boolean conversion requires a boolean operand");
+        return true;
+      }
+      if (expression.kind == Expr::Kind::Indexed && staticArray(key(*expression.left), scope)) {
+        if (staticBooleanType(*expression.right, scope)) fail("array index must have integer type");
+        return false;
+      }
       if (const auto function = staticFunction(key(*expression.left), scope); function.second)
         return scalarType(key(function.second->returnType.name));
     } else if (expression.kind == Expr::Kind::Unary) {
@@ -1457,10 +1930,25 @@ class RTLConstructor {
   StaticScalar scalar(const Expr& expression, StaticScope* scope = nullptr) {
     DiagnosticScope location(expression.span);
     if (++steps_ > 100000) fail("static expression evaluation limit exceeded");
+    if (const auto selected = booleanSelection(expression, scope)) {
+      size_t offset = 0, stride = selected->object->value.shape.size();
+      for (size_t i = 0; i < selected->indices.size(); ++i) {
+        const auto& bounds = selected->object->value.shape.ranges[i];
+        stride /= bounds.size();
+        if (scope && bounds.indexEnumeration) fail("enumeration-indexed arrays in static functions are unsupported");
+        const auto index = scope ? staticInteger(*selected->indices[i], scope) : arrayIndex(*selected->indices[i], bounds);
+        offset += bounds.position(index) * stride;
+      }
+      const auto value = constantValue(selected->object->value.bits.at(offset));
+      if (!value) fail("boolean constant element must be binary");
+      return {*value, true};
+    }
+    if (arrayAttribute(expression)) return attributeScalar(expression, scope);
     if (expression.kind == Expr::Kind::Name) {
       const auto name = key(expression);
       if (scope) {
         if (const auto found = scope->values.find(name); found != scope->values.end()) return found->second;
+        if (scope->arrays.contains(name)) fail("static scalar expression requires an array element");
         if (scope->environment) {
           const auto found = scope->environment->values.find(name);
           if (found != scope->environment->values.end()) return found->second;
@@ -1512,15 +2000,12 @@ class RTLConstructor {
         return selected;
       }
       if (expression.kind == Expr::Kind::Indexed && key(*expression.left) == "boolean") {
-        if (expression.elements.size() != 1 && !expression.right) fail("boolean conversion requires one argument");
-        const auto& argument = expression.right ? *expression.right : *expression.elements.front();
-        const auto value = scalar(argument, scope);
-        if (value.boolean) return value;
-        return {value.value != 0, true};
+        if (!staticBooleanType(*expression.right, scope)) fail("boolean conversion requires a boolean operand");
+        return scalar(*expression.right, scope);
       }
-      if (!scope && expression.kind == Expr::Kind::Indexed && integerTables_.contains(key(*expression.left))) {
-        const auto& table = integerTables_.at(key(*expression.left));
-        return {table.values.at(table.bounds.position(staticInteger(*expression.right, scope))), false};
+      if (expression.kind == Expr::Kind::Indexed) {
+        if (const auto* table = staticArray(key(*expression.left), scope))
+          return {table->values.at(table->bounds.position(staticInteger(*expression.right, scope))), false};
       }
       return callStatic(expression, scope);
     } else if (expression.kind == Expr::Kind::IntegerLiteral) {
@@ -1646,7 +2131,18 @@ class RTLConstructor {
 
   Range range(const vhdl::DiscreteRange& range) {
     DiagnosticScope location(range.span);
-    if (range.attribute) fail("array range attributes are not supported in this elaboration context");
+    if (range.attribute) {
+      const auto* attribute = arrayAttribute(*range.attribute);
+      if (!attribute || (key(*attribute) != "range" && key(*attribute) != "reverse_range"))
+        fail("expected range or reverse_range array attribute"); // LCOV_EXCL_LINE: Parser::parseDiscreteRange stores only these two attributes.
+      auto bounds = attributeRange(*range.attribute);
+      if (bounds.indexEnumeration) fail("enumeration-valued array range attributes are not supported");
+      if (key(*attribute) == "reverse_range") {
+        std::swap(bounds.left, bounds.right);
+        bounds.ascending = !bounds.ascending;
+      }
+      return bounds;
+    }
     return {range.leftExpression ? integer(*range.leftExpression) : range.left,
             range.rightExpression ? integer(*range.rightExpression) : range.right,
             range.ascending};
@@ -1690,7 +2186,7 @@ class RTLConstructor {
       while ((uint64_t(1) << width) <= uint64_t(bounds.right)) ++width;
       return {{"integer"}, {}, width};
     }
-    if (name == "bit" || (stdLogic_ && name == "std_logic")) {
+    if (name == "boolean" || name == "bit" || (stdLogic_ && name == "std_logic")) {
       if (type.constraint) fail("scalar type cannot have a range");
       return {{name}, {}};
     }
@@ -1821,6 +2317,17 @@ class RTLConstructor {
     }
     return net;
   }
+  SNLBitNet* logicLiteral(char value, const Shape& type) {
+    if (value == '0' || value == '1') return constant(value == '1');
+    if (type.types.back() != "std_logic" || (value != 'X' && value != 'Z'))
+      fail("RTL literals require '0' or '1', or 'X'/'Z' for std_logic elements");
+    auto*& net = value == 'X' ? unknown_ : highImpedance_;
+    if (!net) {
+      net = SNLScalarNet::create(design_);
+      net->setType(value == 'X' ? SNLNet::Type::AssignX : SNLNet::Type::AssignZ);
+    }
+    return net;
+  }
   std::optional<bool> constantValue(SNLBitNet* net) {
     if (net && net->isConstant0()) return false;
     if (net && net->isConstant1()) return true;
@@ -1929,11 +2436,18 @@ class RTLConstructor {
   }
 
   bool isStatic(const Expr& expr) const {
+    if (const auto selected = booleanSelection(expr))
+      return std::all_of(selected->indices.begin(), selected->indices.end(), [&](const auto* index) { return isStaticIndex(*index); });
     if (expr.kind == Expr::Kind::IntegerLiteral) return true;
+    if (arrayAttribute(expr)) return true;
     if (expr.kind == Expr::Kind::Name) return integers_.contains(key(expr)) || booleans_.contains(key(expr)) ||
-        functions_.contains(key(expr)) || key(expr) == "true" || key(expr) == "false";
+        (functions_.contains(key(expr)) && scalarFunction(*functions_.at(key(expr)).second)) ||
+        key(expr) == "true" || key(expr) == "false";
+    if (expr.kind == Expr::Kind::Indexed && expr.left->kind == Expr::Kind::Name &&
+        key(*expr.left) == "boolean") return isStatic(*expr.right);
     if ((expr.kind == Expr::Kind::Indexed || expr.kind == Expr::Kind::Call) &&
-        expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left))) {
+        expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left)) &&
+        scalarFunction(*functions_.at(key(*expr.left)).second)) {
       if (expr.kind == Expr::Kind::Indexed) return isStatic(*expr.right);
       return std::all_of(expr.elements.begin(), expr.elements.end(), [&](const auto& argument) {
         return isStatic(argument->kind == Expr::Kind::Association ? *argument->right : *argument);
@@ -1973,6 +2487,54 @@ class RTLConstructor {
     if (matches.empty()) return constant(true);
     if (matches.size() == 1) return matches.front();
     return cachedGate("and", std::move(matches));
+  }
+  SNLBitNet* compareBits(const Bits& left, const Bits& right, const std::string& op, bool signedOperands = false) {
+    if (left.size() != right.size() || left.empty()) fail("internal comparison width mismatch");
+    if (op == "=" || op == "/=") {
+      auto* result = equal(left, right);
+      return op == "=" ? result : gate("not", result);
+    }
+    const bool reverse = op == ">" || op == "<=";
+    const auto& a = reverse ? right : left;
+    const auto& b = reverse ? left : right;
+    auto* less = constant(false);
+    for (size_t i = a.size(); i; --i) {
+      auto* x = a[i-1];
+      auto* y = b[i-1];
+      if (signedOperands && i == 1) {
+        x = gate("not", x);
+        y = gate("not", y);
+      }
+      less = gate("or", gate("and", gate("not", x), y), gate("and", gate("xnor", x, y), less));
+    }
+    return op == "<=" || op == ">=" ? gate("not", less) : less;
+  }
+
+  Value numericIntegerOperand(Value operand, const std::optional<int64_t>& literal,
+      const Value& vector, bool comparison) {
+    const bool signedOperand = vector.shape.types.front() == "signed";
+    size_t width = vector.bits.size();
+    if (literal) {
+      if (*literal < INT32_MIN || *literal > INT32_MAX) fail("numeric operand exceeds the supported integer range");
+      if (!signedOperand && *literal < 0) fail("unsigned numeric operators require a natural operand");
+      if (comparison) {
+        uint64_t magnitude = signedOperand && *literal < 0 ? uint64_t(-(*literal + 1)) : uint64_t(*literal);
+        size_t needed = signedOperand ? 1 : 0;
+        while (magnitude) { ++needed; magnitude >>= 1; }
+        width = std::max(width, std::max<size_t>(1, needed));
+      }
+      operand.bits.clear();
+      for (size_t i = width; i; --i)
+        operand.bits.push_back(constant(i > 64 ? *literal < 0 : ((uint64_t(*literal) >> (i-1)) & 1)));
+    } else {
+      // The current hardware-integer profile admits only nonnegative ranges.
+      if (!operand.shape.integerWidth) fail("numeric scalar operand must have integer type");
+      if (comparison) width = std::max(width, operand.bits.size() + size_t(signedOperand));
+      operand.bits = resize(std::move(operand.bits), width);
+    }
+    operand.shape = vectorShape(width);
+    operand.shape.types.front() = vector.shape.types.front();
+    return operand;
   }
   Shape vectorShape(size_t width, const std::string& scalar = "std_logic") {
     if (!width) fail("empty vector");
@@ -2040,7 +2602,6 @@ class RTLConstructor {
     width = std::max(width, address.bits.size());
     address.bits = resize(address.bits, width);
     if (low) address.bits = add(address.bits, number(low, {{"integer"}, {}, width}).bits, true);
-    auto* model = NLDB0::getOrCreateTableSelect({stride, bounds.size(), width});
     Bits data;
     for (size_t entry = 0; entry < bounds.size(); ++entry) {
       const auto position = bounds.ascending ? entry : bounds.size() - 1 - entry;
@@ -2050,11 +2611,24 @@ class RTLConstructor {
         data.push_back(net);
       }
     }
+    const bool rom = std::all_of(data.begin(), data.end(), [](auto* bit) { return bit->isConstant(); });
+    auto* model = rom ? NLDB0::getOrCreateMemory({stride, bounds.size(), width, 1, 0})
+        : NLDB0::getOrCreateTableSelect({stride, bounds.size(), width});
     Bits inputs = data;
     inputs.insert(inputs.end(), address.bits.begin(), address.bits.end());
     const auto cacheKey = std::make_pair(model, inputs);
     if (const auto found = tables_.find(cacheKey); found != tables_.end()) {
       value.bits = found->second;
+      return value;
+    }
+    if (rom) {
+      auto* output = SNLBusNet::create(design_, stride - 1, 0);
+      auto addressBits = address.bits;
+      std::reverse(addressBits.begin(), addressBits.end());
+      SNLRTLPrimitives::createROM(design_, data, addressBits, output);
+      value.bits.clear();
+      for (size_t bit = stride; bit; --bit) value.bits.push_back(output->getBit(bit - 1));
+      tables_.emplace(cacheKey, value.bits);
       return value;
     }
     auto* instance = SNLInstance::create(design_, model);
@@ -2132,6 +2706,12 @@ class RTLConstructor {
       if (!result.boolean && !type.integerWidth && !(unsigned_ && type.types.front() == "std_logic_vector"))
         fail("integer literal is incompatible with target");
       value = number(result.value, type);
+    } else if ((expr.kind == Expr::Kind::Name && functions_.contains(key(expr)) && !objects_.contains(key(expr))) ||
+               ((expr.kind == Expr::Kind::Indexed || expr.kind == Expr::Kind::Call) &&
+                expr.left->kind == Expr::Kind::Name && functions_.contains(key(*expr.left)) &&
+                !objects_.contains(key(*expr.left)) && !integers_.contains(key(*expr.left)) &&
+                !booleans_.contains(key(*expr.left)))) {
+      value = callRuntime(expr, state);
     } else if (expr.kind == Expr::Kind::Name) {
       const auto name = key(expr);
       if (!objects_.contains(name)) fail("no declaration for object: " + name);
@@ -2216,8 +2796,9 @@ class RTLConstructor {
       }
     } else if (expr.kind == Expr::Kind::Indexed) {
       if (expr.left->kind == Expr::Kind::Name &&
-          (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
-        const auto target = key(*expr.left);
+          (key(*expr.left) == "std_logic_vector" || key(*expr.left) == "std_ulogic_vector" ||
+           key(*expr.left) == "unsigned" || key(*expr.left) == "signed")) {
+        const auto target = key(*expr.left) == "std_ulogic_vector" ? "std_logic_vector" : key(*expr.left);
         if (!numeric_ || (target == "std_logic_vector" && !stdLogic_))
           fail("vector conversion requires visible numeric_std and std_logic_1164 types");
         value = expression(*expr.right, state, nullptr, usedWidth);
@@ -2259,15 +2840,16 @@ class RTLConstructor {
       const auto width = std::min(usedWidth, yes.bits.size());
       value.bits = resize(mux(condition.bits.front(), resize(yes.bits, width), resize(no.bits, width)), yes.bits.size());
     } else if (expr.kind == Expr::Kind::Aggregate) {
-      if (!expected || expected->ranges.empty() || expr.elements.size() != expected->ranges.front().size())
-        fail("positional aggregate length mismatch");
+      if (!expected || expected->ranges.empty()) fail("array aggregate requires a constrained target");
       value.shape = *expected;
       auto element = *expected;
       element.removeOuterType();
       element.ranges.erase(element.ranges.begin());
-      for (const auto& item : expr.elements) {
-        const auto part = expression(*item, state, &element);
-        value.bits.insert(value.bits.end(), part.bits.begin(), part.bits.end());
+      std::map<const Expr*, Bits> parts;
+      for (const auto* item : arrayAggregateElements(expr, expected->ranges.front())) {
+        auto [part, inserted] = parts.try_emplace(item);
+        if (inserted) part->second = expression(*item, state, &element).bits;
+        value.bits.insert(value.bits.end(), part->second.begin(), part->second.end());
       }
     } else if (expr.kind == Expr::Kind::CharacterLiteral || expr.kind == Expr::Kind::StringLiteral ||
                expr.kind == Expr::Kind::Others || expr.kind == Expr::Kind::BitStringLiteral) {
@@ -2298,14 +2880,17 @@ class RTLConstructor {
           const auto c = expr.text[i];
           if (expr.kind == Expr::Kind::BitStringLiteral) {
             if (c == '_') continue;
+            const int width = expr.canonical == "x" ? 4 : expr.canonical == "o" ? 3 : 1;
+            if (c == 'X' || c == 'Z') {
+              value.bits.insert(value.bits.end(), width, logicLiteral(c, *expected));
+              continue;
+            }
             const int digit = c >= '0' && c <= '9' ? c - '0' :
                 std::tolower(static_cast<unsigned char>(c)) - 'a' + 10;
-            const int width = expr.canonical == "x" ? 4 : expr.canonical == "o" ? 3 : 1;
             if (digit < 0 || digit >= (1 << width)) fail("invalid bit string digit");
             for (int bit = width - 1; bit >= 0; --bit) value.bits.push_back(constant((digit >> bit) & 1));
           } else {
-            if (c != '0' && c != '1') fail("RTL literals must contain only '0' and '1'");
-            value.bits.push_back(constant(c == '1'));
+            value.bits.push_back(logicLiteral(c, *expected));
           }
         }
       }
@@ -2316,7 +2901,8 @@ class RTLConstructor {
       for (size_t i = value.bits.size() - std::min(usedWidth, value.bits.size()); i < value.bits.size(); ++i)
         value.bits[i] = gate("not", value.bits[i]);
     } else if (expr.kind == Expr::Kind::Binary) {
-      const bool comparison = expr.text == "=" || expr.text == "/=";
+      const bool ordering = expr.text == "<" || expr.text == "<=" || expr.text == ">" || expr.text == ">=";
+      const bool comparison = expr.text == "=" || expr.text == "/=" || ordering;
       const bool arithmetic = expr.text == "+" || expr.text == "-";
       if (expr.text == "&") {
         const auto rightShape = expression(*expr.right, state, nullptr, 0).shape;
@@ -2340,16 +2926,48 @@ class RTLConstructor {
       } else {
         const bool numericOperation = (numeric_ || signed_) && (arithmetic || expr.text == "*" || comparison);
         const auto operandDemand = comparison && usedWidth ? size_t(65536) : usedWidth;
-        auto left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+        const auto staticIntegerOperand = [&](const Expr& operand) -> std::optional<int64_t> {
+          if (!numeric_ || !numericOperation || !isStatic(operand)) return std::nullopt;
+          const auto value = scalar(operand);
+          return value.boolean ? std::nullopt : std::optional<int64_t>{value.value};
+        };
+        const auto leftInteger = staticIntegerOperand(*expr.left);
+        const auto rightInteger = staticIntegerOperand(*expr.right);
+        // Defer static scalar bits until the numeric vector's width/sign is known.
+        // In particular, negative integers are valid signed overload operands.
+        auto left = leftInteger ? Value{Shape{{"integer"}, {}, 32}, {}} :
+            expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+        const bool leftNumeric = numeric_ &&
+            (left.shape.types.front() == "unsigned" || left.shape.types.front() == "signed");
+        const bool leftSigned = left.shape.types.front() == "signed" ||
+            (signed_ && left.shape.types.front() == "std_logic_vector");
+        const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
+            expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
+        auto right = rightInteger ? Value{Shape{{"integer"}, {}, 32}, {}} : expression(*expr.right, state,
+            ((leftNumeric || leftSigned) && !rightLiteral) ||
+            ((arithmetic || numericOperation || comparison) && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+        const bool rightNumeric = numeric_ &&
+            (right.shape.types.front() == "unsigned" || right.shape.types.front() == "signed");
+        if (leftNumeric && right.shape.integerWidth)
+          right = numericIntegerOperand(std::move(right), rightInteger, left, comparison);
+        else if (rightNumeric && left.shape.integerWidth)
+          left = numericIntegerOperand(std::move(left), leftInteger, right, comparison);
+        else {
+          if (leftInteger) left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
+          if (rightInteger) right = expression(*expr.right, state,
+              ((leftNumeric || leftSigned) && !rightLiteral) || ((arithmetic || comparison) && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+        }
+        if (arithmetic || comparison || expr.text == "*") {
+          const auto nonbinary = [](SNLBitNet* bit) { return bit->isConstantX() || bit->isConstantZ(); };
+          if (std::any_of(left.bits.begin(), left.bits.end(), nonbinary) ||
+              std::any_of(right.bits.begin(), right.bits.end(), nonbinary))
+            fail("explicit X/Z operands in arithmetic and comparisons are unsupported");
+        }
         const bool unsignedOperands = numeric_ && left.shape.types.front() == "unsigned";
         const bool numericSigned = numeric_ && left.shape.types.front() == "signed";
         const bool signedOperands = numericSigned || (signed_ && left.shape.types.front() == "std_logic_vector");
         if (signedOperands && !numericSigned && unsigned_ && (arithmetic || comparison || expr.text == "*"))
           fail("ambiguous signed/unsigned vector operators");
-        const bool rightLiteral = expr.right->kind == Expr::Kind::StringLiteral ||
-            expr.right->kind == Expr::Kind::BitStringLiteral || expr.right->kind == Expr::Kind::Others;
-        auto right = expression(*expr.right, state,
-            ((unsignedOperands || signedOperands) && !rightLiteral) || (comparison && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
         if (signedOperands && (arithmetic || comparison || expr.text == "*")) {
           if (right.shape.types.front() != left.shape.types.front()) fail("signed vector operand type mismatch");
           const auto width = expr.text == "*" ? left.bits.size() + right.bits.size() :
@@ -2364,8 +2982,8 @@ class RTLConstructor {
             right.bits = resize(std::move(right.bits), hardwareWidth);
           }
           if (comparison) {
-            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+            auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text, true) : constant(false);
+            value = {{{"boolean"}, {}}, {result}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
@@ -2387,8 +3005,8 @@ class RTLConstructor {
             right.bits = resize(std::move(right.bits), hardwareWidth);
           }
           if (comparison) {
-            auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-            value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+            auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text) : constant(false);
+            value = {{{"boolean"}, {}}, {result}};
           } else if (expr.text == "*") {
             value.bits = multiply(left.bits, right.bits);
           } else value.bits = add(left.bits, right.bits, expr.text == "-");
@@ -2406,15 +3024,21 @@ class RTLConstructor {
         if ((left.shape.enumeration || right.shape.enumeration) && !comparison)
           fail("enumeration operators currently support only equality and inequality");
         if (comparison) {
-          auto* result = usedWidth ? equal(left.bits, right.bits) : constant(false);
-          value = {{{"boolean"}, {}}, {expr.text == "=" ? result : gate("not", result)}};
+          if (ordering && !left.shape.integerWidth &&
+              !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
+            fail("ordering requires numeric vectors or hardware integers");
+          auto* result = usedWidth ? compareBits(left.bits, right.bits, expr.text) : constant(false);
+          value = {{{"boolean"}, {}}, {result}};
         } else if (arithmetic) {
           if (!left.shape.integerWidth && !(unsigned_ && left.shape.types.front() == "std_logic_vector"))
             fail("arithmetic requires integer or std_logic_unsigned operands");
           value.shape = left.shape;
+          const auto resultWidth = left.shape.integerWidth ?
+              (expected && expected->integerWidth ? expected->integerWidth : size_t(32)) : left.bits.size();
+          if (left.shape.integerWidth) value.shape.integerWidth = resultWidth;
           const auto width = std::min(usedWidth,
-              expected && expected->integerWidth ? expected->integerWidth : left.bits.size());
-          value.bits = resize(add(resize(left.bits, width), resize(right.bits, width), expr.text == "-"), left.bits.size());
+              resultWidth);
+          value.bits = resize(add(resize(left.bits, width), resize(right.bits, width), expr.text == "-"), resultWidth);
         } else {
           if (left.shape.ranges.size() > 1 || left.shape.integerWidth || !left.shape.fields.empty())
             fail("bitwise operators require scalar logic, boolean or logic vectors");
@@ -2436,8 +3060,8 @@ class RTLConstructor {
 
   void drive(SNLBitNet* target, SNLBitNet* source) {
     if (!drivers_.insert(target).second) fail("multiple drivers for one signal bit");
-    if (auto value = constantValue(source))
-      target->setType(*value ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+    if (source->isConstant())
+      target->setType(source->getType());
     else SNLRTLPrimitives::createAssign(design_, source, target);
   }
   void concurrent(const vhdl::Assignment& assignment, const State& state) {
@@ -2878,7 +3502,6 @@ class RTLConstructor {
   std::set<std::pair<NLLibrary*, std::string>> imported_;
   std::map<std::string, const vhdl::EntityDeclaration*> components_;
   bool unsigned_ = false, arith_ = false, numeric_ = false, signed_ = false;
-  struct IntegerTable { Range bounds; std::vector<int64_t> values; };
   std::map<std::string, IntegerTable> integerTables_;
   std::map<std::string, const vhdl::ArrayTypeDeclaration*> arrayDeclarations_;
   std::set<std::string> instanceNames_;
@@ -2889,10 +3512,14 @@ class RTLConstructor {
   std::map<std::string, bool> booleans_;
   std::set<const vhdl::ConstantDeclaration*> activeStaticConstants_;
   size_t staticDepth_ = 0;
+  size_t runtimeDepth_ = 0;
+  std::shared_ptr<size_t> runtimeSteps_ = std::make_shared<size_t>(0);
+  std::optional<Shape> runtimeReturnShape_;
   std::map<std::string, Shape> arrays_, records_;
   std::map<std::string, const vhdl::EnumerationTypeDeclaration*> enumerations_;
   std::map<std::string, size_t> recordOffsets_;
   std::map<std::string, size_t> arrayTypeOffsets_;
+  std::map<std::string, Range> arrayTypeRanges_;
   std::map<std::string, Object> objects_;
   std::string objectPrefix_;
   std::vector<std::pair<std::string, Object>> generatedObjects_;
@@ -2912,6 +3539,8 @@ class RTLConstructor {
   size_t steps_ = 0;
   SNLBitNet* zero_ = nullptr;
   SNLBitNet* one_ = nullptr;
+  SNLBitNet* unknown_ = nullptr;
+  SNLBitNet* highImpedance_ = nullptr;
 };
 }
 
@@ -2925,6 +3554,15 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
           key(use.selectedName[1]) == "std_logic_arith");
     }); // LCOV_EXCL_LINE: compiler-generated exception cleanup for the context predicate.
   };
+  const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
+    return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
+        expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
+        expression->kind == Expr::Kind::BitStringLiteral || expression->kind == Expr::Kind::Attribute ||
+        ((expression->kind == Expr::Kind::CharacterLiteral || expression->kind == Expr::Kind::StringLiteral) &&
+         expression->text.find_first_of("XZ") != std::string::npos) ||
+        self(self, expression->left.get()) ||
+        self(self, expression->right.get()) || self(self, expression->condition.get()));
+  };
   for (const auto& entity : syntax.entities) {
     if (rtlContext(entity.context)) return true;
     for (const auto& generic : entity.generics)
@@ -2932,14 +3570,11 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
           key(generic.type.name) == "bit_vector" || key(generic.type.name) == "std_logic_vector" ||
           key(generic.type.name) == "std_ulogic_vector" || key(generic.type.name) == "unsigned" ||
           key(generic.type.name) == "signed") return true;
-    for (const auto& port : entity.ports) if (port.defaultValue || key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
+    for (const auto& port : entity.ports) if (key(port.type.name) == "boolean" || (port.type.constraint &&
+        (port.type.constraint->attribute ||
+         extendedExpression(extendedExpression, port.type.constraint->leftExpression.get()) ||
+         extendedExpression(extendedExpression, port.type.constraint->rightExpression.get()))) || port.defaultValue || key(port.type.name) == "std_ulogic" || key(port.type.name) == "std_ulogic_vector" || key(port.type.name) == "unsigned" || key(port.type.name) == "signed") return true;
   }
-  const auto extendedExpression = [](const auto& self, const Expr* expression) -> bool {
-    return expression && (expression->kind == Expr::Kind::Selected || expression->kind == Expr::Kind::Indexed || expression->kind == Expr::Kind::Call ||
-        expression->kind == Expr::Kind::Others || expression->kind == Expr::Kind::Aggregate ||
-        expression->kind == Expr::Kind::BitStringLiteral || self(self, expression->left.get()) ||
-        self(self, expression->right.get()) || self(self, expression->condition.get()));
-  };
   const auto extendedAssignment = [&](const vhdl::Assignment& assignment) {
     return assignment.selector || !assignment.indices.empty() || extendedExpression(extendedExpression, assignment.value.get());
   };
@@ -2948,13 +3583,21 @@ bool requiresVHDLRTL(const vhdl::DesignFile& syntax) {
     if (!architecture.recordTypes.empty() || !architecture.enumerationTypes.empty()) return true;
     if (rtlContext(architecture.context)) return true;
     if (!architecture.generates.empty() || !architecture.components.empty() || !architecture.constants.empty()) return true;
-    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
-    for (const auto& instance : architecture.instantiations)
+    for (const auto& signal : architecture.signals) if (signal.initializer || key(signal.type.name) == "boolean" || key(signal.type.name) == "std_ulogic" || key(signal.type.name) == "std_ulogic_vector" || key(signal.type.name) == "unsigned" || key(signal.type.name) == "signed") return true;
+    for (const auto& instance : architecture.instantiations) {
       if (key(instance.library) != "work" || std::any_of(instance.actualOpen.begin(), instance.actualOpen.end(),
           [](bool open) { return open; }) || std::any_of(instance.actualLiterals.begin(), instance.actualLiterals.end(),
           [](const auto& literal) { return bool(literal); }) || std::any_of(instance.actualIndices.begin(), instance.actualIndices.end(),
           [](const auto& indices) { return !indices.empty(); }) || instance.component || std::any_of(instance.formals.begin(), instance.formals.end(),
           [](const auto& formal) { return formal.has_value(); })) return true;
+      // The structural loader requires every actual. Omitted trailing outputs
+      // need the RTL loader's direction-aware association handling.
+      for (const auto& entity : syntax.entities) if (key(entity.name) == key(instance.entity)) {
+        size_t portCount = 0;
+        for (const auto& port : entity.ports) portCount += port.names.size();
+        if (instance.actuals.size() < portCount) return true;
+      }
+    }
     for (const auto& assignment : architecture.assignments)
       if (extendedAssignment(assignment)) return true;
     for (const auto& process : architecture.processes) {
