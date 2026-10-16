@@ -39396,3 +39396,55 @@ TEST_F(SNLSVConstructorTestSimple, proceduralConcatPreservesSchedulingDiagnostic
     }
   }
 }
+
+TEST_F(SNLSVConstructorTestSimple, proceduralLoopSelectsExhaustive) {
+  const std::vector<std::pair<std::string, std::string>> variants {
+    {"bit_condition", "for (int i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"range_condition", "for (int i=0; i<2; i++) if (a[4] == i[0:0]) y |= {2'b0,a[i*2+:2]};"},
+    {"logic_condition", "for (logic [1:0] i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"generate_condition", "for (int i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"rhs_bit", "for (int i=0; i<4; i++) y[i] = a[i] ^ i[0];"},
+    {"rhs_dynamic_bit", "for (int i=0; i<4; i++) y[i] = a[i] ^ i[a[5]];"},
+    {"vector_index", "for (int i=0; i<4; i++) y[i[1:0]] = a[i[1:0]];"},
+    {"array_index", "for (int i=0; i<4; i++) y[i] = entries[i[1:0]];"},
+    {"ascending_logic", "for (logic [0:1] i=0; i<3; i++) y[i] = a[i] ^ i[0]; y[3] = a[3] ^ 1'b1;"},
+    {"indexed_range", "for (int i=0; i<4; i++) y[i[0+:2]] = a[i[1-:2]];"},
+    {"nested", "for (int i=0; i<2; i++) for (int j=0; j<2; j++) y[2*i+j] = a[2*i+j] ^ i[0];"},
+    {"function", "for (int i=0; i<4; i++) y[i] = a[i] ^ pick(i);"},
+    {"member", "for (int i=0; i<4; i++) begin automatic pair_t p = pair_t'(i); y[i] = a[i] ^ p.low; end"},
+    {"sign_bit", "for (int i=-2; i<2; i++) y[i+2] = a[i+2] ^ i[31];"},
+  };
+  for (const auto& [variant, body] : variants) {
+    SCOPED_TRACE(variant);
+    const auto name = "loop_select_" + variant;
+    const auto path = writeSVTestFile(name,
+      "module " + name + "(input logic [5:0] a, output logic [3:0] y);\n"
+      "wire entries [0:3] = '{a[0], a[1], a[2], a[3]};\n"
+      "typedef struct packed {logic high; logic low;} pair_t;\n"
+      "function automatic logic pick(input int v); return v[0]; endfunction\n" +
+      (variant == "generate_condition" ? "if (1) begin : g\n" : "") +
+      "always_comb begin y = '0; " + body + " end\n" +
+      (variant == "generate_condition" ? "end\n" : "") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input=0; input<64; ++input) {
+      unsigned expected = input & 15u;
+      if (variant.find("condition") != std::string::npos)
+        expected = (input >> (((input >> 4) & 1u) * 2)) & 3u;
+      else if (variant == "rhs_bit" || variant == "function" || variant == "member")
+        expected ^= 10u;
+      else if (variant == "rhs_dynamic_bit")
+        expected ^= (input & 32u) ? 12u : 10u;
+      else if (variant == "nested" || variant == "ascending_logic") expected ^= 12u;
+      else if (variant == "sign_bit") expected ^= 3u;
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << "input=" << input << " bit=" << bit->getBit();
+      }
+    }
+  }
+}

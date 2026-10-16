@@ -10395,6 +10395,14 @@ endmodule
         value = static_cast<uint64_t>(*loopValue);
         return true;
       }
+      if (isActiveForLoopVariableExpr(expr)) {
+        int64_t loopValue = 0;
+        if (!getConstantInt64(expr, loopValue) || loopValue < 0) {
+          return false;
+        }
+        value = static_cast<uint64_t>(loopValue);
+        return true;
+      }
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
         if (auto loopValue = getActiveForLoopConstantFromExactSourceIdentifier(expr)) {
@@ -10773,6 +10781,31 @@ endmodule
         shouldSkipRuntimeConstantEval(expr);
       if (skipMixedLoopRuntimeEval) {
         return false;
+      }
+      if (containsActiveLoopVariable &&
+          (stripped->kind == slang::ast::ExpressionKind::ElementSelect ||
+           stripped->kind == slang::ast::ExpressionKind::RangeSelect)) {
+        const auto* evalSymbol = getConstantEvalSymbol(expr);
+        if (!evalSymbol) {
+          return false;
+        }
+        slang::ast::EvalContext evalContext(*evalSymbol);
+        evalContext.pushEmptyFrame();
+        for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
+          if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
+            return false;
+          }
+          const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
+          const auto& type = valueSymbol.getType().getCanonicalType();
+          if (!type.isIntegral() || type.getBitWidth() <= 0 ||
+              !evalContext.createLocal(&valueSymbol, slang::SVInt(
+                type.getBitWidth(), static_cast<uint64_t>(loopValue), type.isSigned()))) {
+            return false;
+          }
+        }
+        const auto evaluated = expr.eval(evalContext);
+        return evaluated && evaluated.isInteger() &&
+               tryGetInt64FromSVInt(evaluated.integer(), value);
       }
       const slang::ConstantValue* directConstant =
         (containsActiveLoopVariable || skipMixedLoopRuntimeEval)
@@ -14055,6 +14088,12 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits) const {
+      // Loop-control bindings are newer than the replay environment, which
+      // can still contain the initializer (or the previous iteration's bits).
+      // Lower dependent expressions using the current unroller bindings.
+      if (isActiveForLoopVariableExpr(expr)) {
+        return false;
+      }
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -15810,6 +15849,13 @@ endmodule
                       }
                     }
 
+                    // Compare against the full declared indices. Truncating
+                    // them to a narrow selector would make i[k] select a later
+                    // bit whose index aliases k (e.g. 2 aliases one-bit zero).
+                    auto* selectorFill = elementExpr.selector().type->isSigned()
+                      ? selectorBits.back() : const0;
+                    resizeBitsToWidth(
+                      selectorBits, std::max<size_t>(selectorBits.size(), 32), selectorFill);
                     std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
                     int32_t index = valueType.getFixedRange().right;
                     const int32_t end = valueType.getFixedRange().left;
