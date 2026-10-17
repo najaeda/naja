@@ -13043,7 +13043,9 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
       const auto deriveTrackedLhsExpr = [&](const Expression& expr) -> const Expression* {
-        const auto* root = getTrackedAlwaysCombLHS(&expr);
+        // Track the storage underneath a return cast; the final expression
+        // still applies the conversion after replaying all writes to that local.
+        const auto* root = getTrackedAlwaysCombLHS(stripConversions(expr));
         return root && slang::ast::ValueExpressionBase::isKind(root->kind) ? root : nullptr;
       };
       const Expression* trackedLhsExpr = nullptr;
