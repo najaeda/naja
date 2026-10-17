@@ -30,12 +30,13 @@ set_tests_properties(najaeda-python-tests PROPERTIES
 )
 
 # Keep reproducibility visible as a separately selectable CI contract. The same
-# module is also discovered by the ordinary Python suite above.
-add_test(NAME najaeda-determinism-tests
+# module is also discovered by the ordinary Python suite above. Keep "python"
+# in the name: sanitizer jobs exclude Python tests and their setup fixture.
+add_test(NAME najaeda-python-determinism-tests
   COMMAND "${NAJA_PYTHON_EXECUTABLE}" ${CMAKE_CURRENT_SOURCE_DIR}/test_najaeda_determinism.py -v
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
-set_tests_properties(najaeda-determinism-tests PROPERTIES
+set_tests_properties(najaeda-python-determinism-tests PROPERTIES
   FIXTURES_REQUIRED najaeda-test-env
   LABELS determinism
   TIMEOUT 180
