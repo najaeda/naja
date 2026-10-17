@@ -36,5 +36,8 @@ jobs:
       # it's functionally required.
       run: bazel build //... --jobs=auto
 
+    - name: Check netlist determinism
+      run: bazel test //test/najaeda:najaeda_determinism_tests --test_output=errors
+
     - name: Test
       run: bazel test //... --test_output=errors --jobs=auto

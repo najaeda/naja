@@ -47,6 +47,9 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(sysctl -n hw.logicalcpu) --verbose
 
+    - name: Check netlist determinism
+      run: ctest --test-dir build -L determinism --no-tests=error --output-on-failure
+
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.

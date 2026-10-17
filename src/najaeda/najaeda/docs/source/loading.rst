@@ -113,6 +113,12 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+In a fresh universe, loading the same ordered sources and configuration with the
+same Naja build reproduces instance and net names, IDs, and creation order,
+including generated function-call temporaries. Verilog dumps match after
+excluding their timestamp comment headers. NajaIF snapshots, including their
+producer manifest, contain no timestamp and match byte for byte.
+
 Each source file is a separate compilation unit by default
 (``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
 in earlier files without including their definitions, set ``single_unit=True``.

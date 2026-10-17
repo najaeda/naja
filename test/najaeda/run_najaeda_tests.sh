@@ -20,6 +20,7 @@ test_src_dir="$5"
 verilog_benchmarks="$6"
 systemverilog_benchmarks="$7"
 liberty_benchmarks="$8"
+test_pattern="${9:-test*.py}"
 
 runfiles_root="$PWD"
 abspath() { echo "${runfiles_root}/$1"; }
@@ -41,4 +42,4 @@ export NAJAEDA_TEST_PATH="${scratch}"
 export NAJAEDA_SOURCE_TEST_PATH="$(abspath "${test_src_dir}")"
 
 cd "${scratch}"
-exec "$(abspath "${python3_bin}")" -m unittest discover -v "${NAJAEDA_SOURCE_TEST_PATH}"
+exec "$(abspath "${python3_bin}")" -m unittest discover -v "${NAJAEDA_SOURCE_TEST_PATH}" -p "${test_pattern}"
