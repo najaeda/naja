@@ -39709,3 +39709,88 @@ TEST_F(SNLSVConstructorTestSimple, proceduralCombinationalCycleCheck) {
   mux->setTermNet(NLDB0::getMux2Output(muxModel)->getBit(1), SNLScalarNet::create(top));
   EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
 }
+
+TEST_F(SNLSVConstructorTestSimple, functionLoopCastReturnExhaustive) {
+  for (const std::string cast : {"value_t", "code_t", "4", "2", "6"}) {
+    for (bool package : {false, true}) {
+      for (bool procedural : {false, true}) {
+        for (bool nested : {false, true}) {
+          const auto name = "loop_cast_" + cast + (package ? "_pkg" : "_local") +
+            (procedural ? "_comb" : "_assign") + (nested ? "_nested" : "_direct");
+          SCOPED_TRACE(name);
+          const std::string resultType = cast == "code_t" ? "code_t" : "value_t";
+          const std::string declarations =
+            "typedef logic [3:0] value_t;\n"
+            "typedef enum logic [3:0] {Low=4'b0011, High=4'b1100} code_t;\n"
+            "function automatic " + resultType + " combine(value_t x, value_t z, value_t mask);\n"
+            "logic [3:0] out;\n"
+            "for (int k=0; k<4; k++) out[k] = mask[k] ? (x[k] & z[k]) : (x[k] | z[k]);\n"
+            "return " + cast + "'(out);\nendfunction\n"
+            "function automatic " + resultType + " combine_hi(value_t x, value_t z);\n"
+            "return combine(x,z,4'b1001);\nendfunction\n";
+          const auto call = (package ? "values_pkg::" : "") +
+            std::string(nested ? "combine_hi(a[3:0],a[7:4])" :
+              "combine(a[3:0],a[7:4],4'b1001)");
+          const auto path = writeSVTestFile(name,
+            (package ? "package values_pkg;\n" + declarations + "endpackage\n" : "") +
+            "module " + name + "(input logic [7:0] a, output logic [3:0] y);\n" +
+            (package ? "" : declarations) +
+            (procedural ? "always_comb y = " : "assign y = ") + call + ";\nendmodule\n");
+          SNLSVConstructor constructor(library_);
+          ASSERT_NO_THROW(constructor.construct(path));
+          auto* top = library_->getSNLDesign(NLName(name));
+          ASSERT_NE(nullptr, top);
+          for (unsigned input=0; input<256; ++input) {
+            const unsigned x = input & 15u, z = input >> 4;
+            unsigned expected = ((x & z) & 9u) | ((x | z) & 6u);
+            if (cast == "2") expected &= 3u;
+            std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+            for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+              EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+                evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+                << "input=" << input << " bit=" << bit->getBit();
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, primMubiPackageFunctionsExhaustive) {
+  for (bool procedural : {false, true}) {
+    SCOPED_TRACE(procedural);
+    const std::string name = procedural ? "mubi_comb" : "mubi_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + "(input logic [7:0] a, output logic [8:0] y);\n"
+      "import prim_mubi_pkg::*;\n" +
+      (procedural ? "always_comb begin\n" : "") +
+      (procedural ? "" : "assign ") +
+      "y[3:0] = mubi4_and_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4]));\n" +
+      (procedural ? "" : "assign ") +
+      "y[7:4] = mubi4_or_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4]));\n" +
+      (procedural ? "" : "assign ") +
+      "y[8] = mubi4_test_true_loose(mubi4_and_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4])));\n" +
+      (procedural ? "end\n" : "") + "endmodule\n");
+    const auto fixture = std::filesystem::path(SNL_SV_BENCHMARKS_PATH) / "prim_mubi";
+    SNLSVConstructor constructor(library_);
+    SNLSVConstructor::Paths paths {
+      "-DSYNTHESIS", "+incdir+" + fixture.string(), fixture / "prim_mubi_pkg.sv", path};
+    ASSERT_NO_THROW(constructor.construct(paths));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input=0; input<256; ++input) {
+      const unsigned x = input & 15u, z = input >> 4;
+      const unsigned conjunction = ((x & z) & 6u) | ((x | z) & 9u);
+      const unsigned disjunction = ((x | z) & 6u) | ((x & z) & 9u);
+      const unsigned expected = conjunction | (disjunction << 4) |
+        (unsigned(conjunction != 9u) << 8);
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << "input=" << input << " bit=" << bit->getBit();
+      }
+    }
+  }
+}

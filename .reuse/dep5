@@ -97,3 +97,8 @@ Files: tutorials/README.md tutorials/images/*
 Copyright: 2024 The Naja Authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 License: Apache-2.0
 
+Files: test/nl/formats/systemverilog/benchmarks/prim_mubi/*.sv
+ test/nl/formats/systemverilog/benchmarks/prim_mubi/*.svh
+Source: https://github.com/lowRISC/opentitan/tree/e404f576d4e48cdbd2e56e4b34f686107bf38850/hw/ip/prim/rtl
+Copyright: lowRISC contributors (OpenTitan project).
+License: Apache-2.0

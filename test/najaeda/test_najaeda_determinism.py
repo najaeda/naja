@@ -25,8 +25,14 @@ module leaf(input logic [4:0] a, b, input logic [1:0] op,
     else begin first = v + 5'd7; second = v ^ 5'd6; end
     adjust = first ^ second;
   endfunction
+  typedef logic [4:0] word_t;
+  function automatic word_t permute(input word_t v);
+    word_t result;
+    for (int k = 0; k < 5; k++) result[k] = v[(k+4)%5];
+    return word_t'(result);
+  endfunction
   function automatic logic [4:0] rotate(input logic [4:0] v);
-    rotate = {v[3:0], v[4]};
+    return permute(v);
   endfunction
   logic [4:0] first, second, third;
   always_comb begin
