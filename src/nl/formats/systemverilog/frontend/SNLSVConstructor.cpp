@@ -10787,20 +10787,24 @@ endmodule
            stripped->kind == slang::ast::ExpressionKind::RangeSelect)) {
         const auto* evalSymbol = getConstantEvalSymbol(expr);
         if (!evalSymbol) {
-          return false;
+          // An active loop-variable select supplies a symbol reference in Slang.
+          return false; // LCOV_EXCL_LINE
         }
         slang::ast::EvalContext evalContext(*evalSymbol);
         evalContext.pushEmptyFrame();
         for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
           if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
-            return false;
+            // Loop bindings are populated only from non-null value symbols.
+            return false; // LCOV_EXCL_LINE
           }
           const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
           const auto& type = valueSymbol.getType().getCanonicalType();
           if (!type.isIntegral() || type.getBitWidth() <= 0 ||
               !evalContext.createLocal(&valueSymbol, slang::SVInt(
                 type.getBitWidth(), static_cast<uint64_t>(loopValue), type.isSigned()))) {
-            return false;
+            // Supported loop controls have positive-width integral types;
+            // Slang's createLocal returns the address of the stored value.
+            return false; // LCOV_EXCL_LINE
           }
         }
         const auto evaluated = expr.eval(evalContext);

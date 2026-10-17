@@ -11882,6 +11882,29 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  resolveExpressionBitsPropagatesFullWidthFailureBeforeNarrowing) {
+  for (const std::string op : {">>", ">>>", "/", "%"}) {
+    SCOPED_TRACE(op);
+    const std::string source =
+      "module detail_test(input logic [1:0] a, output logic [7:0] y);\n"
+      "function automatic logic [7:0] unsupported_value(input logic [1:0] v);\n"
+      "  case (v) inside\n"
+      "    [2'bxx : 2'd2]: unsupported_value = 8'hff;\n"
+      "    default: unsupported_value = 8'h00;\n"
+      "  endcase\n"
+      "endfunction\n"
+      "assign y = unsupported_value(a) " + op + " 8'd2;\n"
+      "endmodule\n";
+    // The unknown case-inside range cannot be lowered at either width.
+    EXPECT_EQ(std::nullopt,
+      detail::testSVConstructorResolveExpressionBitsFromAssignRhs(source, 8));
+    EXPECT_EQ(std::nullopt,
+      detail::testSVConstructorResolveExpressionBitsFromAssignRhs(source, 1));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   resolveExpressionBitsHandlesCompareAndPowerShortcuts) {
   const auto caseCompareBits = detail::testSVConstructorResolveExpressionBitsFromAssignRhs(
     R"(module detail_test(input logic [1:0] a, input logic [1:0] b, output logic y);
