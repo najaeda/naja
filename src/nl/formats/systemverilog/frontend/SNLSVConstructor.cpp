@@ -10395,6 +10395,14 @@ endmodule
         value = static_cast<uint64_t>(*loopValue);
         return true;
       }
+      if (isActiveForLoopVariableExpr(expr)) {
+        int64_t loopValue = 0;
+        if (!getConstantInt64(expr, loopValue) || loopValue < 0) {
+          return false;
+        }
+        value = static_cast<uint64_t>(loopValue);
+        return true;
+      }
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
         if (auto loopValue = getActiveForLoopConstantFromExactSourceIdentifier(expr)) {
@@ -10773,6 +10781,35 @@ endmodule
         shouldSkipRuntimeConstantEval(expr);
       if (skipMixedLoopRuntimeEval) {
         return false;
+      }
+      if (containsActiveLoopVariable &&
+          (stripped->kind == slang::ast::ExpressionKind::ElementSelect ||
+           stripped->kind == slang::ast::ExpressionKind::RangeSelect)) {
+        const auto* evalSymbol = getConstantEvalSymbol(expr);
+        if (!evalSymbol) {
+          // An active loop-variable select supplies a symbol reference in Slang.
+          return false; // LCOV_EXCL_LINE
+        }
+        slang::ast::EvalContext evalContext(*evalSymbol);
+        evalContext.pushEmptyFrame();
+        for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
+          if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
+            // Loop bindings are populated only from non-null value symbols.
+            return false; // LCOV_EXCL_LINE
+          }
+          const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
+          const auto& type = valueSymbol.getType().getCanonicalType();
+          if (!type.isIntegral() || type.getBitWidth() <= 0 ||
+              !evalContext.createLocal(&valueSymbol, slang::SVInt(
+                type.getBitWidth(), static_cast<uint64_t>(loopValue), type.isSigned()))) {
+            // Supported loop controls have positive-width integral types;
+            // Slang's createLocal returns the address of the stored value.
+            return false; // LCOV_EXCL_LINE
+          }
+        }
+        const auto evaluated = expr.eval(evalContext);
+        return evaluated && evaluated.isInteger() &&
+               tryGetInt64FromSVInt(evaluated.integer(), value);
       }
       const slang::ConstantValue* directConstant =
         (containsActiveLoopVariable || skipMixedLoopRuntimeEval)
@@ -14055,6 +14092,12 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits) const {
+      // Loop-control bindings are newer than the replay environment, which
+      // can still contain the initializer (or the previous iteration's bits).
+      // Lower dependent expressions using the current unroller bindings.
+      if (isActiveForLoopVariableExpr(expr)) {
+        return false;
+      }
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -14154,6 +14197,24 @@ endmodule
         return false;
       }
 
+      // Low bits of right shifts and div/mod depend on high operand bits.
+      // Slang has already applied the SV sizing rules; evaluate the expression
+      // at that width before resizing for its consumer.
+      if (expr.kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto op = expr.as<slang::ast::BinaryExpression>().op;
+        const auto width = expr.type->getCanonicalType().getBitWidth();
+        if ((op == slang::ast::BinaryOperator::LogicalShiftRight ||
+             op == slang::ast::BinaryOperator::ArithmeticShiftRight ||
+             op == slang::ast::BinaryOperator::Divide ||
+             op == slang::ast::BinaryOperator::Mod) && width > targetWidth) {
+          if (!resolveExpressionBits(design, expr, width, bits)) {
+            return false;
+          }
+          bits.resize(targetWidth);
+          return true;
+        }
+      }
+
       if (expr.kind == slang::ast::ExpressionKind::Assignment) {
         // LCOV_EXCL_START
         // Connection LValueArg assignments are normalized before the covered
@@ -14199,10 +14260,11 @@ endmodule
         const auto& conversionExpr = expr.as<slang::ast::ConversionExpression>();
         const auto& targetType = expr.type->getCanonicalType();
         if (targetType.isIntegral()) {
-          auto operandWidth = getIntegralExpressionBitWidth(conversionExpr.operand());
-          if (operandWidth && *operandWidth) {
+          const auto& operandType = conversionExpr.operand().type->getCanonicalType();
+          const auto operandWidth = operandType.isIntegral() ? operandType.getBitWidth() : 0;
+          if (operandWidth) {
             std::vector<SNLBitNet*> operandBits;
-            if (!resolveExpressionBits(design, conversionExpr.operand(), *operandWidth, operandBits)) {
+            if (!resolveExpressionBits(design, conversionExpr.operand(), operandWidth, operandBits)) {
               return false;
             }
             auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -15810,6 +15872,13 @@ endmodule
                       }
                     }
 
+                    // Compare against the full declared indices. Truncating
+                    // them to a narrow selector would make i[k] select a later
+                    // bit whose index aliases k (e.g. 2 aliases one-bit zero).
+                    auto* selectorFill = elementExpr.selector().type->isSigned()
+                      ? selectorBits.back() : const0;
+                    resizeBitsToWidth(
+                      selectorBits, std::max<size_t>(selectorBits.size(), 32), selectorFill);
                     std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
                     int32_t index = valueType.getFixedRange().right;
                     const int32_t end = valueType.getFixedRange().left;
@@ -17794,7 +17863,8 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      auto* signFillBit = valueBits.back();
+      auto* signFillBit = valueExpr.type->isSigned()
+        ? valueBits.back() : static_cast<SNLBitNet*>(getConstNet(design, false));
 
       uint64_t shiftAmount = 0;
       if (getConstantUnsigned(shiftAmountExpr, shiftAmount)) {
@@ -17846,7 +17916,7 @@ endmodule
         nextBits.reserve(lhsBits.size());
         const bool isLastStage = stageIndex + 1 == shiftBits.size();
         for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          auto* shiftedBit = stageBits.back();
+          auto* shiftedBit = signFillBit;
           if (!shiftAll && bitIndex + stageShift < lhsBits.size()) {
             shiftedBit = stageBits[bitIndex + stageShift];
           }
@@ -34976,6 +35046,29 @@ endmodule
           }
           return true;
         };
+
+        // Preserve explicit size-conversion boundaries, and avoid sizing a
+        // direct right-shift builder from the narrower assignment destination.
+        const auto lhsWidth = lhsResolvedAsBitSlice
+          ? lhsBits.size() : collectBits(lhsNet).size();
+        bool hasExplicitSizeConversion = false;
+        for (const Expression* current = rhsExpression;
+             current->kind == slang::ast::ExpressionKind::Conversion;) {
+          const auto& conversion = current->as<slang::ast::ConversionExpression>();
+          const auto& operand = conversion.operand();
+          hasExplicitSizeConversion |= !conversion.isImplicit() &&
+            current->type->getBitWidth() != operand.type->getBitWidth();
+          current = &operand;
+        }
+        const bool isRightShift = rhs->kind == slang::ast::ExpressionKind::BinaryOp &&
+          (rhs->as<slang::ast::BinaryExpression>().op == slang::ast::BinaryOperator::LogicalShiftRight ||
+           rhs->as<slang::ast::BinaryExpression>().op == slang::ast::BinaryOperator::ArithmeticShiftRight);
+        if (hasExplicitSizeConversion || (isRightShift && rhs->type->getBitWidth() > lhsWidth)) {
+          if (!tryAssignResolvedRhsBits(*rhsExpression)) {
+            reportUnsupportedError("Unsupported RHS in continuous assign", assignSourceRange);
+          }
+          continue;
+        }
 
         const auto* rhsCastUnwrapped = unwrapSignedUnsignedCastCall(rhs);
         if (rhsCastUnwrapped && rhsCastUnwrapped->kind == slang::ast::ExpressionKind::BinaryOp) {
