@@ -48,6 +48,7 @@
 #include "SNLBusTerm.h"
 #include "SNLAttributes.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLDesignObject.h"
 #include "SNLInstParameter.h"
 #include "SNLInstance.h"
@@ -2943,6 +2944,11 @@ endmodule
       const std::string& prefix,
       const std::string& description) const {
       return formatQuotedDescriptionFailure(prefix, description);
+    }
+
+    bool testCheckCombinationalBlockCycles(
+      SNLDesign* design, NLID::DesignObjectID firstInstanceID, std::string& reason) const {
+      return checkCombinationalBlockCycles(design, firstInstanceID, reason);
     }
 
     bool testTryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
@@ -11727,7 +11733,7 @@ endmodule
         baseBits.clear();
         // A failed static-selection probe must not materialize a stable net
         // for a procedural local that already has a current replay value.
-        if (auto baseWidth = getIntegralExpressionBitWidth(baseExpr);
+        if (auto baseWidth = getRepresentableExpressionBitWidth(baseExpr);
             baseWidth && *baseWidth > 0 &&
             resolveActiveProceduralReplayBits(baseExpr, *baseWidth, baseBits) &&
             baseBits.size() == *baseWidth) {
@@ -14173,9 +14179,10 @@ endmodule
       valueBits.clear();
 
       // Procedural locals are represented by their current replay bits, not by
-      // a stable design net. Prefer those bits before constant handling or
+      // a stable design net. Include flattened unpacked aggregates as well as
+      // integral values. Prefer those bits before constant handling or
       // resolveExpressionNet() can materialize a stale or undriven base.
-      if (auto valueWidth = getIntegralExpressionBitWidth(valueExpr);
+      if (auto valueWidth = getRepresentableExpressionBitWidth(valueExpr);
           valueWidth && *valueWidth > 0) {
         if (!resolveActiveProceduralReplayBits(valueExpr, *valueWidth, valueBits) ||
             valueBits.size() != *valueWidth) {
@@ -29886,6 +29893,61 @@ endmodule
       return assignedMask;
     }
 
+    bool checkCombinationalBlockCycles(
+      SNLDesign* design,
+      NLID::DesignObjectID firstInstanceID,
+      std::string& failureReason) const {
+      // Use bit-level timing arcs: treating every vector output as dependent
+      // on every input would invent cycles between independent mux lanes.
+      std::unordered_map<SNLBitNet*, std::vector<SNLBitNet*>> consumers;
+      std::unordered_map<SNLBitNet*, size_t> indegree;
+      for (auto* instance : design->getInstances()) {
+        if (instance->getID() < firstInstanceID) {
+          continue;
+        }
+        for (auto* output : instance->getInstTerms()) {
+          auto* outputNet = output->getNet();
+          if (!outputNet || outputNet->isConstant() ||
+              output->getDirection() != SNLTerm::Direction::Output) {
+            continue;
+          }
+          for (auto* input : SNLDesignModeling::getCombinatorialInputs(output)) {
+            auto* inputNet = input->getNet();
+            if (!inputNet || inputNet->isConstant()) {
+              continue;
+            }
+            consumers[inputNet].push_back(outputNet);
+            indegree.try_emplace(inputNet, 0);
+            ++indegree[outputNet];
+          }
+        }
+      }
+      // Iterative topological removal also handles very deep arithmetic trees
+      // without recursion or an arbitrary traversal-depth limit.
+      std::vector<SNLBitNet*> ready;
+      for (const auto& [net, degree] : indegree) {
+        if (!degree) {
+          ready.push_back(net);
+        }
+      }
+      for (size_t index = 0; index < ready.size(); ++index) {
+        auto found = consumers.find(ready[index]);
+        if (found == consumers.end()) {
+          continue;
+        }
+        for (auto* output : found->second) {
+          if (!--indegree[output]) {
+            ready.push_back(output);
+          }
+        }
+      }
+      if (ready.size() == indegree.size()) {
+        return true;
+      }
+      failureReason = "combinational cycle inside procedural block";
+      return false;
+    }
+
     bool lowerCombinationalProceduralBlock(
       SNLDesign* design,
       const Statement& stmt,
@@ -29893,6 +29955,10 @@ endmodule
       std::string& failureReason,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
       bool allowNonBlockingAssignments = false) {
+      NLID::DesignObjectID firstInstanceID = 0;
+      for (auto* instance : design->getInstances()) {
+        firstInstanceID = std::max(firstInstanceID, instance->getID() + 1);
+      }
       ProceduralAssignmentSchedulingSummary schedulingSummary;
       ProceduralSchedulingPathState schedulingPathState;
       if (!analyzeProceduralAssignmentScheduling(
@@ -30091,7 +30157,7 @@ endmodule
           }
         }
       }
-      return true;
+      return checkCombinationalBlockCycles(design, firstInstanceID, failureReason);
     }
 
     bool buildSequentialIncrementerBitsIfNeeded(
@@ -36795,6 +36861,13 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
+}
+
+bool testSVConstructorCheckCombinationalBlockCycles(
+  SNLDesign* design, NLID::DesignObjectID firstInstanceID, std::string& reason) {
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(design->getLibrary(), options);
+  return impl.testCheckCombinationalBlockCycles(design, firstInstanceID, reason);
 }
 
 bool testSVConstructorTryCollapseAnonymousAssignAlias(

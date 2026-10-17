@@ -39614,3 +39614,98 @@ TEST_F(SNLSVConstructorTestSimple, proceduralLoopSelectsExhaustive) {
     }
   }
 }
+
+TEST_F(SNLSVConstructorTestSimple, proceduralUnpackedReadModifyWriteExhaustive) {
+  const std::vector<std::pair<std::string, std::string>> variants {
+    {"scalar", "v=a[7:4]; v=a[3:0]+v; y=v;"},
+    {"packed", "r[0]=a[3:0]; r[1]=a[7:4]; r[1]=r[0]+r[1]; y=r[1];"},
+    {"constant", "p[0]=a[3:0]; p[1]=a[7:4]; p[1]=p[0]+p[1]; y=p[1];"},
+    {"compound", "p[0]=a[3:0]; p[1]=a[7:4]; p[1]+=p[0]; y=p[1];"},
+    {"loop", "p='{default:'0}; for(int i=0;i<2;i++) p[i]=a[4*i+:4]; p[1]=p[0]+p[1]; y=p[1];"},
+    {"partial", "p[1]=a[3:0]; p[1][1:0]=p[1][2:1]; y=p[1];"},
+    {"matrix", "q[1][0]=a[3:0]; q[1][0]=q[1][0]+1; y=q[1][0];"},
+    {"field", "s[1].f=a[3:0]; s[1].f=s[1].f+1; y=s[1].f;"},
+    {"variable", "p[0]=a[3:0]; p[1]=a[7:4]; p[a[0]]=p[a[0]]+1; y=p[a[0]];"},
+    {"compound_or", "p[0]=a[3:0]; p[1]=a[7:4]; for(int i=0;i<2;i++) p[i]|=4'b0010; y=p[1];"},
+    {"prefix", "for(int i=0;i<4;i++) p[i]={2'b0,a[2*i+:2]}; for(int i=1;i<4;i++) p[i]=p[i-1]+p[i]; y=p[3];"},
+    {"tree", "for(int i=0;i<8;i++) p[i]={3'b0,a[i]}; for(int i=1;i<8;i+=2) p[i]=p[i-1]+p[i]; for(int i=3;i<8;i+=4) p[i]=p[i-2]+p[i]; p[7]=p[3]+p[7]; y=p[7];"},
+    {"tree_continuous", "for(int i=0;i<8;i++) p[i]={3'b0,a[i]}; for(int i=1;i<8;i+=2) p[i]+=p[i-1]; for(int i=3;i<8;i+=4) p[i]+=p[i-2]; p[7]+=p[3];"}
+  };
+  for (unsigned process=0; process<2; ++process) {
+    for (const auto& [variant, body] : variants) {
+      SCOPED_TRACE(variant);
+      const auto name = "array_rmw_" + variant + (process ? "_star" : "_comb");
+      const auto path = writeSVTestFile(name,
+        "module " + name + "(input logic [7:0] a, output logic [3:0] y);\n"
+        "logic [3:0] p[8]; logic [3:0] q[2][2]; logic [3:0] v; logic [1:0][3:0] r;\n"
+        "typedef struct packed {logic tag; logic [3:0] f;} item_t; item_t s[2];\n" +
+        (process ? "always @* begin " : "always_comb begin ") + body + " end\n" +
+        (variant == "tree_continuous" ? "assign y=p[7];\n" : "") + "endmodule\n");
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(path));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (unsigned input=0; input<256; ++input) {
+        unsigned expected = ((input & 15u) + (input >> 4)) & 15u;
+        if (variant == "partial") expected = (input & 12u) | ((input >> 1) & 3u);
+        else if (variant == "matrix" || variant == "field") expected = (input + 1) & 15u;
+        else if (variant == "variable") expected = (((input & 1u) ? input >> 4 : input & 15u) + 1) & 15u;
+        else if (variant == "compound_or") expected = (input >> 4) | 2u;
+        else if (variant == "prefix") expected = (input & 3u) + ((input >> 2) & 3u) + ((input >> 4) & 3u) + (input >> 6);
+        else if (variant == "tree" || variant == "tree_continuous") {
+          expected = 0;
+          for (unsigned bit=0; bit<8; ++bit) expected += (input >> bit) & 1u;
+        }
+        std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+        for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+          EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+            << "input=" << input << " bit=" << bit->getBit();
+          if (::testing::Test::HasFailure()) return;
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, proceduralCombinationalCycleCheck) {
+  auto* top = SNLDesign::create(library_, NLName("cycle_check"));
+  auto* a = SNLScalarNet::create(top);
+  auto* b = SNLScalarNet::create(top);
+  auto* c = SNLScalarNet::create(top);
+  auto* adder = SNLInstance::create(top, NLDB0::getFA());
+  adder->setTermNet(NLDB0::getFAInputA(), a);
+  adder->setTermNet(NLDB0::getFAInputB(), b);
+  adder->setTermNet(NLDB0::getFAInputCI(), c);
+  adder->setTermNet(NLDB0::getFAOutputS(), b);
+  std::string reason;
+  EXPECT_FALSE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  EXPECT_NE(std::string::npos, reason.find("combinational cycle"));
+  // Earlier processes are outside the scope of this block's check.
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, adder->getID()+1, reason));
+  adder->setTermNet(NLDB0::getFAOutputS(), SNLScalarNet::create(top));
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  // A longer cycle through assign glue must also be rejected.
+  auto* alias = SNLInstance::create(top, NLDB0::getAssign());
+  alias->setTermNet(NLDB0::getAssignInput(), adder->getInstTerm(NLDB0::getFAOutputS())->getNet());
+  alias->setTermNet(NLDB0::getAssignOutput(), a);
+  EXPECT_FALSE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  alias->destroy();
+  // Feedback through a register is not a combinational cycle.
+  auto* flop = SNLInstance::create(top, NLDB0::getDFF());
+  flop->setTermNet(NLDB0::getDFFData(), adder->getInstTerm(NLDB0::getFAOutputS())->getNet());
+  flop->setTermNet(NLDB0::getDFFOutput(), a);
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  // Cross-lane wiring of a vector mux is acyclic, despite sharing an instance.
+  auto* muxModel = NLDB0::getOrCreateMux2(2);
+  auto* mux = SNLInstance::create(top, muxModel);
+  auto* lane = SNLScalarNet::create(top);
+  mux->setTermNet(NLDB0::getMux2InputA(muxModel)->getBit(0), b);
+  mux->setTermNet(NLDB0::getMux2InputB(muxModel)->getBit(0), c);
+  mux->setTermNet(NLDB0::getMux2Output(muxModel)->getBit(0), lane);
+  mux->setTermNet(NLDB0::getMux2InputA(muxModel)->getBit(1), lane);
+  mux->setTermNet(NLDB0::getMux2InputB(muxModel)->getBit(1), c);
+  mux->setTermNet(NLDB0::getMux2Select(muxModel), b);
+  mux->setTermNet(NLDB0::getMux2Output(muxModel)->getBit(1), SNLScalarNet::create(top));
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+}

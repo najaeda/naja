@@ -119,6 +119,12 @@ including generated function-call temporaries. Verilog dumps match after
 excluding their timestamp comment headers. NajaIF snapshots, including their
 producer manifest, contain no timestamp and match byte for byte.
 
+Blocking read-modify-write assignments to fixed unpacked array elements (including
+nested arrays, packed struct fields and partial elements) use the value from
+before the statement, including when the index is variable. Combinational cycles
+in the logic emitted for a single ``always_comb`` or ``always @*`` block are
+rejected with a ``combinational cycle inside procedural block`` diagnostic.
+
 Each source file is a separate compilation unit by default
 (``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
 in earlier files without including their definitions, set ``single_unit=True``.
