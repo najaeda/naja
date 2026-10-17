@@ -102,6 +102,40 @@
 namespace naja::NL {
 
 namespace {
+// Hash tables remain useful for lookup, but walks that materialize nets or
+// gates must follow declaration order. Include every enclosing scope index so
+// unnamed blocks and repeated generate / function declarations remain distinct.
+auto symbolDeclarationOrder(const slang::ast::Symbol* symbol) {
+  std::vector<std::pair<slang::ast::SymbolIndex, std::string_view>> indices;
+  for (auto* current = symbol; current;) {
+    if (current->kind == slang::ast::SymbolKind::InstanceBody) {
+      current = current->as<slang::ast::InstanceBodySymbol>().parentInstance;
+      continue;
+    }
+    indices.emplace_back(current->getIndex(), current->name);
+    const auto* parent = current->getHierarchicalParent();
+    current = parent ? &parent->asSymbol() : nullptr;
+  }
+  std::reverse(indices.begin(), indices.end());
+  return indices;
+}
+
+template<typename SymbolType>
+auto symbolsInDeclarationOrder(const std::unordered_set<const SymbolType*>& symbols) {
+  std::vector<const SymbolType*> ordered(symbols.begin(), symbols.end());
+  std::sort(ordered.begin(), ordered.end(), [](const auto* lhs, const auto* rhs) {
+    return symbolDeclarationOrder(lhs) < symbolDeclarationOrder(rhs);
+  });
+  return ordered;
+}
+
+template<typename SymbolType, typename Value>
+auto symbolsInDeclarationOrder(const std::unordered_map<const SymbolType*, Value>& symbols) {
+  std::unordered_set<const SymbolType*> keys;
+  for (const auto& [symbol, value] : symbols) keys.insert(symbol);
+  return symbolsInDeclarationOrder(keys);
+}
+
 // Convenience cache for getLatest(): which NLDB, if any, most recently had
 // a link stored. Just a hint about *where to look* -- SNLSVLiveASTLinkProperty
 // (attached directly to that NLDB) is the actual source of truth. Reset to
@@ -5104,7 +5138,8 @@ endmodule
         }
         it->second = it->second && initBit.consumed;
       }
-      for (const auto& [variable, consumed] : consumedByVariable) {
+      for (const auto* variable : symbolsInDeclarationOrder(consumedByVariable)) {
+        const auto& consumed = consumedByVariable.at(variable);
         if (variable && consumed) {
           loweredVariableInitializers_.insert(variable);
           reportUnsupportedWarning(
@@ -6705,7 +6740,8 @@ endmodule
       // Generic lowering may share an array only when each block owns a
       // statically disjoint set of bits. Never return an ambiguous netlist.
       bool rejected = false;
-      for (const auto& [symbol, blocks] : writers) {
+      for (const auto* symbol : symbolsInDeclarationOrder(writers)) {
+        const auto& blocks = writers.at(symbol);
         const auto inferred = inferredMemoryByStateSymbol_.find(symbol);
         if (inferred != inferredMemoryByStateSymbol_.end() &&
             inferredMemories_[inferred->second].signature.independentWriteClocks) {
@@ -6716,7 +6752,7 @@ endmodule
         }
         std::unordered_set<SNLBitNet*> ownedBits;
         bool supported = true;
-        for (const auto& [block, assignments] : blocks) {
+        for (const auto* block : symbolsInDeclarationOrder(blocks)) {
           std::unordered_set<SNLBitNet*> blockBits;
           // Revisit the statement tree with the same iteration constants used
           // by lowering; raw census expressions have no loop bindings.
@@ -7671,7 +7707,8 @@ endmodule
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
 
       writerCensus = collectMemoryWriters(body);
-      for (const auto& [symbol, writers] : writerCensus) {
+      for (const auto* symbol : symbolsInDeclarationOrder(writerCensus)) {
+        const auto& writers = writerCensus.at(symbol);
         if (writers.size() < 2) continue;
         const auto& stateType = symbol->getType().getCanonicalType();
         if (std::min(stateType.getFixedRange().left, stateType.getFixedRange().right) != 0 ||
@@ -12925,7 +12962,8 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
-      for (const auto& [symbol, net] : argumentNets) {
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
         inlinedCallNets_[design].emplace(net, symbol);
       }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
@@ -13076,7 +13114,8 @@ endmodule
         argumentNets.emplace(subroutine->returnValVar, functionResultNet);
       }
 
-      for (const auto& [symbol, net] : argumentNets) {
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
         inlinedCallNets_[design].emplace(net, symbol);
       }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
@@ -13181,7 +13220,7 @@ endmodule
       }
       auto replaySymbols = getProceduralReplayRelevantSymbols(*resultSymbol, dependencies);
       ProceduralReplayEnv replayEnv;
-      for (const auto* symbol : replaySymbols) {
+      for (const auto* symbol : symbolsInDeclarationOrder(replaySymbols)) {
         if (!isSymbolInSubroutineScope(*symbol, *subroutine)) continue;
         auto* net = resolveActiveFunctionLocalNet(design, *symbol, getSourceRange(*symbol));
         if (auto found = activeFunctionArgumentNets_.back().find(symbol);
@@ -13327,7 +13366,8 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
-      for (const auto& [symbol, net] : argumentNets) {
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
         inlinedCallNets_[design].emplace(net, symbol);
       }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
@@ -13795,7 +13835,8 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
-      for (const auto& [symbol, net] : argumentNets) {
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
         inlinedCallNets_[design].emplace(net, symbol);
       }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
@@ -21191,7 +21232,8 @@ endmodule
       };
       update(lhsBits, dataBits);
       if (activeProceduralReplayEnv_ && replaySymbols) {
-        for (const auto& [symbol, physical] : roots) {
+        for (const auto* symbol : symbolsInDeclarationOrder(roots)) {
+          const auto& physical = roots.at(symbol);
           if (!replaySymbols->contains(symbol)) {
             continue;
           }
@@ -23478,7 +23520,7 @@ endmodule
         const Expression& expr) {
         std::unordered_set<const slang::ast::ValueSymbol*> reads;
         collectExpressionRootValueSymbols(expr, reads);
-        for (const auto* pending : pendingNonBlocking) {
+        for (const auto* pending : symbolsInDeclarationOrder(pendingNonBlocking)) {
           if (pending && reads.contains(pending)) {
             failureReason =
               "scheduling-sensitive combinational block reads '" +
@@ -23589,7 +23631,7 @@ endmodule
         std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
         collectExpressionRootValueSymbols(*leaf, lhsReads);
         if (lhsSymbol) lhsReads.erase(lhsSymbol);
-        for (const auto* pending : pendingNonBlocking) {
+        for (const auto* pending : symbolsInDeclarationOrder(pendingNonBlocking)) {
           if (pending && lhsReads.contains(pending)) {
             failureReason =
               "scheduling-sensitive combinational assignment uses '" +
@@ -28347,7 +28389,8 @@ endmodule
       const slang::ast::ValueSymbol* externallyMergedSymbol = nullptr,
       const std::vector<SNLBitNet*>* externallyMergedBits = nullptr) {
       mergedEnv = falseEnv;
-      for (const auto& [symbol, trueBits] : trueEnv) {
+      for (const auto* symbol : symbolsInDeclarationOrder(trueEnv)) {
+        const auto& trueBits = trueEnv.at(symbol);
         if (symbol == externallyMergedSymbol) {
           continue;
         }
@@ -28809,7 +28852,8 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
-      for (const auto& [symbol, net] : argumentNets) {
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
         inlinedCallNets_[design].emplace(net, symbol);
       }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
@@ -30947,7 +30991,8 @@ endmodule
         }
       }
 
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         if (loweredSymbols.contains(updateEntry.first)) {
           continue;
         }
@@ -31061,7 +31106,8 @@ endmodule
       if (resetAssignments.assignments.empty()) {
         return DirectSequentialConditionalLowering::NotApplicable;
       }
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         const auto* symbol = updateEntry.first;
         if (!resetAssignments.bySymbol.contains(symbol)) {
           return DirectSequentialConditionalLowering::NotApplicable;
@@ -31386,7 +31432,8 @@ endmodule
         ++resetAssignmentIndex;
       }
 
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         if (loweredSymbols.contains(updateEntry.first)) {
           continue;
         }

@@ -5,6 +5,10 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+  schedule:
+    # Exercise more allocator / ASLR layouts independently of incoming changes.
+    - cron: '23 4 * * 1'
 
 env:
   BUILD_TYPE: Release
@@ -28,6 +32,11 @@ jobs:
       run: bash .github/scripts/configure-linux-release.sh
     - name: Build Naja Release tree
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel $(nproc)
+
+    - name: Check netlist determinism
+      env:
+        NAJA_DETERMINISM_RUNS: ${{ github.event_name == 'schedule' && '30' || '5' }}
+      run: ctest --test-dir build -L determinism --no-tests=error --output-on-failure
 
     - name: Run Naja test suite
       working-directory: ${{github.workspace}}/build

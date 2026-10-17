@@ -1,0 +1,249 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Cross-process determinism contract shared by CMake, Bazel and stress CI."""
+
+import difflib
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+SYSTEMVERILOG = """
+module leaf(input logic [4:0] a, b, input logic [1:0] op,
+            output logic [4:0] y, z, output logic flag);
+  function automatic logic [4:0] adjust(input logic [4:0] v);
+    logic [4:0] first, second;
+    first = v; second = ~v;
+    if (v[0]) begin first = v ^ 5'd9; second = v + 5'd3; end
+    else begin first = v + 5'd7; second = v ^ 5'd6; end
+    adjust = first ^ second;
+  endfunction
+  function automatic logic [4:0] rotate(input logic [4:0] v);
+    rotate = {v[3:0], v[4]};
+  endfunction
+  logic [4:0] first, second, third;
+  always_comb begin
+    first = a; second = b; third = a ^ b; flag = 0;
+    case (op)
+      0: begin
+        first = adjust(a); second = rotate(b); third = adjust(b);
+        if (a[1]) begin first = b; second = a; third = 5'd11; flag = 1; end
+      end
+      1: begin
+        first = rotate(a); second = adjust(b); third = rotate(b);
+        if (b[2]) begin first = 5'd13; second = a; third = b; flag = 1; end
+        else begin first = b; second = 5'd17; third = a; end
+      end
+      default: begin
+        first = adjust(b); second = adjust(a); third = rotate(a);
+      end
+    endcase
+    y = first ^ second; z = third;
+    for (int k = 0; k < 5; k++) z[k] = third[k] ^ first[k];
+  end
+endmodule
+module stateful(input logic clk, rst, enable, input logic [4:0] a, b,
+                output logic [4:0] q, r, s);
+  always_ff @(posedge clk) begin
+    if (rst) q <= 0;
+    else begin
+      q <= a;
+      r <= b;
+      if (enable) s <= a ^ b;
+    end
+  end
+endmodule
+module storage(input logic clk_a, clk_b, we_a, we_b,
+               input logic [1:0] addr_a, addr_b, input logic [2:0] a, b,
+               output logic [2:0] q, r);
+  logic [2:0] first [4], second [4];
+  always @(posedge clk_a) begin
+    if (we_a) begin first[addr_a] <= a; second[addr_a] <= b; end
+    q <= first[addr_a];
+  end
+  always @(posedge clk_b) begin
+    if (we_b) begin first[addr_b] <= b; second[addr_b] <= a; end
+    r <= second[addr_b];
+  end
+endmodule
+module top(input logic [9:0] a, b, input logic [1:0] op,
+           input logic clk_a, clk_b, rst, enable,
+           output wire [9:0] y, z, output wire [1:0] flag,
+           output wire [4:0] q, r, s, output wire [2:0] mem_q, mem_r);
+  stateful regs(clk_a, rst, enable, a[4:0], b[4:0], q, r, s);
+  storage mems(clk_a, clk_b, enable, rst, op, op,
+               a[2:0], b[2:0], mem_q, mem_r);
+  for (genvar g = 0; g < 2; g++) begin: lanes
+    leaf u(a[g*5+:5], b[g*5+:5], op, y[g*5+:5], z[g*5+:5], flag[g]);
+  end
+endmodule
+"""
+
+VERILOG = """
+module leaf(input [2:0] a, output [2:0] y);
+  assign y = {a[1:0], a[2]};
+endmodule
+module top(input [5:0] a, output [5:0] y);
+  wire [2:0] first, second;
+  leaf u0(.a(a[2:0]), .y(first));
+  leaf u1(.a(a[5:3]), .y(second));
+  assign y = {second, first};
+endmodule
+"""
+
+VHDL = """
+entity leaf is port(a : in bit_vector(2 downto 0);
+                    y : out bit_vector(2 downto 0)); end;
+architecture rtl of leaf is begin y <= not a; end;
+entity top is port(a : in bit_vector(5 downto 0);
+                   y : out bit_vector(5 downto 0)); end;
+architecture rtl of top is begin
+  lanes: for g in 0 to 1 generate
+    u: entity work.leaf port map(a(g*3+2 downto g*3), y(g*3+2 downto g*3));
+  end generate;
+end;
+"""
+
+
+def dump_state(output):
+    from najaeda import netlist, naja
+
+    # Capture the live database before invoking any dumper. A dumper-only sort
+    # cannot repair unstable creation order, IDs, names or connectivity.
+    state = []
+
+    def visit(library):
+        for design in library.getSNLDesigns():
+            state.append([
+                design.getNLID().toTuple(), design.getName(),
+                [[i.getNLID().toTuple(), i.getName(),
+                  [[t.getNLID().toTuple(),
+                    t.getNet().getNLID().toTuple() if t.getNet() else None]
+                   for t in i.getInstTerms()]] for i in design.getInstances()],
+                [[n.getNLID().toTuple(), n.getName()] for n in design.getNets()],
+                [[t.getNLID().toTuple(), t.getName()] for t in design.getTerms()],
+            ])
+        for child in library.getLibraries():
+            visit(child)
+
+    for db in naja.NLUniverse.get().getUserDBs():
+        for library in db.getLibraries():
+            visit(library)
+    output.mkdir()
+    (output / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+    top = netlist.get_top()
+    top.dump_verilog(str(output / "design.v"))
+    top.dump_full_dot(str(output / "design.dot"))
+    netlist.dump_naja_if(str(output / "snapshot"))
+
+
+def worker(kind, source, output, run):
+    # Keep differently sized allocations alive across native elaboration, in
+    # addition to fresh-process ASLR and different Python hash seeds.
+    allocations = [bytearray(512 + (i * 137) % 8192) for i in range(256 + int(run) * 17)]
+    from najaeda import netlist
+
+    if kind == "sv":
+        netlist.load_system_verilog(source, netlist.SystemVerilogConfig(
+            top="top", diagnostics_report_path=None))
+    elif kind == "v":
+        netlist.load_verilog(source)
+    elif kind == "vhd":
+        netlist.load_vhdl(source, top="top", diagnostics_report_path=None)
+    else:
+        raise ValueError(kind)
+    output = Path(output)
+    dump_state(output / "original")
+    netlist.reset()
+    netlist.load_naja_if(str(output / "original" / "snapshot"))
+    dump_state(output / "reloaded")
+    assert allocations  # Retain heap perturbation until both dumps are complete.
+
+
+def artifacts(directory):
+    result = {}
+    for path in sorted(directory.rglob("*")):
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if path.suffix == ".v":
+            lines = data.splitlines(keepends=True)
+            # Only the date line in the standard banner is volatile. Keep all
+            # other comments, metadata, whitespace and line endings in the check.
+            if len(lines) > 1 and lines[0].rstrip(b"\r\n") == b"/" * 80:
+                if lines[1].startswith(b"// "):
+                    lines[1] = b"// <timestamp>\n"
+            data = b"".join(lines)
+        result[path.relative_to(directory).as_posix()] = data
+    return result
+
+
+class NajaEDADeterminismTest(unittest.TestCase):
+    def assert_artifacts_equal(self, expected, actual):
+        self.assertEqual(expected.keys(), actual.keys(), "artifact set changed")
+        for name in expected:
+            if expected[name] == actual[name]:
+                continue
+            message = (
+                f"{name} differs: SHA-256 "
+                f"{hashlib.sha256(expected[name]).hexdigest()} != "
+                f"{hashlib.sha256(actual[name]).hexdigest()}")
+            if name.endswith((".json", ".v", ".dot", ".mf")):
+                message += "\n" + "".join(difflib.unified_diff(
+                    expected[name].decode().splitlines(keepends=True),
+                    actual[name].decode().splitlines(keepends=True),
+                    fromfile="expected/" + name, tofile="actual/" + name))[:4000]
+            self.fail(message)
+
+    def check_determinism(self, kind, source):
+        runs = int(os.environ.get("NAJA_DETERMINISM_RUNS", "5"))
+        self.assertGreaterEqual(runs, 5, "determinism requires at least five fresh processes")
+        with tempfile.TemporaryDirectory(dir=os.environ.get("NAJAEDA_TEST_PATH")) as directory:
+            directory = Path(directory)
+            source_path = directory / ("source." + kind)
+            source_path.write_text(source, encoding="utf-8")
+            baseline = None
+            for run in range(runs):
+                output = directory / str(run)
+                output.mkdir()
+                environment = os.environ.copy()
+                environment["PYTHONHASHSEED"] = str(run)
+                result = subprocess.run(
+                    [sys.executable, str(Path(__file__).resolve()), "--worker",
+                     kind, str(source_path), str(output), str(run)],
+                    env=environment, capture_output=True, text=True, timeout=120)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                original = artifacts(output / "original")
+                for name in ("state.json", "design.v", "design.dot", "snapshot/snl.mf",
+                             "snapshot/db_implementation.snl", "snapshot/db_interface.snl"):
+                    self.assertIn(name, original)
+                with self.subTest(language=kind, run=run, phase="snapshot round trip"):
+                    self.assert_artifacts_equal(original, artifacts(output / "reloaded"))
+                if baseline is None:
+                    baseline = original
+                else:
+                    with self.subTest(language=kind, run=run, phase="fresh process"):
+                        self.assert_artifacts_equal(baseline, original)
+
+    def test_systemverilog(self):
+        self.check_determinism("sv", SYSTEMVERILOG)
+
+    def test_verilog(self):
+        self.check_determinism("v", VERILOG)
+
+    def test_vhdl(self):
+        self.check_determinism("vhd", VHDL)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--worker":
+        worker(*sys.argv[2:])
+    else:
+        unittest.main()
