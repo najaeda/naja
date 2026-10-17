@@ -18,6 +18,8 @@
 #include "PySNLBusNet.h"
 #include "PySNLInstance.h"
 #include "PySNLParameter.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
 #include "PySNLInstTerms.h"
@@ -739,6 +741,7 @@ GetBoolAttribute(SNLDesign, isMux)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
+GetContainerMethod(SNLDesign, NLClock*, NLClocks, Clocks)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
 GetContainerMethod(SNLDesign, SNLBusTerm*, SNLBusTerms, BusTerms)
@@ -1024,6 +1027,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign has non-primitive instances."},
   { "getNonPrimitiveInstances", (PyCFunction)PySNLDesign_getNonPrimitiveInstances, METH_NOARGS,
     "get a container of NonPrimitive SNLInstances."},
+  { "getClocks", (PyCFunction)PySNLDesign_getClocks, METH_NOARGS,
+    "get a container of the NLClocks defined in this SNLDesign."},
   { "getParameters", (PyCFunction)PySNLDesign_getParameters, METH_NOARGS,
     "get a container of SNLParameters."},
   { "destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,

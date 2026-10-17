@@ -6,6 +6,7 @@
 #pragma once
 #include "NLObject.h"
 #include "NLLibrary.h"
+#include "NLClock.h"
 
 namespace naja::NL {
 
@@ -67,6 +68,9 @@ class NLDB final: public NLObject {
 
     /// \return the Libraries owned by this NLDB.
     NajaCollection<NLLibrary*> getLibraries() const;
+
+    /// \return every NLClock defined in the designs of this NLDB, across all its libraries.
+    NajaCollection<NLClock*> getClocks() const;
     /// \return the all the Libraries owned (directly or indirectly) by this NLDB.
     NajaCollection<NLLibrary*> getGlobalLibraries() const;
     /// \return the Primitive Libraries owned (directly or indirectly) by this NLDB.

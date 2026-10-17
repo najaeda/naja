@@ -314,6 +314,8 @@ static PyObject* PyNLID_IsDesign(PyNLID* self) {
   return makeBool(self->object_->type_ == NLID::Type::Design);
 }
 
+DEFINE_DEPRECATED_ALIAS(PyNLID_FromString_deprecated, PyNLID_FromString, "from_string", "fromString")
+
 PyMethodDef PyNLID_Methods[] = {
   { "fromString", (PyCFunction)PyNLID_FromString, METH_O | METH_STATIC,
     "Create an NLID from its string representation."},
@@ -341,6 +343,8 @@ PyMethodDef PyNLID_Methods[] = {
     "Return whether this id identifies a term, term bit, or inst term."},
   { "isDesign", (PyCFunction)PyNLID_IsDesign, METH_NOARGS,
     "Return whether this id identifies a design."},
+  { "from_string", PyNLID_FromString_deprecated, METH_O | METH_STATIC,
+    "deprecated alias of fromString; emits a DeprecationWarning."},
   {NULL, NULL, 0, NULL}
 };
 

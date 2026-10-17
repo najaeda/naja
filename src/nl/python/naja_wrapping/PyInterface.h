@@ -23,6 +23,20 @@ static inline void setError(const std::string& reason) {
   PyErr_SetString(PyExc_RuntimeError, reason.c_str());
 }
 
+static inline int warnDeprecatedName(const char* oldName, const char* newName) {
+  std::string message = std::string(oldName) + "() is deprecated and will be removed in next release, use " + newName + "() instead";
+  return PyErr_WarnEx(PyExc_DeprecationWarning, message.c_str(), 2);
+}
+
+// Deprecated alias forwarding to IMPL after emitting a DeprecationWarning.
+#define DEFINE_DEPRECATED_ALIAS(ALIAS, IMPL, OLD_NAME, NEW_NAME) \
+  static PyObject* ALIAS(PyObject* self, PyObject* arg) { \
+    if (warnDeprecatedName(OLD_NAME, NEW_NAME) < 0) { \
+      return nullptr; \
+    } \
+    return IMPL(self, arg); \
+  }
+
 //LCOV_EXCL_START
 //Can be used to debug the type of a PyObject
 static inline std::string getStringForPyObject(PyObject* obj) {
