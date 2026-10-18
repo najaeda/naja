@@ -377,6 +377,8 @@ TEST_F(SNLVRLDumperTestParameters, testMemoryInstanceDump) {
   EXPECT_NE(std::string::npos, dumped.find(".WMASK('0)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ENABLE(1)"));
   EXPECT_NE(std::string::npos, dumped.find(".RST_ASYNC(1)"));
+  EXPECT_EQ(std::string::npos, dumped.find("\"TRUE\""));
+  EXPECT_EQ(std::string::npos, dumped.find("\"FALSE\""));
   EXPECT_EQ(std::string::npos, dumped.find(".RST_ACTIVE_LOW(0)"));
   EXPECT_NE(
     std::string::npos,

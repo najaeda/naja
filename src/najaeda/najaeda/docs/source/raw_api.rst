@@ -1109,6 +1109,13 @@ reset mode and ``SNLActiveLevel.High`` for either active-high mode. With no
 reset enabled, the reset pin has role ``Other`` and active level ``NA``.
 The same queries on ``SNLInstTerm`` follow the model's bit term.
 
+DB0 memory parameters ``RST_ENABLE``, ``RST_ASYNC``, ``RST_ACTIVE_LOW``,
+``INIT_ENABLE``, and ``MULTI_CLOCK`` (when present) have Boolean type, as does
+``SIGNED`` on DB0 division/remainder models. Their canonical values are the
+strings ``"0"`` and ``"1"``. Verilog export emits numeric flags for DB0
+primitives, while Boolean parameters on ordinary models retain the existing
+``"FALSE"``/``"TRUE"`` string convention.
+
 Gate predicates and truth-table errors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

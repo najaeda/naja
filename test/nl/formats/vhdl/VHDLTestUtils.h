@@ -85,6 +85,17 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     const auto carry = read(NLDB0::getFAInputCI());
     value = output == NLDB0::getFAOutputS() ? (a ^ b ^ carry)
         : ((a && b) || (a && carry) || (b && carry));
+  } else if (NLDB0::isShift(model)) {
+    const auto signature = NLDB0::getShiftSignature(driver);
+    size_t count = 0;
+    // Saturate instead of truncating high bits or overflowing the host count.
+    for (size_t i = signature.countWidth; i; --i)
+      count = count >= signature.width ? signature.width :
+          std::min(signature.width, count * 2 + read(NLDB0::getShiftCount(model)->getBit(i-1)));
+    const auto bit = size_t(static_cast<SNLBusTermBit*>(output)->getBit());
+    const bool valid = signature.right ? count < signature.width-bit : count <= bit;
+    if (valid) value = read(NLDB0::getShiftData(model)->getBit(signature.right ? bit+count : bit-count));
+    else value = signature.arithmetic && read(NLDB0::getShiftData(model)->getBit(signature.width-1));
   } else if (NLDB0::isTableSelect(model)) {
     const auto signature = NLDB0::getTableSelectSignature(driver);
     size_t address = 0;
@@ -165,8 +176,13 @@ inline MemoryState nextMemoryState(const MemoryState& current,
     for (size_t port = 0; port < signature.writePorts; ++port) {
       if (!read(NLDB0::getMemoryWriteEnable(model), signature.writePorts - 1 - port, 1)) continue;
       const auto address = read(NLDB0::getMemoryWriteAddress(model), port * signature.abits, signature.abits);
-      if (address < signature.depth)
-        next.at(instance)[address] = read(NLDB0::getMemoryWriteData(model), port * signature.width, signature.width);
+      if (address < signature.depth) {
+        const auto data = read(NLDB0::getMemoryWriteData(model), port * signature.width, signature.width);
+        if (signature.independentWriteClocks) {
+          const auto mask = read(model->getBusTerm(NLName("WMASK")), port * signature.width, signature.width);
+          next.at(instance)[address] = (next.at(instance)[address] & ~mask) | (data & mask);
+        } else next.at(instance)[address] = data;
+      }
     }
   }
   return next;

@@ -59,11 +59,18 @@ struct DiscreteRange {
     std::shared_ptr<Expression> leftExpression;
     std::shared_ptr<Expression> rightExpression;
     std::shared_ptr<Expression> attribute;
+    std::optional<Name> subtype;
 };
 
 struct TypeMark {
     Name name;
     std::optional<DiscreteRange> constraint;
+};
+
+struct SubtypeDeclaration {
+    Name name;
+    TypeMark type;
+    SourceSpan span;
 };
 
 struct PortDeclaration {
@@ -79,6 +86,7 @@ struct GenericDeclaration {
     TypeMark type;
     std::unique_ptr<Expression> defaultValue;
     SourceSpan span;
+    PortMode mode = PortMode::In;
 };
 
 struct ObjectDeclaration {
@@ -131,7 +139,7 @@ struct Assignment {
 };
 
 struct SequentialStatement {
-    enum class Kind { Assignment, If, For, Return, Case, Null, Exit };
+    enum class Kind { Assignment, If, For, Return, Case, Null, Exit, While, Wait, Call };
     Kind kind = Kind::Assignment;
     Assignment assignment;
     std::unique_ptr<Expression> condition;
@@ -141,6 +149,7 @@ struct SequentialStatement {
     std::vector<SequentialStatement> alternative;
     SourceSpan span;
     std::unique_ptr<Expression> returnValue;
+    std::unique_ptr<Expression> procedureCall;
     // An empty choice list denotes the final others alternative.
     std::vector<std::vector<std::unique_ptr<Expression>>> choices;
     std::vector<std::vector<SequentialStatement>> caseBodies;
@@ -156,6 +165,7 @@ struct FunctionDeclaration {
     SourceSpan span;
     bool body = false;
     bool pure = true;
+    bool procedure = false;
 };
 
 struct LibraryClause {
@@ -199,6 +209,8 @@ struct ClockedProcess {
     bool asynchronousReset = false;
     std::vector<SequentialStatement> resetStatements;
     std::optional<Name> label;
+    std::vector<ConstantDeclaration> constants;
+    std::unique_ptr<Expression> clockEnable;
 };
 
 struct EntityDeclaration {
@@ -248,6 +260,8 @@ struct GenerateStatement {
     std::vector<ArrayTypeDeclaration> arrayTypes;
     std::vector<RecordTypeDeclaration> recordTypes;
     std::vector<EnumerationTypeDeclaration> enumerationTypes;
+    std::vector<SubtypeDeclaration> subtypes;
+    std::vector<FunctionDeclaration> functions;
 };
 
 struct PackageDeclaration {
@@ -260,6 +274,7 @@ struct PackageDeclaration {
     std::vector<RecordTypeDeclaration> recordTypes;
     std::vector<EnumerationTypeDeclaration> enumerationTypes;
     std::vector<FunctionDeclaration> functions;
+    std::vector<SubtypeDeclaration> subtypes;
 };
 
 struct ArchitectureBody {
@@ -278,6 +293,7 @@ struct ArchitectureBody {
     std::vector<RecordTypeDeclaration> recordTypes;
     std::vector<EnumerationTypeDeclaration> enumerationTypes;
     std::vector<FunctionDeclaration> functions;
+    std::vector<SubtypeDeclaration> subtypes;
 };
 
 struct DesignFile {

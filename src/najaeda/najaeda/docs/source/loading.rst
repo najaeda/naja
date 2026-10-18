@@ -350,10 +350,11 @@ loop parameters, and supported static package functions. Only the selected
 branch creates hardware. Generate bodies may contain assignments, instances,
 clocked processes, and nested conditional or loop generates. Instance names
 retain generate scope prefixes. Generate-local signals, constants, array types,
-and record types are elaborated in declaration order. Each loop iteration has
+record types, subtypes, and pure subprograms are elaborated in declaration order. Each loop iteration has
 independent local nets and register initialization; local names do not escape
-their body. Local arrays retain register/mux lowering. Shadowing an outer name,
-local subtypes/functions/components, alternative labels, and explicit branch-body
+their body. Eligible generate-local arrays use the same RAM inference as
+architecture-local arrays; other arrays retain register/mux lowering. Shadowing an outer name,
+local components, alternative labels, and explicit branch-body
 ``end`` statements remain unsupported and are diagnosed.
 
 Record types declared in packages or architectures support nested records,
@@ -381,7 +382,8 @@ own bounds. Attribute queries do not read signal or variable values, so output
 ports and uninitialized process variables can supply bounds without introducing
 hardware reads or sensitivity-list dependencies.
 ``'range`` and ``'reverse_range`` may supply port, signal, and variable bounds,
-process-loop ranges, and generate ranges. The optional dimension argument must
+process-loop ranges, generate ranges, and array slices. Constrained array subtype
+prefixes retain their declared bounds, including inside runtime functions. The optional dimension argument must
 be the static integer ``1``. Enumeration-indexed arrays support ``'length`` and
 ``'ascending``; enumeration-valued bounds and ranges remain unsupported.
 Unconstrained type prefixes, runtime-indexed prefixes, and array attributes
@@ -396,16 +398,20 @@ Identifier-based enumerated types declared in packages, architectures, and
 generate bodies support internal signals, variables, constants, record fields,
 and arrays. Literals are encoded by declaration position using at least one bit;
 explicit initializers are preserved. Type identity is retained for assignment and
-equality/inequality checking. Cases may cover all declared literals without an
+equality/inequality and ordering checks. Cases may cover all declared literals without an
 ``others`` branch, including types whose literal count is not a power of two.
-Character literals, overloaded literal names, enum ports, subtype constraints,
-ordering comparisons, enum attributes, and enum-valued static functions remain
-unsupported. Implicit enum initialization is not synthesized.
+Enum ports and overloaded identifier literals are supported when their nominal
+type is unambiguous from context. A literal may share a name with a function.
+Enumeration ``'pos`` preserves ordinal values, and ``'val`` converts integer
+ordinals back to the nominal enum type. Invalid static ordinals are errors;
+invalid runtime ordinals produce X rather than wrapping onto valid literals.
+Character literals, enumeration subtype constraints, other enum attributes, and
+enum-valued static functions remain unsupported. Implicit enum initialization is not synthesized.
 
 Pure package functions with static integer and boolean arguments can compute
 constants, generic defaults, vector bounds, and constant expressions. The
 supported bodies contain local scalar variables/constants, variable assignments,
-``if``/``elsif``/``else``, bounded ``for`` loops, nested function calls, and early
+``if``/``elsif``/``else``, bounded ``for`` and ``while`` loops, nested function calls, and early
 ``return`` statements. Unlabeled ``exit`` and ``exit when`` leave the innermost
 function loop; labeled exits and process-loop exits remain unsupported. Positional and named actuals and default arguments are
 supported. Defaults and function bodies resolve package declarations rather
@@ -422,14 +428,16 @@ vector arguments and results to combinational hardware. Unconstrained vector
 formals retain actual bounds; constrained formals bind by position. Calls support
 positional/named arguments and declaration-scope defaults, nested pure calls,
 local binary variables/constants, variable initializers, bounded ``for`` loops,
-array attributes, and ``if`` statements. Both branches of a runtime condition may
-return, or both may continue after updating local variables. Function scopes
-resolve package or captured declaration constants rather than caller-local names.
-Integer and boolean function arguments must currently be static. Runtime integer
-results, string evaluation, impure functions, partially returning runtime
-branches, runtime-dependent return bounds, ``case``/``exit`` statements, and
-shadowed local declarations/loop parameters remain unsupported and are diagnosed.
-Missing returns, incompatible types/widths, reads before definite assignment,
+array attributes, ``if`` statements, and ``case`` alternatives. Early returns
+may occur inside runtime branches and bounded loops, with remaining statements
+providing a fallback return. Every reachable path must return a value. Function
+scopes resolve package or captured declaration constants rather than caller-local names.
+Integer and boolean function arguments may be static or runtime values. String
+evaluation, impure functions, branch-dependent return bounds, ``exit`` statements,
+local declarations conflicting with formal parameters, and shadowed loop
+parameters remain unsupported and are diagnosed. Locals may hide imported or
+captured outer names.
+Missing returns, incompatible types/widths, function reads before definite assignment,
 excessive recursion, and excessive elaboration work are errors.
 
 Architecture-local pure functions also support static integer/boolean evaluation.
@@ -441,8 +449,9 @@ declarations remain unsupported.
 Input port maps accept character, string, and binary/octal/hex bit-string
 literals in positional or named associations, for direct entities and components.
 The formal port supplies the type and bit order, including ``X``/``Z`` for logic
-types. Width/type mismatches, unsupported literal values, and literals bound to output ports are rejected. General expression and
-aggregate port actuals remain unsupported.
+types. Input actuals also accept supported expressions, function calls, and aggregates
+with the formal type as context. Output actuals must select writable signals.
+Width/type mismatches and unsupported values are rejected.
 
 Named port associations may select vector elements, slices, and record fields
 on the formal side, for example ``data_i(0) => data_bit``. Individual associations
@@ -506,6 +515,56 @@ constructs still fail loading. Choose a report path or select console-only outpu
    # Alternatively: diagnostics_report_path=None for console-only warnings.
 
 
+Additional VHDL RTL constructs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Subtypes retain their base type and static bounds in packages, architectures,
+and generate scopes. Sized and signed/unsigned binary, octal, hexadecimal, and
+decimal bit-string literals preserve VHDL padding and truncation rules. Integer
+literals support based notation and nonnegative exponents; static ``minimum``
+and ``maximum`` accept integer and boolean operands. Logic-vector reduction
+operators preserve their scalar element type.
+
+Entity interfaces, architecture signals, and subprogram locals can hide imported
+names. Duplicate direct declarations remain errors. Pure procedures inline
+variable ``in``, ``out``, and ``inout`` parameters,
+including record fields. Writable actuals must be definitely assigned when read, and procedure outputs
+must be assigned before returning;
+overlapping output actuals and signal-class parameters are rejected.
+Unconstrained integer process temporaries use signed 32-bit arithmetic; static
+values assigned during loop unrolling may supply slice bounds. Numeric-vector
+unary plus, minus, and ``abs`` and addition/subtraction with a scalar logic carry
+are supported. ``shift_left`` and ``shift_right`` accept static natural counts
+or runtime counts represented by nonnegative integer subtypes (including
+``to_integer(unsigned_value)``). Runtime shifts use the canonical NLDB0 shift
+primitive and retain every count bit; oversized counts produce zero for logical
+shifts and the sign bit for signed right shifts. ``rotate_left`` and
+``rotate_right`` currently require static natural counts.
+
+Fixed-width vector slices may have runtime positions when their endpoint
+expressions prove a constant width. They use canonical table-select primitives;
+out-of-range reads produce X. Their results may be assigned by position or
+returned from functions. Indexing those runtime-bound results or passing them to
+unconstrained function formals remains unsupported; constrained formals fix the
+bounds. Nested dynamic writes can select array dimensions and record fields in
+signals or definitely assigned variables. Hardware integer multiplication and
+``mod`` by a static positive power of two are supported.
+
+``numeric_std.std_match`` supports a typed logic operand and a binary/don't-care
+literal pattern in either order, scalar operands, and static logic values.
+Untyped pairs of vector literals are ambiguous and rejected; unconstrained
+``others`` comparison aggregates are also rejected. Concatenated aggregates
+infer their own positional or explicit-choice bounds.
+
+IEEE ``is_X`` uses synthesis semantics: a fully constant operand detects X/Z,
+while a dynamic operand folds to false. No unknown-detection hardware primitive
+is created. Synthesis attribute declarations/specifications for mapping hints
+emit ``ignored-attribute`` warnings; attribute values do not affect the netlist.
+Foreign subprogram attributes remain unsupported. Unused ``ieee.math_real.all``
+imports are accepted; real constants and functions are not implemented.
+Array dimensions remain bounded to 65,536 elements, with an aggregate limit
+of 1,048,576 bits for arrays and records.
+
 The NEORV32 default ``neorv32_top`` configuration remains a development target.
 The complete core file list parses and resolves its named-library imports when
 loaded into ``library="neorv32"``. Boolean/vector generics, array attributes,
@@ -539,8 +598,9 @@ operations require natural operands. Scalar arithmetic converts the integer to
 the vector's width; addition/subtraction retain that width, while multiplication
 produces twice that width. Comparisons preserve the integer's full value, even
 when it lies outside the vector's representable range. Static
-``to_unsigned(value, size)`` calls and conversions between ``unsigned``, ``signed``,
-and ``std_logic_vector`` are supported. Signed arithmetic extends the sign bit.
+``to_unsigned(value, size)`` and ``to_signed(value, size)`` calls and conversions between ``unsigned``, ``signed``,
+and ``std_logic_vector`` are supported. ``to_unsigned`` also accepts dynamic integers with a supported nonnegative
+representation, including enum positions. Signed arithmetic extends the sign bit.
 ``std_logic_signed`` vector addition, subtraction, multiplication and
 equality/inequality are also supported.
 Addition and subtraction use canonical ``naja_fa`` full adders, as in the
@@ -564,7 +624,11 @@ unused RTL registers. Loading does not run DLE automatically.
 VHDL signal wiring can retain explicit Assign
 primitives; traverse Assigns when comparing arithmetic connectivity.
 Explicit binary signal initializers on locally clocked registers are preserved
-as DFF ``INIT`` parameters.
+as DFF ``INIT`` parameters. A combinational initializer must either match the
+startup value proved from constant logic and explicitly initialized local
+registers, or affect only registered data/enable paths after combinational
+settling. Register INIT values remain intact. Initializers reaching observable
+outputs or asynchronous controls without such a proof are rejected.
 
 Uninitialized arrays with one dynamically indexed, whole-word clocked write
 site are inferred as canonical RAM primitives. Conditional write enables are
@@ -572,9 +636,16 @@ preserved, and clocked read assignments retain a separate output register,
 including its enable and read-before-write behavior on address collisions.
 Resetting address registers does not reset the RAM contents. Both ascending and
 descending arrays with nonnegative 32-bit bounds are supported. Arrays with
-initializers, multiple write sites, partial-word writes, writes inside loops,
-writes in asynchronous-reset or generated processes, or direct connections to child-instance
+initializers, multiple syntactic write sites, whole-word writes inside loops,
+writes in asynchronous-reset processes, or direct connections to child-instance
 ports retain the register/mux lowering.
+
+Partial-word RAM writes use the existing canonical per-bit mask representation.
+A single syntactic write site may be unrolled across static loops when every
+write uses the same decoded address. Disabled lanes retain their contents;
+later assignments take priority for overlapping bits. Different simultaneous
+addresses in this profile are rejected. Output ports may be read using
+VHDL-2008 signal semantics, including pre-edge register values.
 
 Combinational processes accept ``process(all)`` or an explicit sensitivity list
 covering every signal bit read. Explicit entries may name whole records or nested
@@ -585,9 +656,26 @@ applies to assignments outside a clock guard. Their bodies support ordered signa
 immediate variables, static loops, and nested ``if``/``elsif``/``else`` and ``case`` branches.
 Default assignments followed by partial conditional overrides preserve the last
 assignment to each bit. Every driven bit must be assigned on every path; latch
-inference is rejected. Variables must be assigned before use. Reading a signal
-written by the same process, variable declaration initializers, and ``wait``
-statements remain unsupported. Signal reads retain VHDL's scheduled
+inference is rejected. Variables must be assigned before use. Assignment proofs retain repeated ``if``
+guards and ``case`` selections across intervening statements; unrelated guards
+do not establish definite assignment. Reads of signals driven by the same process retain scheduled signal semantics.
+They are accepted only when the local combinational dependency can be proved
+acyclic; feedback cycles and unsupported dependency models are rejected.
+Active ``wait`` statements remain unsupported.
+Process constants and local shadowing are supported. Clocked process variables
+retain values across activations, including individual record fields and vector
+bits. Only incoming values used by the observable data path acquire DFF storage;
+values overwritten before use remain immediate temporaries. Binary initializers
+are preserved; implicit logic defaults become unknown hardware state, while
+bit, Boolean, and enumeration defaults are zero. Retained integer values require
+explicit initializers; retained Z initializers are currently rejected.
+Scalar ``bit`` and ``std_ulogic`` conditions use VHDL-2008 condition conversion
+in processes, runtime functions, and conditional expressions; explicit ``??``
+is supported for these types. Binary inputs use their logic value, and static
+X/Z conditions are false. Vectors require an explicit scalar test.
+Combinational process variables must still be definitely assigned before use.
+Processes used only for ignored assertions/reports and temporary calculations
+create no hardware. Signal reads retain VHDL's scheduled
 assignment semantics and are not replaced by earlier assignments in the body.
 
 Sequential ``case`` statements support binary scalar/vector, boolean, and
@@ -600,8 +688,8 @@ to 4096 values. Cases in static package-function bodies remain unsupported.
 
 Clock guards accept ``rising_edge(clk)`` or ``clk'event and clk = '1'``,
 including parentheses around the guard or its operands, in both simple and
-structured processes. Extra Boolean conditions on the clock guard remain
-unsupported; place enables inside the edge guard.
+structured processes. An additional Boolean condition joined with ``and`` acts
+as an enable and preserves the register value while false.
 
 Asynchronous reset accepts a scalar equality to ``'0'`` or ``'1'`` before
 the edge guard: ``if rst = '0' then ... elsif rising_edge(clk) then ...``.

@@ -19,6 +19,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstance.h"
+#include "SNLParameter.h"
 #include "SNLInstParameter.h"
 #include "SNLInstTerm.h"
 
@@ -197,10 +198,46 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testReadOnlyMemoryContentsRoundTrip) {
   EXPECT_EQ(first->getModel(), second->getModel());
   EXPECT_EQ(NLDB0::getOrCreateMemory(signature), first->getModel());
   EXPECT_EQ(signature, NLDB0::getMemorySignature(first));
+  for (const auto* name : {"RST_ENABLE", "RST_ASYNC", "RST_ACTIVE_LOW", "INIT_ENABLE"}) {
+    EXPECT_EQ(SNLParameter::Type::Boolean,
+        first->getModel()->getParameter(NLName(name))->getType());
+  }
   EXPECT_EQ("12'h3a1", first->getInstParameter(NLName("INIT"))->getValue());
   EXPECT_EQ("12'b10xz00111100", second->getInstParameter(NLName("INIT"))->getValue());
   EXPECT_EQ(nullptr, NLDB0::getMemoryClock(first->getModel()));
   EXPECT_EQ(2u, first->getModel()->getTerms().size());
+}
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testShiftRoundTrip) {
+  const std::vector<NLDB0::ShiftSignature> signatures{
+      {5, 80, false, false}, {5, 80, true, false}, {5, 80, true, true}};
+  auto* top = db_->getTopDesign();
+  for (size_t i = 0; i < signatures.size(); ++i) {
+    auto* model = NLDB0::getOrCreateShift(signatures[i]);
+    auto* instance = SNLInstance::create(top, model, NLName("shift" + std::to_string(i)));
+    for (auto* parameter : model->getParameters()) {
+      SNLInstParameter::create(instance, parameter, parameter->getValue());
+    }
+  }
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "shift_round_trip";
+  SNLCapnP::dump(db_, outPath);
+  NLUniverse::get()->destroy();
+  db_ = nullptr;
+  db_ = SNLCapnP::load(outPath);
+  ASSERT_NE(db_, nullptr);
+  top = db_->getTopDesign();
+  for (size_t i = 0; i < signatures.size(); ++i) {
+    auto* instance = top->getInstance(NLName("shift" + std::to_string(i)));
+    ASSERT_NE(instance, nullptr);
+    EXPECT_EQ(NLDB0::getOrCreateShift(signatures[i]), instance->getModel());
+    EXPECT_EQ(signatures[i], NLDB0::getShiftSignature(instance));
+    for (const auto* name : {"RIGHT", "ARITHMETIC"}) {
+      EXPECT_EQ(SNLParameter::Type::Boolean,
+          instance->getModel()->getParameter(NLName(name))->getType());
+    }
+    EXPECT_EQ(4u, instance->getInstParameters().size());
+    EXPECT_EQ(80u, NLDB0::getShiftCount(instance->getModel())->getWidth());
+  }
 }
 
 TEST_F(SNLCapnPDB0PrimitivesTest, testMemoryRoundTrip) {
