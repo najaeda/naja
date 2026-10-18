@@ -20,6 +20,7 @@ regress/sv/
 │   ├── cv32e40p/
 │   ├── cva6/
 │   ├── ibex/
+│   ├── ibex_cheriot/
 │   └── zcore/
 ├── common/             # shared analysis helpers
 └── tests/              # runner and adapter unit tests
@@ -299,6 +300,50 @@ The main smoke log is:
 ```text
 build/sv-regress/ibex/artifacts/logs/github-sim.log
 ```
+
+## Ibex CHERIoT Co-simulation
+
+The `ibex_cheriot` case pins the CHERIoT Ibex (`keplertech/ibex`, commit
+`7a4697f5`) and its `ibex_cosim` stage checks Naja's elaboration against the RTL
+itself, in six parameter configurations: `default`, `pmp` (16 regions), `icache`
+(ECC and scrambling), `cheriot`, `rv32b` (full bit-manipulation) and `opentitan`
+(the `ibex_configs.yaml` opentitan set, with CHERIoT).
+
+For each configuration, `cases/ibex_cheriot/ibex_cosim.py`:
+
+1. loads `ibex_top` twice, in separate processes, and requires the two Verilog
+   dumps to be identical (determinism);
+2. builds the original RTL and the Naja dump as two Verilator models. The RTL
+   model only depends on the Ibex commit, the file list and the Verilator
+   version, so it is cached under `--rtl-cache`;
+3. drives both models in lockstep with the same random stimulus (fixed seeds)
+   and compares every `ibex_top` output after both clock edges;
+4. on a mismatch, rebuilds both models with VCD tracing, re-runs the failing
+   seed up to the first mismatch, and prints the first diverging internal
+   signals.
+
+Requirements: a built Naja, Verilator 5 (CI uses 5.052) and a C++20 compiler.
+Sources are listed in `cases/ibex_cheriot/ibex_top.f`, relative to the Ibex
+checkout; configuration parameters are added with `-G`.
+
+```sh
+python3 regress/sv/sv_regress.py run --case ibex_cheriot --stage ibex_cosim
+```
+
+Seeds and length default to `1 2 3` and 20000 cycles; set `IBEX_COSIM_SEEDS`
+and `IBEX_COSIM_CYCLES` to change them. The script can also run on its own,
+for example on one configuration:
+
+```sh
+python3 regress/sv/cases/ibex_cheriot/ibex_cosim.py --repo <ibex checkout> \
+  --artifacts build/ibex-cosim --config icache --seeds 1 --cycles 5000
+```
+
+The expected pass marker is `IBEX_COSIM_PASS`. Results are in
+`build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/summary.json` and the log in
+`build/sv-regress/ibex_cheriot/artifacts/logs/ibex-cosim.log`. The
+`Ibex CHERIoT Co-simulation` workflow runs this stage on pull requests (3 seeds
+x 20000 cycles, a few minutes) and nightly with 8 seeds x 200000 cycles.
 
 ## CV32E40P Smoke Simulation
 

@@ -1,0 +1,163 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-License-Identifier: Apache-2.0
+
+# CHERIoT Ibex RTL vs Naja netlist lockstep co-simulation (six configurations)
+# plus a determinism check. Pull requests run 3 seeds x 20k cycles; the nightly
+# run goes deeper. See regress/sv/cases/ibex_cheriot/ibex_cosim.py.
+name: Ibex CHERIoT Co-simulation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/nl/**'
+      - 'src/najaeda/**'
+      - 'thirdparty/slang'
+      - 'regress/sv/sv_regress.py'
+      - 'regress/sv/cases.yml'
+      - 'regress/sv/cases/ibex_cheriot/**'
+      - 'regress/sv/tests/test_ibex_cosim.py'
+      - '.github/actions/setup-linux-release/**'
+      - '.github/scripts/configure-linux-release.sh'
+      - '.github/workflows/ibex-cheriot-cosim.yml'
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  runner-tests:
+    runs-on: ubuntu-24.04
+    name: Co-simulation runner tests
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: |
+          python3 -m pip install pyyaml
+          python3 -m unittest discover -s regress/sv/tests -p test_ibex_cosim.py
+
+  cosim:
+    runs-on: ubuntu-24.04
+    name: ibex-cheriot-cosim
+    timeout-minutes: 120
+    env:
+      # Scheduled runs: more seeds, longer runs. Pull requests: the script defaults
+      # (seeds 1 2 3, 20000 cycles).
+      IBEX_COSIM_SEEDS: ${{ github.event_name == 'schedule' && '1 2 3 4 5 6 7 8' || '1 2 3' }}
+      IBEX_COSIM_CYCLES: ${{ github.event_name == 'schedule' && '200000' || '20000' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+
+      - name: Set up canonical Linux Release toolchain
+        uses: ./.github/actions/setup-linux-release
+        with:
+          cache-scope: naja-module
+
+      - name: Install Python dependencies
+        run: python3 -m pip install pyyaml
+
+      # Same pinned Verilator and cache entry as the PULP regression.
+      - uses: actions/cache@v5
+        id: verilator
+        with:
+          path: ${{ runner.temp }}/ita-verilator
+          key: ita-verilator-${{ runner.os }}-${{ runner.arch }}-ubuntu24-ea338be98e1e838d3518809ce8899f85a009963c-v1
+      - name: Build pinned Verilator
+        if: steps.verilator.outputs.cache-hit != 'true'
+        env:
+          VERILATOR_REV: ea338be98e1e838d3518809ce8899f85a009963c
+        run: |
+          sudo apt-get install -yq autoconf bison flex libfl-dev help2man
+          git init "${RUNNER_TEMP}/verilator-src"
+          git -C "${RUNNER_TEMP}/verilator-src" fetch --depth 1 https://github.com/verilator/verilator.git "${VERILATOR_REV}"
+          git -C "${RUNNER_TEMP}/verilator-src" checkout --detach FETCH_HEAD
+          cd "${RUNNER_TEMP}/verilator-src"
+          autoconf
+          ./configure --prefix="${RUNNER_TEMP}/ita-verilator"
+          make -j "$(nproc)"
+          make install
+      - name: Add Verilator to PATH
+        run: |
+          echo "${RUNNER_TEMP}/ita-verilator/bin" >> "${GITHUB_PATH}"
+          "${RUNNER_TEMP}/ita-verilator/bin/verilator" --version
+
+      - name: Configure canonical Release build
+        run: bash .github/scripts/configure-linux-release.sh
+
+      - name: Build najaeda Python extension
+        run: cmake --build build --target naja --config Release --parallel $(nproc)
+
+      - name: Prepare najaeda Python package for script execution
+        run: |
+          mkdir -p build/test/najaeda
+          cp -R src/najaeda/najaeda build/test/najaeda/
+          ln -sf "${GITHUB_WORKSPACE}/build/src/nl/python/naja_wrapping/naja.so" \
+            build/test/najaeda/najaeda/naja.so
+
+      # The RTL-side Verilator models only change with the pinned Ibex commit, the
+      # file list or the Verilator version; the script keys each model directory
+      # by those, so restoring an older cache entry is always safe.
+      - name: Restore RTL model cache
+        uses: actions/cache@v5
+        with:
+          path: build/sv-regress/ibex-cosim-rtl-cache
+          key: ibex-cosim-rtl-v1-${{ hashFiles('regress/sv/cases/ibex_cheriot/ibex_top.f', 'regress/sv/cases.yml') }}-${{ github.run_id }}
+          restore-keys: |
+            ibex-cosim-rtl-v1-${{ hashFiles('regress/sv/cases/ibex_cheriot/ibex_top.f', 'regress/sv/cases.yml') }}-
+            ibex-cosim-rtl-v1-
+
+      - name: Run Ibex CHERIoT co-simulation
+        run: |
+          python3 regress/sv/sv_regress.py run \
+            --case ibex_cheriot \
+            --stage ibex_cosim \
+            --require-firmware-sim-tools
+
+      - name: Show co-simulation log
+        if: always()
+        run: cat build/sv-regress/ibex_cheriot/artifacts/logs/ibex-cosim.log || true
+
+      - name: Upload summaries and logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ibex-cheriot-cosim
+          path: |
+            build/sv-regress/ibex_cheriot/artifacts/summary.json
+            build/sv-regress/ibex_cheriot/artifacts/logs
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/summary.json
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/*/load*/*.log
+          retention-days: 7
+
+      - name: Upload failing netlists and harnesses
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ibex-cheriot-cosim-failure
+          path: |
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/*/load1/ibex_top_naja.v
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/*/load1/naja_primitives.v
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/*/harness.cpp
+            build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/*/*.f
+          retention-days: 7
+
+      - name: Show ccache statistics
+        if: always()
+        run: ccache --show-stats
