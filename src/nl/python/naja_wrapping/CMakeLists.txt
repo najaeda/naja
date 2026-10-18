@@ -9,6 +9,7 @@ set(SOURCES
   PyNLDBs.cpp PyNLLibraries.cpp
   PySNLDesign.cpp
   PySNLSequentialModel.cpp
+  PySNLMemoryInterface.cpp
   PySNLAttribute.cpp
   PySNLParameter.cpp
   PySNLDesignObject.cpp
