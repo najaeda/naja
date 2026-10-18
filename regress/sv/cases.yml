@@ -635,12 +635,12 @@ cases:
           - "2000000"
       pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
 
-  # CHERIoT Ibex (keplertech/ibex) RTL against its Naja netlist: random-stimulus
+  # CHERIoT Ibex (lowRISC/ibex) RTL against its Naja netlist: random-stimulus
   # lockstep co-simulation of six parameter configurations (default, PMP, ICache,
   # CHERIoT, RV32B, full opentitan), plus a determinism check (two loads must
   # dump identical netlists). See cases/ibex_cheriot/ibex_cosim.py.
   - name: ibex_cheriot
-    repo: https://github.com/keplertech/ibex.git
+    repo: https://github.com/lowRISC/ibex.git
     commit: 7a4697f578c67c550fcad5e5e3078415e1f088d7
     top: ibex_top
     flist: "{naja}/regress/sv/cases/ibex_cheriot/ibex_top.f"

@@ -303,7 +303,7 @@ build/sv-regress/ibex/artifacts/logs/github-sim.log
 
 ## Ibex CHERIoT Co-simulation
 
-The `ibex_cheriot` case pins the CHERIoT Ibex (`keplertech/ibex`, commit
+The `ibex_cheriot` case pins the CHERIoT Ibex (`lowRISC/ibex`, commit
 `7a4697f5`) and its `ibex_cosim` stage checks Naja's elaboration against the RTL
 itself, in six parameter configurations: `default`, `pmp` (16 regions), `icache`
 (ECC and scrambling), `cheriot`, `rv32b` (full bit-manipulation) and `opentitan`
