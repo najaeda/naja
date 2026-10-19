@@ -236,7 +236,8 @@ std::string getEmittedDefaultParameterValue(
     }
   }
   if (NLDB0::isShift(instance->getModel())) {
-    return parameterName == NLName("WIDTH") || parameterName == NLName("COUNT_WIDTH") ? "1" : "0";
+    // Shift instances emit their full signature directly, bypassing dumpInstParameters.
+    return parameterName == NLName("WIDTH") || parameterName == NLName("COUNT_WIDTH") ? "1" : "0"; // LCOV_EXCL_LINE
   }
   if (NLDB0::isTableSelect(instance->getModel())) {
     if (parameterName == NLName("WIDTH") ||

@@ -612,6 +612,67 @@ TEST_F(SNLVRLDumperTestParameters, testDivModInstanceAndPrimitiveFileDump) {
   EXPECT_EQ(std::string::npos, primitiveDump.find("naja_divmod__s_w8"));
 }
 
+TEST_F(SNLVRLDumperTestParameters, testShiftModelDefaultsAndInstanceNames) {
+  for (const auto& signature: std::vector<NLDB0::ShiftSignature>{
+      {1, 1, false, false}, {9, 4, false, false},
+      {9, 4, true, false}, {9, 4, true, true}}) {
+    auto* model = NLDB0::getOrCreateShift(signature);
+    auto* data = SNLBusNet::create(top_, signature.width - 1, 0, NLName("data"));
+    auto* count = SNLBusNet::create(top_, signature.countWidth - 1, 0, NLName("count"));
+    auto* output = SNLBusNet::create(top_, signature.width - 1, 0, NLName("result"));
+    for (bool named: {false, true}) {
+      auto* instance = SNLInstance::create(top_, model, named ? NLName("shift") : NLName());
+      ASSERT_TRUE(instance->getInstParameters().empty());
+      instance->setTermNet(NLDB0::getShiftData(model), data);
+      instance->setTermNet(NLDB0::getShiftCount(model), count);
+      instance->setTermNet(NLDB0::getShiftOutput(model), output);
+      std::ostringstream out;
+      SNLVRLDumper dumper;
+      dumper.dumpDesign(top_, out);
+      const auto dumped = out.str();
+      const auto instanceName = named ? "shift" : "instance_" + std::to_string(instance->getID());
+      const auto declaration = "naja_shift #(.WIDTH(" + std::to_string(signature.width) +
+        "), .COUNT_WIDTH(" + std::to_string(signature.countWidth) + "), .RIGHT(" +
+        std::to_string(signature.right) + "), .ARITHMETIC(" +
+        std::to_string(signature.arithmetic) + ")) " + instanceName;
+      EXPECT_NE(std::string::npos, dumped.find(declaration)) << dumped;
+      EXPECT_NE(std::string::npos, dumped.find(".DATA(data)"));
+      EXPECT_NE(std::string::npos, dumped.find(".COUNT(count)"));
+      EXPECT_NE(std::string::npos, dumped.find(".Y(result)"));
+      EXPECT_EQ(std::string::npos, dumped.find(model->getName().getString()));
+      instance->destroy();
+    }
+    data->destroy();
+    count->destroy();
+    output->destroy();
+  }
+}
+
+TEST_F(SNLVRLDumperTestParameters, testShiftPrimitiveFileDump) {
+  auto* model = NLDB0::getOrCreateShift({9, 4, true, true});
+  SNLInstance::create(top_, model, NLName("shift"));
+  const auto outPath = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) / "testShiftPrimitiveFileDump";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setTopFileName("top.v");
+  dumper.dumpDesign(top_, outPath);
+
+  const auto topDump = readTextFile(outPath / "top.v");
+  EXPECT_NE(std::string::npos, topDump.find("naja_shift #(.WIDTH(9), .COUNT_WIDTH(4), .RIGHT(1), .ARITHMETIC(1)) shift"));
+  EXPECT_EQ(std::string::npos, topDump.find("module naja_shift #("));
+  const auto primitivePath = outPath / "naja_primitives.v";
+  ASSERT_TRUE(std::filesystem::exists(primitivePath));
+  const auto primitiveDump = readTextFile(primitivePath);
+  EXPECT_NE(std::string::npos, primitiveDump.find("module naja_shift #("));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Y = $signed(DATA) >>> COUNT;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Y = DATA >> COUNT;"));
+  EXPECT_NE(std::string::npos, primitiveDump.find("assign Y = DATA << COUNT;"));
+}
+
 TEST_F(SNLVRLDumperTestParameters, testDivModModelDefaultsAndInstanceOverrides) {
   for (auto width: {1u, 8u, 40u}) {
     for (bool isSigned: {false, true}) {

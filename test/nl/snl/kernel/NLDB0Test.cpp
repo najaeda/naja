@@ -2202,6 +2202,44 @@ TEST_F(NLDB0Test, testIndependentWriteClockMemoryPrimitive) {
   EXPECT_THROW(NLDB0::getOrCreateMemory(signature), NLException);
 }
 
+TEST_F(NLDB0Test, ShiftSignatureRejectsMissingBooleanParameters) {
+  NLUniverse::create();
+  const NLDB0::ShiftSignature signature{7, 3, true, true};
+  auto* model = NLDB0::getOrCreateShift(signature);
+  for (const auto* name: {"RIGHT", "ARITHMETIC"}) {
+    SCOPED_TRACE(name);
+    auto* parameter = model->getParameter(NLName(name));
+    ASSERT_NE(nullptr, parameter);
+    const auto value = parameter->getValue();
+    parameter->destroy();
+    EXPECT_THROW(NLDB0::getShiftSignature(model), NLException);
+    SNLParameter::create(model, NLName(name), SNLParameter::Type::Boolean, value);
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(model));
+  }
+}
+
+TEST_F(NLDB0Test, ShiftSignatureRejectsInstanceSignatureChanges) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* library = NLLibrary::create(db, NLName("designs"));
+  auto* top = SNLDesign::create(library, NLName("top"));
+  const NLDB0::ShiftSignature signature{7, 3, true, true};
+  auto* model = NLDB0::getOrCreateShift(signature);
+  for (const auto* name: {"WIDTH", "COUNT_WIDTH", "RIGHT", "ARITHMETIC"}) {
+    SCOPED_TRACE(name);
+    auto* instance = SNLInstance::create(top, model);
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(instance));
+    auto* parameter = model->getParameter(NLName(name));
+    ASSERT_NE(nullptr, parameter);
+    auto* overrideParameter = SNLInstParameter::create(instance, parameter, parameter->getValue());
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(instance));
+    overrideParameter->setValue(parameter->getType() == SNLParameter::Type::Boolean ? "0" :
+      std::to_string(std::stoull(parameter->getValue()) + 1));
+    EXPECT_THROW(NLDB0::getShiftSignature(instance), NLException);
+    instance->destroy();
+  }
+}
+
 TEST_F(NLDB0Test, CanonicalShiftsRetainSignatureAndCombinationalArcs) {
   NLUniverse::create();
   for (const auto& signature : std::vector<NLDB0::ShiftSignature>{
