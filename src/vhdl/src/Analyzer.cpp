@@ -64,7 +64,9 @@ Visibility analyzeContext(const ContextClause& context, AnalysisResult& result) 
             visibility.stdLogic1164 = true;
         else if (package == "numeric_std")
             visibility.numericStd = true;
-        else
+        else if (package == "math_real") {
+            // Unused imports do not require real-valued hardware support.
+        } else
             result.diagnostics.push_back(
                 {"unsupported IEEE package '" + clause.selectedName[1].spelling + "'",
                  clause.selectedName[1].span});

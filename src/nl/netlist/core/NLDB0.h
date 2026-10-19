@@ -120,6 +120,28 @@ class NLDB0 {
       }
     };
 
+    /// Count is an unsigned COUNT_WIDTH-bit value. Oversized counts produce
+    /// zero, or the original sign bit for arithmetic right shifts.
+    struct ShiftSignature {
+      size_t width {0};
+      size_t countWidth {0};
+      bool right {false};
+      bool arithmetic {false};
+
+      bool operator==(const ShiftSignature& other) const {
+        return width == other.width && countWidth == other.countWidth &&
+               right == other.right && arithmetic == other.arithmetic;
+      }
+    };
+
+    static SNLDesign* getOrCreateShift(const ShiftSignature& signature);
+    static bool isShift(const SNLDesign* design);
+    static ShiftSignature getShiftSignature(const SNLDesign* design);
+    static ShiftSignature getShiftSignature(const SNLInstance* instance);
+    static SNLBusTerm* getShiftData(const SNLDesign* design);
+    static SNLBusTerm* getShiftCount(const SNLDesign* design);
+    static SNLBusTerm* getShiftOutput(const SNLDesign* design);
+
     struct TableSelectSignature {
       size_t width {0};
       size_t depth {0};
@@ -200,7 +222,7 @@ class NLDB0 {
     /// DB0 (NLID::DBID 0) primitive IDs are canonical: \p libraryID selects the
     /// primitive family and \p designID encodes the single size parameter
     /// (gate fan-in/out, mux/dff/divmod width). Multi-parameter families
-    /// (memory, table select) are rebuilt from \p parameters (the instance
+    /// (memory, table select, shift) are rebuilt from \p parameters (the instance
     /// parameters, which carry the full signature). Returns nullptr if the
     /// reference does not designate a known DB0 primitive family.
     static SNLDesign* getOrCreatePrimitive(

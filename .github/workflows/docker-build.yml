@@ -19,10 +19,24 @@ jobs:
     strategy:
       matrix:
         include:
-          - distro: alpine
+          - distro: alpine3.22
             dockerfile: docker/Dockerfile.alpine
-            tag: latest
-            build_args: ""
+            tag: alpine-3.22
+            build_args: |
+              ALPINE_VERSION=3.22
+            naja_edit_path: /naja/naja_edit
+          - distro: alpine3.23
+            dockerfile: docker/Dockerfile.alpine
+            tag: alpine-3.23
+            build_args: |
+              ALPINE_VERSION=3.23
+            naja_edit_path: /naja/naja_edit
+          - distro: alpine3.24
+            dockerfile: docker/Dockerfile.alpine
+            tag: alpine-3.24
+            latest: true
+            build_args: |
+              ALPINE_VERSION=3.24
             naja_edit_path: /naja/naja_edit
           - distro: rockylinux8
             dockerfile: docker/Dockerfile.rockylinux
@@ -35,6 +49,12 @@ jobs:
             tag: rockylinux-9
             build_args: |
               ROCKY_VERSION=9
+            naja_edit_path: /naja/bin/naja_edit
+          - distro: rockylinux10
+            dockerfile: docker/Dockerfile.rockylinux
+            tag: rockylinux-10
+            build_args: |
+              ROCKY_VERSION=10
             naja_edit_path: /naja/bin/naja_edit
     steps:
       -
@@ -131,5 +151,7 @@ jobs:
           context: .
           push: true
           file: ${{ matrix.dockerfile }}
-          tags: ${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+            ${{ matrix.latest == true && format('{0}:latest', env.IMAGE_NAME) || '' }}
           build-args: ${{ matrix.build_args }}

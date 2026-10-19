@@ -193,7 +193,6 @@ private:
                 }
             }
             if (peek() == 'e' || peek() == 'E') {
-                real = true;
                 advance();
                 if (peek() == '+' || peek() == '-')
                     advance();
@@ -228,7 +227,6 @@ private:
             }
         }
         if (peek() == 'e' || peek() == 'E') {
-            real = true;
             advance();
             if (peek() == '+' || peek() == '-')
                 advance();
@@ -282,7 +280,7 @@ private:
 
     void scanSymbol(SourcePosition start) {
         static const std::unordered_set<std::string> compound = {":=", "<=", ">=", "/=",
-                                                                 "=>", "**", "<>"};
+                                                                 "=>", "**", "<>", "??"};
         static const std::string punctuation = "&'()*+,-./:;<=>|[]?";
         if (punctuation.find(peek()) == std::string::npos) {
             advance();

@@ -235,6 +235,10 @@ std::string getEmittedDefaultParameterValue(
       return "0";
     }
   }
+  if (NLDB0::isShift(instance->getModel())) {
+    // Shift instances emit their full signature directly, bypassing dumpInstParameters.
+    return parameterName == NLName("WIDTH") || parameterName == NLName("COUNT_WIDTH") ? "1" : "0"; // LCOV_EXCL_LINE
+  }
   if (NLDB0::isTableSelect(instance->getModel())) {
     if (parameterName == NLName("WIDTH") ||
         parameterName == NLName("DEPTH") ||
@@ -1758,9 +1762,9 @@ void SNLVRLDumper::dumpInstParameters(
         o << "\"" << value << "\"";
       } else if (parameter->getType() == SNLParameter::Type::Boolean) {
         if (value=="0" or value=="FALSE") {
-          o << "\"FALSE\"";
+          o << (NLDB0::isDB0Primitive(instance->getModel()) ? "0" : "\"FALSE\"");
         } else if (value=="1" or value=="TRUE") {
-          o << "\"TRUE\"";
+          o << (NLDB0::isDB0Primitive(instance->getModel()) ? "1" : "\"TRUE\"");
         } else {
           std::ostringstream reason;
           reason << "Error while writing verilog: in design " << instance->getDesign()->getString();
@@ -1853,6 +1857,20 @@ bool SNLVRLDumper::dumpInstance(
     o << dumpName(instanceName);
     dumpInstanceInterface(instance, o, naming);
     o << ";" << '\n';
+    return true;
+  }
+  if (NLDB0::isShift(instance->getModel())) {
+    const auto signature = NLDB0::getShiftSignature(instance);
+    emitNajaPrimitiveModels_ = true;
+    const auto instanceName = instance->isUnnamed() ? createInstanceName(instance, naming)
+        : instance->getName().getString();
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    // Canonical model parameters may have no explicit instance overrides.
+    o << "naja_shift #(.WIDTH(" << signature.width << "), .COUNT_WIDTH("
+      << signature.countWidth << "), .RIGHT(" << signature.right
+      << "), .ARITHMETIC(" << signature.arithmetic << ")) " << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";\n";
     return true;
   }
   if (NLDB0::isTableSelect(instance->getModel())) {
@@ -2358,6 +2376,30 @@ void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
   o << "endmodule //naja_mux2\n";
 }
 
+void SNLVRLDumper::dumpNajaShiftModel(std::ostream& o) {
+  o << R"(module naja_shift #(
+  parameter WIDTH = 1,
+  parameter COUNT_WIDTH = 1,
+  parameter RIGHT = 0,
+  parameter ARITHMETIC = 0
+) (
+  input [WIDTH-1:0] DATA,
+  input [COUNT_WIDTH-1:0] COUNT,
+  output [WIDTH-1:0] Y
+);
+  generate
+    if (RIGHT && ARITHMETIC) begin
+      assign Y = $signed(DATA) >>> COUNT;
+    end else if (RIGHT) begin
+      assign Y = DATA >> COUNT;
+    end else begin
+      assign Y = DATA << COUNT;
+    end
+  endgenerate
+endmodule //naja_shift
+)";
+}
+
 void SNLVRLDumper::dumpNajaTableSelectModel(std::ostream& o) {
   o << "module naja_table_select #(\n";
   o << "  parameter WIDTH = 1,\n";
@@ -2848,6 +2890,8 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   dumpNajaFAModel(outFile);
   outFile << '\n';
   dumpNajaMux2Model(outFile);
+  outFile << '\n';
+  dumpNajaShiftModel(outFile);
   outFile << '\n';
   dumpNajaTableSelectModel(outFile);
   outFile << '\n';
