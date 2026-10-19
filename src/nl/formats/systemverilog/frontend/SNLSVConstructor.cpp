@@ -48,6 +48,7 @@
 #include "SNLBusTerm.h"
 #include "SNLAttributes.h"
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 #include "SNLDesignObject.h"
 #include "SNLInstParameter.h"
 #include "SNLInstance.h"
@@ -101,6 +102,40 @@
 namespace naja::NL {
 
 namespace {
+// Hash tables remain useful for lookup, but walks that materialize nets or
+// gates must follow declaration order. Include every enclosing scope index so
+// unnamed blocks and repeated generate / function declarations remain distinct.
+auto symbolDeclarationOrder(const slang::ast::Symbol* symbol) {
+  std::vector<std::pair<slang::ast::SymbolIndex, std::string_view>> indices;
+  for (auto* current = symbol; current;) {
+    if (current->kind == slang::ast::SymbolKind::InstanceBody) {
+      current = current->as<slang::ast::InstanceBodySymbol>().parentInstance;
+      continue;
+    }
+    indices.emplace_back(current->getIndex(), current->name);
+    const auto* parent = current->getHierarchicalParent();
+    current = parent ? &parent->asSymbol() : nullptr;
+  }
+  std::reverse(indices.begin(), indices.end());
+  return indices;
+}
+
+template<typename SymbolType>
+auto symbolsInDeclarationOrder(const std::unordered_set<const SymbolType*>& symbols) {
+  std::vector<const SymbolType*> ordered(symbols.begin(), symbols.end());
+  std::sort(ordered.begin(), ordered.end(), [](const auto* lhs, const auto* rhs) {
+    return symbolDeclarationOrder(lhs) < symbolDeclarationOrder(rhs);
+  });
+  return ordered;
+}
+
+template<typename SymbolType, typename Value>
+auto symbolsInDeclarationOrder(const std::unordered_map<const SymbolType*, Value>& symbols) {
+  std::unordered_set<const SymbolType*> keys;
+  for (const auto& [symbol, value] : symbols) keys.insert(symbol);
+  return symbolsInDeclarationOrder(keys);
+}
+
 // Convenience cache for getLatest(): which NLDB, if any, most recently had
 // a link stored. Just a hint about *where to look* -- SNLSVLiveASTLinkProperty
 // (attached directly to that NLDB) is the actual source of truth. Reset to
@@ -1402,6 +1437,7 @@ class SNLSVConstructorImpl {
       handledInitialBlocks_.clear();
       loweredNetInitializers_.clear();
       loweredVariableInitializers_.clear();
+      inlinedCallNets_.clear();
       dynamicElementSelectCache_.clear();
       gateOutputCache_.clear();
       anonymousAssignAliasCandidates_.clear();
@@ -2910,6 +2946,11 @@ endmodule
       return formatQuotedDescriptionFailure(prefix, description);
     }
 
+    bool testCheckCombinationalBlockCycles(
+      SNLDesign* design, NLID::DesignObjectID firstInstanceID, std::string& reason) const {
+      return checkCombinationalBlockCycles(design, firstInstanceID, reason);
+    }
+
     bool testTryCollapseAnonymousAssignAlias(SNLInstance* assignInstance) {
       return tryCollapseAnonymousAssignAlias(assignInstance);
     }
@@ -3507,6 +3548,7 @@ endmodule
 #endif
       validateLoweringCoverage(
         design, body, defName, LoweringCoverageScope::ModuleBody);
+      warnUndrivenInlinedCallNets(design);
 
       if (options_.blackboxDetection and design->isStandard()) {
         if (design->getInstances().empty() and allNetsArePortNets(design)) {
@@ -4450,9 +4492,39 @@ endmodule
         auto* net = getOrCreateNet(design, loweredName, symbol.getType());
         annotateSourceInfo(net, getSourceRange(symbol));
         activeFunctionLocalNets_[frameIndex].emplace(&symbol, net);
+        inlinedCallNets_[design].emplace(net, &symbol);
         return net;
       }
       return nullptr;
+    }
+
+    void warnUndrivenInlinedCallNets(SNLDesign* design) {
+      auto found = inlinedCallNets_.find(design);
+      if (found == inlinedCallNets_.end()) return;
+      for (auto* net : design->getNets()) {
+        auto symbol = found->second.find(net);
+        if (symbol == found->second.end()) continue;
+        for (auto* bit : collectBits(net)) {
+          // Replay creates storage placeholders which can remain unused. Only
+          // connected bits represent an observable missing value.
+          if (bit->isConstant() || bit->getComponents().empty()) continue;
+          bool driven = false;
+          for (auto* term : bit->getInstTerms()) {
+            driven |= term->getDirection() != SNLTerm::Direction::Input;
+          }
+          for (auto* term : bit->getBitTerms()) {
+            driven |= term->getDirection() != SNLTerm::Direction::Output;
+          }
+          if (!driven) {
+            reportWarning(
+              "undriven_inlined_local",
+              "Undriven net '" + bit->getString() + "' after subroutine inlining for '" +
+                std::string(symbol->second->name) + "'",
+              getSourceRange(*symbol->second));
+          }
+        }
+      }
+      inlinedCallNets_.erase(found);
     }
 
     std::string makeActiveFunctionLocalSuffix() {
@@ -5066,7 +5138,8 @@ endmodule
         }
         it->second = it->second && initBit.consumed;
       }
-      for (const auto& [variable, consumed] : consumedByVariable) {
+      for (const auto* variable : symbolsInDeclarationOrder(consumedByVariable)) {
+        const auto& consumed = consumedByVariable.at(variable);
         if (variable && consumed) {
           loweredVariableInitializers_.insert(variable);
           reportUnsupportedWarning(
@@ -6667,7 +6740,8 @@ endmodule
       // Generic lowering may share an array only when each block owns a
       // statically disjoint set of bits. Never return an ambiguous netlist.
       bool rejected = false;
-      for (const auto& [symbol, blocks] : writers) {
+      for (const auto* symbol : symbolsInDeclarationOrder(writers)) {
+        const auto& blocks = writers.at(symbol);
         const auto inferred = inferredMemoryByStateSymbol_.find(symbol);
         if (inferred != inferredMemoryByStateSymbol_.end() &&
             inferredMemories_[inferred->second].signature.independentWriteClocks) {
@@ -6678,7 +6752,7 @@ endmodule
         }
         std::unordered_set<SNLBitNet*> ownedBits;
         bool supported = true;
-        for (const auto& [block, assignments] : blocks) {
+        for (const auto* block : symbolsInDeclarationOrder(blocks)) {
           std::unordered_set<SNLBitNet*> blockBits;
           // Revisit the statement tree with the same iteration constants used
           // by lowering; raw census expressions have no loop bindings.
@@ -7633,7 +7707,8 @@ endmodule
       visitElaboratedNonGenerateMembers(body, collectProceduralBlock);
 
       writerCensus = collectMemoryWriters(body);
-      for (const auto& [symbol, writers] : writerCensus) {
+      for (const auto* symbol : symbolsInDeclarationOrder(writerCensus)) {
+        const auto& writers = writerCensus.at(symbol);
         if (writers.size() < 2) continue;
         const auto& stateType = symbol->getType().getCanonicalType();
         if (std::min(stateType.getFixedRange().left, stateType.getFixedRange().right) != 0 ||
@@ -10363,6 +10438,14 @@ endmodule
         value = static_cast<uint64_t>(*loopValue);
         return true;
       }
+      if (isActiveForLoopVariableExpr(expr)) {
+        int64_t loopValue = 0;
+        if (!getConstantInt64(expr, loopValue) || loopValue < 0) {
+          return false;
+        }
+        value = static_cast<uint64_t>(loopValue);
+        return true;
+      }
       if (expr.kind == slang::ast::ExpressionKind::Conversion ||
           expr.kind == slang::ast::ExpressionKind::IntegerLiteral) {
         if (auto loopValue = getActiveForLoopConstantFromExactSourceIdentifier(expr)) {
@@ -10741,6 +10824,35 @@ endmodule
         shouldSkipRuntimeConstantEval(expr);
       if (skipMixedLoopRuntimeEval) {
         return false;
+      }
+      if (containsActiveLoopVariable &&
+          (stripped->kind == slang::ast::ExpressionKind::ElementSelect ||
+           stripped->kind == slang::ast::ExpressionKind::RangeSelect)) {
+        const auto* evalSymbol = getConstantEvalSymbol(expr);
+        if (!evalSymbol) {
+          // An active loop-variable select supplies a symbol reference in Slang.
+          return false; // LCOV_EXCL_LINE
+        }
+        slang::ast::EvalContext evalContext(*evalSymbol);
+        evalContext.pushEmptyFrame();
+        for (const auto& [symbol, loopValue] : activeForLoopConstants_) {
+          if (!symbol || !slang::ast::ValueSymbol::isKind(symbol->kind)) {
+            // Loop bindings are populated only from non-null value symbols.
+            return false; // LCOV_EXCL_LINE
+          }
+          const auto& valueSymbol = symbol->as<slang::ast::ValueSymbol>();
+          const auto& type = valueSymbol.getType().getCanonicalType();
+          if (!type.isIntegral() || type.getBitWidth() <= 0 ||
+              !evalContext.createLocal(&valueSymbol, slang::SVInt(
+                type.getBitWidth(), static_cast<uint64_t>(loopValue), type.isSigned()))) {
+            // Supported loop controls have positive-width integral types;
+            // Slang's createLocal returns the address of the stored value.
+            return false; // LCOV_EXCL_LINE
+          }
+        }
+        const auto evaluated = expr.eval(evalContext);
+        return evaluated && evaluated.isInteger() &&
+               tryGetInt64FromSVInt(evaluated.integer(), value);
       }
       const slang::ConstantValue* directConstant =
         (containsActiveLoopVariable || skipMixedLoopRuntimeEval)
@@ -11621,7 +11733,7 @@ endmodule
         baseBits.clear();
         // A failed static-selection probe must not materialize a stable net
         // for a procedural local that already has a current replay value.
-        if (auto baseWidth = getIntegralExpressionBitWidth(baseExpr);
+        if (auto baseWidth = getRepresentableExpressionBitWidth(baseExpr);
             baseWidth && *baseWidth > 0 &&
             resolveActiveProceduralReplayBits(baseExpr, *baseWidth, baseBits) &&
             baseBits.size() == *baseWidth) {
@@ -12850,6 +12962,10 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -12927,23 +13043,10 @@ endmodule
         return false; // LCOV_EXCL_LINE
       }
       const auto deriveTrackedLhsExpr = [&](const Expression& expr) -> const Expression* {
-        const auto* strippedExpr = stripConversions(expr);
-        if (!strippedExpr) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        if (slang::ast::ValueExpressionBase::isKind(strippedExpr->kind) ||
-            strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess) {
-          return strippedExpr;
-        }
-        if (strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect) {
-          return stripConversions(
-            strippedExpr->as<slang::ast::RangeSelectExpression>().value());
-        }
-        if (strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect) {
-          return stripConversions(
-            strippedExpr->as<slang::ast::ElementSelectExpression>().value());
-        }
-        return nullptr;
+        // Track the storage underneath a return cast; the final expression
+        // still applies the conversion after replaying all writes to that local.
+        const auto* root = getTrackedAlwaysCombLHS(stripConversions(expr));
+        return root && slang::ast::ValueExpressionBase::isKind(root->kind) ? root : nullptr;
       };
       const Expression* trackedLhsExpr = nullptr;
       const Expression* finalValueExpr = nullptr;
@@ -13013,6 +13116,10 @@ endmodule
         argumentNets.emplace(subroutine->returnValVar, functionResultNet);
       }
 
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -13059,78 +13166,37 @@ endmodule
         finalValueExpr = resultLhs;
       }
 
+      // Replay compound returns through the same local environment as a
+      // named return value. Declarations and later writes must execute in order,
+      // without connecting multiple procedural values to the same physical net.
+      std::optional<slang::ast::NamedValueExpression> resultLhs;
       if (terminalIsDirectReturnExpression) {
+        // Validate every preceding statement before dependency pruning. In
+        // particular, early returns and unsupported loops must not disappear
+        // merely because they do not assign a symbol in the final expression.
+        std::vector<const Expression*> assignedLhsExpressions;
+        std::string failureReason;
+        std::function<bool(const Statement&)> validateStatement = [&](const Statement& stmt) {
+          const auto* current = unwrapStatement(stmt);
+          if (!current) return true;
+          // Loop-return patterns have separate lowering helpers. Preserve
+          // their validation rather than accepting them through this path.
+          if (current->kind == slang::ast::StatementKind::ForLoop ||
+              current->kind == slang::ast::StatementKind::ForeachLoop) return false;
+          if (current->kind == slang::ast::StatementKind::List) {
+            for (const auto* item : current->as<slang::ast::StatementList>().list) {
+              if (item && !validateStatement(*item)) return false;
+            }
+            return true;
+          }
+          return collectAssignedLHSExpressions(
+            *current, assignedLhsExpressions, &failureReason, true);
+        };
         for (size_t i = 0; i + 1 < terminalStmtIndex; ++i) {
-          const auto* item = stmts[i];
-          if (!item) {
-            continue; // LCOV_EXCL_LINE
-          }
-          const auto* directStmt = unwrapStatement(*item);
-          if (!directStmt) {
-            continue; // LCOV_EXCL_LINE
-          }
-          if (directStmt->kind == slang::ast::StatementKind::Empty ||
-              directStmt->kind == slang::ast::StatementKind::VariableDeclaration) {
-            continue;
-          }
-          const Expression* directLHS = nullptr;
-          AssignAction directAction;
-          if (!extractAssignment(*directStmt, directLHS, directAction) ||
-              !directLHS || directAction.compoundOp ||
-              directAction.stepDelta != 0 || !directAction.rhs) {
-            if (directStmt->kind != slang::ast::StatementKind::Case &&
-                directStmt->kind != slang::ast::StatementKind::Conditional) {
-              return false;
-            }
-            std::string localFailureReason;
-            if (!lowerCombinationalProceduralBlock(
-                  design,
-                  *directStmt,
-                  getSourceRange(*directStmt),
-                  localFailureReason)) {
-              return false;
-            }
-            continue;
-          }
-          std::vector<SNLBitNet*> directLHSBits;
-          std::string directLHSFailureReason;
-          if (!resolveAssignmentLHSBits(
-                design,
-                *directLHS,
-              directLHSBits,
-              &directLHSFailureReason) ||
-              directLHSBits.empty()) {
-            return false; // LCOV_EXCL_LINE: direct assignment LHS was already accepted by slang.
-          }
-          auto* directLHSNet = resolveAssignmentBaseNet(design, *directLHS);
-          auto directSourceRange = getSourceRange(*directAction.rhs);
-          auto directBits = buildAssignBits(
-            design,
-            directAction,
-            directLHSNet,
-            directLHSBits,
-            nullptr,
-            directSourceRange);
-          if (directBits.size() != directLHSBits.size()) {
-            return false; // LCOV_EXCL_LINE: buildAssignBits is requested at directLHSBits width.
-          }
-          for (size_t bitIndex = 0; bitIndex < directLHSBits.size(); ++bitIndex) {
-            if (directBits[bitIndex] == directLHSBits[bitIndex]) {
-              continue; // LCOV_EXCL_LINE: self-assigning direct statements are skipped.
-            }
-            if (functionArgumentValues_.contains(directLHSBits[bitIndex])) {
-              functionArgumentValues_[directLHSBits[bitIndex]] = directBits[bitIndex];
-            } else {
-              createAssignInstance(
-                design,
-                directBits[bitIndex],
-                directLHSBits[bitIndex],
-                directSourceRange);
-            }
-          }
+          if (stmts[i] && !validateStatement(*stmts[i])) return false;
         }
-        return resolveExpressionBits(design, *finalValueExpr, targetWidth, bits) &&
-               bits.size() == targetWidth;
+        resultLhs.emplace(*subroutine->returnValVar, callExpr.sourceRange);
+        trackedLhsExpr = &*resultLhs;
       }
 
       auto* lhsNet = resolveExpressionNet(design, *trackedLhsExpr);
@@ -13151,9 +13217,12 @@ endmodule
       if (!tryGetRootValueSymbolReference(*trackedLhsExpr, resultSymbol)) {
         return false; // LCOV_EXCL_LINE: resolveExpressionNet above only succeeds for value-symbol references.
       }
+      if (terminalIsDirectReturnExpression) {
+        collectExpressionRootValueSymbols(*finalValueExpr, dependencies[resultSymbol]);
+      }
       auto replaySymbols = getProceduralReplayRelevantSymbols(*resultSymbol, dependencies);
       ProceduralReplayEnv replayEnv;
-      for (const auto* symbol : replaySymbols) {
+      for (const auto* symbol : symbolsInDeclarationOrder(replaySymbols)) {
         if (!isSymbolInSubroutineScope(*symbol, *subroutine)) continue;
         auto* net = resolveActiveFunctionLocalNet(design, *symbol, getSourceRange(*symbol));
         if (auto found = activeFunctionArgumentNets_.back().find(symbol);
@@ -13299,6 +13368,10 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -13764,6 +13837,10 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -14064,6 +14141,12 @@ endmodule
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits) const {
+      // Loop-control bindings are newer than the replay environment, which
+      // can still contain the initializer (or the previous iteration's bits).
+      // Lower dependent expressions using the current unroller bindings.
+      if (isActiveForLoopVariableExpr(expr)) {
+        return false;
+      }
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -14098,9 +14181,10 @@ endmodule
       valueBits.clear();
 
       // Procedural locals are represented by their current replay bits, not by
-      // a stable design net. Prefer those bits before constant handling or
+      // a stable design net. Include flattened unpacked aggregates as well as
+      // integral values. Prefer those bits before constant handling or
       // resolveExpressionNet() can materialize a stale or undriven base.
-      if (auto valueWidth = getIntegralExpressionBitWidth(valueExpr);
+      if (auto valueWidth = getRepresentableExpressionBitWidth(valueExpr);
           valueWidth && *valueWidth > 0) {
         if (!resolveActiveProceduralReplayBits(valueExpr, *valueWidth, valueBits) ||
             valueBits.size() != *valueWidth) {
@@ -14163,6 +14247,24 @@ endmodule
         return false;
       }
 
+      // Low bits of right shifts and div/mod depend on high operand bits.
+      // Slang has already applied the SV sizing rules; evaluate the expression
+      // at that width before resizing for its consumer.
+      if (expr.kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto op = expr.as<slang::ast::BinaryExpression>().op;
+        const auto width = expr.type->getCanonicalType().getBitWidth();
+        if ((op == slang::ast::BinaryOperator::LogicalShiftRight ||
+             op == slang::ast::BinaryOperator::ArithmeticShiftRight ||
+             op == slang::ast::BinaryOperator::Divide ||
+             op == slang::ast::BinaryOperator::Mod) && width > targetWidth) {
+          if (!resolveExpressionBits(design, expr, width, bits)) {
+            return false;
+          }
+          bits.resize(targetWidth);
+          return true;
+        }
+      }
+
       if (expr.kind == slang::ast::ExpressionKind::Assignment) {
         // LCOV_EXCL_START
         // Connection LValueArg assignments are normalized before the covered
@@ -14208,10 +14310,11 @@ endmodule
         const auto& conversionExpr = expr.as<slang::ast::ConversionExpression>();
         const auto& targetType = expr.type->getCanonicalType();
         if (targetType.isIntegral()) {
-          auto operandWidth = getIntegralExpressionBitWidth(conversionExpr.operand());
-          if (operandWidth && *operandWidth) {
+          const auto& operandType = conversionExpr.operand().type->getCanonicalType();
+          const auto operandWidth = operandType.isIntegral() ? operandType.getBitWidth() : 0;
+          if (operandWidth) {
             std::vector<SNLBitNet*> operandBits;
-            if (!resolveExpressionBits(design, conversionExpr.operand(), *operandWidth, operandBits)) {
+            if (!resolveExpressionBits(design, conversionExpr.operand(), operandWidth, operandBits)) {
               return false;
             }
             auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -15819,6 +15922,13 @@ endmodule
                       }
                     }
 
+                    // Compare against the full declared indices. Truncating
+                    // them to a narrow selector would make i[k] select a later
+                    // bit whose index aliases k (e.g. 2 aliases one-bit zero).
+                    auto* selectorFill = elementExpr.selector().type->isSigned()
+                      ? selectorBits.back() : const0;
+                    resizeBitsToWidth(
+                      selectorBits, std::max<size_t>(selectorBits.size(), 32), selectorFill);
                     std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
                     int32_t index = valueType.getFixedRange().right;
                     const int32_t end = valueType.getFixedRange().left;
@@ -17803,7 +17913,8 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
-      auto* signFillBit = valueBits.back();
+      auto* signFillBit = valueExpr.type->isSigned()
+        ? valueBits.back() : static_cast<SNLBitNet*>(getConstNet(design, false));
 
       uint64_t shiftAmount = 0;
       if (getConstantUnsigned(shiftAmountExpr, shiftAmount)) {
@@ -17855,7 +17966,7 @@ endmodule
         nextBits.reserve(lhsBits.size());
         const bool isLastStage = stageIndex + 1 == shiftBits.size();
         for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          auto* shiftedBit = stageBits.back();
+          auto* shiftedBit = signFillBit;
           if (!shiftAll && bitIndex + stageShift < lhsBits.size()) {
             shiftedBit = stageBits[bitIndex + stageShift];
           }
@@ -21123,7 +21234,8 @@ endmodule
       };
       update(lhsBits, dataBits);
       if (activeProceduralReplayEnv_ && replaySymbols) {
-        for (const auto& [symbol, physical] : roots) {
+        for (const auto* symbol : symbolsInDeclarationOrder(roots)) {
+          const auto& physical = roots.at(symbol);
           if (!replaySymbols->contains(symbol)) {
             continue;
           }
@@ -22081,7 +22193,9 @@ endmodule
       }
       const auto* callSubroutine = std::get<0>(callExpr.subroutine);
       if (!callSubroutine ||
-          callSubroutine->subroutineKind != slang::ast::SubroutineKind::Function) {
+          (callSubroutine->subroutineKind != slang::ast::SubroutineKind::Function &&
+           (callSubroutine->subroutineKind != slang::ast::SubroutineKind::Task ||
+            callSubroutine->defaultLifetime != slang::ast::VariableLifetime::Automatic))) {
         return nullptr;
       }
       bool hasOutputArg = false;
@@ -23408,7 +23522,7 @@ endmodule
         const Expression& expr) {
         std::unordered_set<const slang::ast::ValueSymbol*> reads;
         collectExpressionRootValueSymbols(expr, reads);
-        for (const auto* pending : pendingNonBlocking) {
+        for (const auto* pending : symbolsInDeclarationOrder(pendingNonBlocking)) {
           if (pending && reads.contains(pending)) {
             failureReason =
               "scheduling-sensitive combinational block reads '" +
@@ -23519,7 +23633,7 @@ endmodule
         std::unordered_set<const slang::ast::ValueSymbol*> lhsReads;
         collectExpressionRootValueSymbols(*leaf, lhsReads);
         if (lhsSymbol) lhsReads.erase(lhsSymbol);
-        for (const auto* pending : pendingNonBlocking) {
+        for (const auto* pending : symbolsInDeclarationOrder(pendingNonBlocking)) {
           if (pending && lhsReads.contains(pending)) {
             failureReason =
               "scheduling-sensitive combinational assignment uses '" +
@@ -28277,7 +28391,8 @@ endmodule
       const slang::ast::ValueSymbol* externallyMergedSymbol = nullptr,
       const std::vector<SNLBitNet*>* externallyMergedBits = nullptr) {
       mergedEnv = falseEnv;
-      for (const auto& [symbol, trueBits] : trueEnv) {
+      for (const auto* symbol : symbolsInDeclarationOrder(trueEnv)) {
+        const auto& trueBits = trueEnv.at(symbol);
         if (symbol == externallyMergedSymbol) {
           continue;
         }
@@ -28739,6 +28854,10 @@ endmodule
         argumentNets.emplace(formalArg, argumentNet);
       }
 
+      for (const auto* symbol : symbolsInDeclarationOrder(argumentNets)) {
+        auto* net = argumentNets.at(symbol);
+        inlinedCallNets_[design].emplace(net, symbol);
+      }
       activeFunctionArgumentNets_.push_back(std::move(argumentNets));
       activeInlinedCallSubroutines_.push_back(subroutine);
       activeFunctionLocalNets_.emplace_back();
@@ -29329,6 +29448,11 @@ endmodule
             failureReason = reason.str();
             return false;
           }
+          const slang::ast::ValueSymbol* trackedSymbol = nullptr;
+          if (tryGetRootValueSymbolReference(lhsExpr, trackedSymbol) &&
+              trackedSymbol == &declStmt.symbol) {
+            dataBits = initBits;
+          }
           (*activeProceduralReplayEnv_)[&declStmt.symbol] = std::move(initBits);
           return true;
         }
@@ -29771,6 +29895,61 @@ endmodule
       return assignedMask;
     }
 
+    bool checkCombinationalBlockCycles(
+      SNLDesign* design,
+      NLID::DesignObjectID firstInstanceID,
+      std::string& failureReason) const {
+      // Use bit-level timing arcs: treating every vector output as dependent
+      // on every input would invent cycles between independent mux lanes.
+      std::unordered_map<SNLBitNet*, std::vector<SNLBitNet*>> consumers;
+      std::unordered_map<SNLBitNet*, size_t> indegree;
+      for (auto* instance : design->getInstances()) {
+        if (instance->getID() < firstInstanceID) {
+          continue;
+        }
+        for (auto* output : instance->getInstTerms()) {
+          auto* outputNet = output->getNet();
+          if (!outputNet || outputNet->isConstant() ||
+              output->getDirection() != SNLTerm::Direction::Output) {
+            continue;
+          }
+          for (auto* input : SNLDesignModeling::getCombinatorialInputs(output)) {
+            auto* inputNet = input->getNet();
+            if (!inputNet || inputNet->isConstant()) {
+              continue;
+            }
+            consumers[inputNet].push_back(outputNet);
+            indegree.try_emplace(inputNet, 0);
+            ++indegree[outputNet];
+          }
+        }
+      }
+      // Iterative topological removal also handles very deep arithmetic trees
+      // without recursion or an arbitrary traversal-depth limit.
+      std::vector<SNLBitNet*> ready;
+      for (const auto& [net, degree] : indegree) {
+        if (!degree) {
+          ready.push_back(net);
+        }
+      }
+      for (size_t index = 0; index < ready.size(); ++index) {
+        auto found = consumers.find(ready[index]);
+        if (found == consumers.end()) {
+          continue;
+        }
+        for (auto* output : found->second) {
+          if (!--indegree[output]) {
+            ready.push_back(output);
+          }
+        }
+      }
+      if (ready.size() == indegree.size()) {
+        return true;
+      }
+      failureReason = "combinational cycle inside procedural block";
+      return false;
+    }
+
     bool lowerCombinationalProceduralBlock(
       SNLDesign* design,
       const Statement& stmt,
@@ -29778,6 +29957,10 @@ endmodule
       std::string& failureReason,
       const std::unordered_set<const slang::ast::ValueSymbol*>* ignoredSymbols = nullptr,
       bool allowNonBlockingAssignments = false) {
+      NLID::DesignObjectID firstInstanceID = 0;
+      for (auto* instance : design->getInstances()) {
+        firstInstanceID = std::max(firstInstanceID, instance->getID() + 1);
+      }
       ProceduralAssignmentSchedulingSummary schedulingSummary;
       ProceduralSchedulingPathState schedulingPathState;
       if (!analyzeProceduralAssignmentScheduling(
@@ -29976,7 +30159,7 @@ endmodule
           }
         }
       }
-      return true;
+      return checkCombinationalBlockCycles(design, firstInstanceID, failureReason);
     }
 
     bool buildSequentialIncrementerBitsIfNeeded(
@@ -30810,7 +30993,8 @@ endmodule
         }
       }
 
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         if (loweredSymbols.contains(updateEntry.first)) {
           continue;
         }
@@ -30924,7 +31108,8 @@ endmodule
       if (resetAssignments.assignments.empty()) {
         return DirectSequentialConditionalLowering::NotApplicable;
       }
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         const auto* symbol = updateEntry.first;
         if (!resetAssignments.bySymbol.contains(symbol)) {
           return DirectSequentialConditionalLowering::NotApplicable;
@@ -31249,7 +31434,8 @@ endmodule
         ++resetAssignmentIndex;
       }
 
-      for (const auto& updateEntry : updateAssignments.bySymbol) {
+      for (const auto* updateSymbol : symbolsInDeclarationOrder(updateAssignments.bySymbol)) {
+        const auto& updateEntry = *updateAssignments.bySymbol.find(updateSymbol);
         if (loweredSymbols.contains(updateEntry.first)) {
           continue;
         }
@@ -34976,6 +35162,29 @@ endmodule
           return true;
         };
 
+        // Preserve explicit size-conversion boundaries, and avoid sizing a
+        // direct right-shift builder from the narrower assignment destination.
+        const auto lhsWidth = lhsResolvedAsBitSlice
+          ? lhsBits.size() : collectBits(lhsNet).size();
+        bool hasExplicitSizeConversion = false;
+        for (const Expression* current = rhsExpression;
+             current->kind == slang::ast::ExpressionKind::Conversion;) {
+          const auto& conversion = current->as<slang::ast::ConversionExpression>();
+          const auto& operand = conversion.operand();
+          hasExplicitSizeConversion |= !conversion.isImplicit() &&
+            current->type->getBitWidth() != operand.type->getBitWidth();
+          current = &operand;
+        }
+        const bool isRightShift = rhs->kind == slang::ast::ExpressionKind::BinaryOp &&
+          (rhs->as<slang::ast::BinaryExpression>().op == slang::ast::BinaryOperator::LogicalShiftRight ||
+           rhs->as<slang::ast::BinaryExpression>().op == slang::ast::BinaryOperator::ArithmeticShiftRight);
+        if (hasExplicitSizeConversion || (isRightShift && rhs->type->getBitWidth() > lhsWidth)) {
+          if (!tryAssignResolvedRhsBits(*rhsExpression)) {
+            reportUnsupportedError("Unsupported RHS in continuous assign", assignSourceRange);
+          }
+          continue;
+        }
+
         const auto* rhsCastUnwrapped = unwrapSignedUnsignedCastCall(rhs);
         if (rhsCastUnwrapped && rhsCastUnwrapped->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhsCastUnwrapped->as<slang::ast::BinaryExpression>();
@@ -36280,6 +36489,7 @@ endmodule
       activeFunctionLocalNets_ {};
     std::vector<std::string> activeFunctionLocalSuffixes_ {};
     size_t activeFunctionCallSerial_ {0};
+    std::unordered_map<SNLDesign*, std::unordered_map<SNLNet*, const Symbol*>> inlinedCallNets_ {};
     std::unordered_map<
       const slang::ast::ValueSymbol*,
       std::unordered_map<SNLDesign*, SNLNet*>>
@@ -36653,6 +36863,13 @@ std::string testSVConstructorFormatQuotedDescriptionFailure(
   SNLSVConstructor::ConstructOptions options;
   SNLSVConstructorImpl impl(nullptr, options);
   return impl.testFormatQuotedDescriptionFailure(prefix, description);
+}
+
+bool testSVConstructorCheckCombinationalBlockCycles(
+  SNLDesign* design, NLID::DesignObjectID firstInstanceID, std::string& reason) {
+  SNLSVConstructor::ConstructOptions options;
+  SNLSVConstructorImpl impl(design->getLibrary(), options);
+  return impl.testCheckCombinationalBlockCycles(design, firstInstanceID, reason);
 }
 
 bool testSVConstructorTryCollapseAnonymousAssignAlias(

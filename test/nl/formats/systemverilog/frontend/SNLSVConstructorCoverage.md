@@ -38,6 +38,9 @@ are still expected in real designs:
   concatenation recursion, and member-access base resolution.
 - `parseCountOnesOperandResolveFailureUnsupported`: `$countones` operand
   bit-resolution failure after the operand width has been established.
+- `resolveExpressionBitsPropagatesFullWidthFailureBeforeNarrowing`: failure
+  propagation before narrowing logical/arithmetic right shifts, division, and
+  remainder when an operand function contains an unsupported case-inside range.
 - Direct inferred-memory write coverage includes constant conditional writes,
   nested packed constant-plus-dynamic selectors, two-dynamic-selector fallback,
   unresolved system-call selectors, and nested duplicate shadow commits.
@@ -91,6 +94,11 @@ the current architecture:
   SV elaboration (defensive guard).
 - `getConstantBit`: null expression after `stripConversions` on AST expression
   references (defensive guard).
+- `getConstantInt64`: active loop-variable select evaluation guards for a
+  missing evaluation symbol, invalid loop binding symbol/type, or failed local
+  creation. Parser-backed integral loop selects supply value symbols with
+  positive-width types, and Slang's `createLocal` returns the stored value's
+  address.
 - `getConstNet`: invalid net-type and four-state-value throws. Internal callers
   only pass an assign-constant type, and `slang::logic_t` only represents 0, 1,
   X, and Z.

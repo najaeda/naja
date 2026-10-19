@@ -113,6 +113,18 @@ SystemVerilog loading elaborates the design through the native frontend and
 then builds SNL objects.  Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+In a fresh universe, loading the same ordered sources and configuration with the
+same Naja build reproduces instance and net names, IDs, and creation order,
+including generated function-call temporaries. Verilog dumps match after
+excluding their timestamp comment headers. NajaIF snapshots, including their
+producer manifest, contain no timestamp and match byte for byte.
+
+Blocking read-modify-write assignments to fixed unpacked array elements (including
+nested arrays, packed struct fields and partial elements) use the value from
+before the statement, including when the index is variable. Combinational cycles
+in the logic emitted for a single ``always_comb`` or ``always @*`` block are
+rejected with a ``combinational cycle inside procedural block`` diagnostic.
+
 Each source file is a separate compilation unit by default
 (``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
 in earlier files without including their definitions, set ``single_unit=True``.
@@ -266,6 +278,16 @@ boundaries. Set ``keep_assigns=False`` to merge remaining assign connections aft
 elaboration. Function-local variables written by earlier loops are replayed
 before later loops read them, including partial writes and locally computed
 indices. These dependencies must remain driven in the returned netlist.
+Declaration initializers of automatic function locals execute on every call as
+blocking assignments, including expressions using arguments or earlier locals,
+packed vectors and structs, and declarations in named blocks. Later assignments
+see and can overwrite the initialized value. Combinational automatic tasks with
+output arguments use the same local replay behavior.
+
+Connected bits of inlined locals and formal arguments which have no driver emit
+an ``undriven_inlined_local`` elaboration warning with the declaration location.
+Unused replay storage does not trigger this warning. The normal warning
+suppression and diagnostics-report settings apply.
 
 By default, an incremental diagnostics report is written to
 ``naja_sv_diagnostics.log``. Set ``diagnostics_report_path=None`` in

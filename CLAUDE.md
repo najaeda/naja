@@ -214,6 +214,31 @@ kepler-formal's tests (`bazel test //... --override_module=naja=<path to this
 checkout>`) are the reference consumer. Do not assume Naja's root .bazelrc
 configuration is inherited by that consumer.
 
+## Determinism is a correctness requirement
+
+For identical ordered inputs, options, build and initial universe, loading and
+transforming a design must reproduce object creation order, names, IDs and
+connectivity across processes. Verilog dumps may differ only in banner timestamps;
+DOT and NajaIF snapshots (including manifests) must match byte for byte.
+
+- Never let hash iteration or pointer-address ordering drive object creation,
+  merging, naming counters, representative selection or emission. Unordered
+  containers are fine for lookup and membership; use explicit insertion order,
+  scoped declaration order or stable NLIDs for observable traversals.
+- Sorting only a dump is insufficient: live IDs and names must already agree.
+  Sort keys must distinguish relevant objects; never break ties with pointers.
+- New creation paths and ordering fixes need a synthetic cross-process regression
+  in `test/najaeda/test_najaeda_determinism.py`. Preserve comparisons of live state,
+  all dump artifacts and snapshot round trips; do not normalize new differences
+  away. Keep private designs out of tracked fixtures and CI artifacts.
+- Run `ctest --test-dir build -L determinism --no-tests=error --output-on-failure`
+  or `bazel test //test/najaeda:najaeda_determinism_tests --test_output=errors`.
+  Build-path changes require both, under the product-equivalence policy above.
+
+See [the determinism strategy](test/najaeda/DETERMINISM.md) for coverage, stress
+runs and the review checklist. Linux/macOS CMake and Bazel CI run the contract;
+the Linux najaeda workflow also stress-tests it weekly.
+
 ## Conventions
 
 - Whenever the `najaeda` version is incremented, update the pinned `najaeda` version in all Colab tutorials under `tutorials/notebooks/` and the local installation command in `tutorials/README.md` in the same change.

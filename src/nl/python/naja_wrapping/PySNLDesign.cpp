@@ -4,6 +4,7 @@
 
 #include "PySNLDesign.h"
 #include "PySNLSequentialModel.h"
+#include "PySNLMemoryInterface.h"
 
 #include "PyInterface.h"
 
@@ -905,6 +906,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get primitive data output terms"},
   { "setSequentialModelFromParameters", (PyCFunction)PySNLDesign_setSequentialModelFromParameters,
     METH_VARARGS|METH_KEYWORDS, "Set a table of parameter-selected sequential models."},
+  { "hasMemoryInterface", (PyCFunction)PySNLDesign_hasMemoryInterface, METH_NOARGS,
+    "Return whether this design has a memory interface."},
+  { "getMemoryInterface", (PyCFunction)PySNLDesign_getMemoryInterface, METH_NOARGS,
+    "Return the memory interface dictionary; raise RuntimeError if absent."},
   { "getSequentialModel", (PyCFunction)PySNLDesign_getSequentialModel,
     METH_NOARGS, "Get the static sequential model as expression trees."},
   { "hasSequentialModelFromParameters", (PyCFunction)PySNLDesign_hasSequentialModelFromParameters,
