@@ -74,6 +74,47 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().setTopDB("Error")
     del db    
   
+  def testGateLevelVerilogNamesAndAliases(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, "input.v")
+      with open(source, "w") as stream:
+        stream.write("module top(input a, output y); assign y = a; endmodule\n")
+      with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        top = db.loadGateLevelVerilog(files=[source], keep_assigns=False)
+        self.assertEqual(top.getName(), "top")
+        db.dumpGateLevelVerilog(os.path.join(directory, "new_db.v"))
+        top.dumpGateLevelVerilog(directory, "new_design.v", dumpAssignsAsInstances=True)
+      with self.assertWarnsRegex(FutureWarning, "NLDB.dumpVerilog will be deprecated soon"):
+        db.dumpVerilog(os.path.join(directory, "old_db.v"))
+      with self.assertWarnsRegex(FutureWarning, "SNLDesign.dumpVerilog will be deprecated soon"):
+        top.dumpVerilog(directory, "old_design.v", dumpAssignsAsInstances=True)
+      def body(name):
+        with open(os.path.join(directory, name)) as stream:
+          text = stream.read()
+        return text[text.index("module "):]
+      self.assertEqual(body("new_db.v"), body("old_db.v"))
+      self.assertEqual(body("new_design.v"), body("old_design.v"))
+      # Recreate the universe so the legacy loader sees identical initial state.
+      naja.NLUniverse.get().destroy()
+      naja.NLUniverse.create()
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      with self.assertWarnsRegex(FutureWarning, "NLDB.loadVerilog will be deprecated soon"):
+        top = db.loadVerilog(files=[source], keep_assigns=False)
+      self.assertEqual(top.getName(), "top")
+      with self.assertRaisesRegex(TypeError, "NLDB.loadGateLevelVerilog: files"):
+        db.loadGateLevelVerilog("invalid")
+      with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        with self.assertRaises(FutureWarning):
+          db.loadVerilog([source])
+        with self.assertRaises(FutureWarning):
+          db.dumpVerilog(os.path.join(directory, "blocked.v"))
+        with self.assertRaises(FutureWarning):
+          top.dumpVerilog(directory, "blocked.v")
+      self.assertFalse(os.path.exists(os.path.join(directory, "blocked.v")))
+
   def testVerilog(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 

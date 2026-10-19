@@ -16,12 +16,23 @@ https://colab.research.google.com/github/najaeda/naja/blob/main/tutorials/notebo
 
 Naja is an open source EDA framework for loading, elaborating, analyzing, optimizing, and transforming hardware designs from SystemVerilog and VHDL RTL through structural netlists. It is usable from Python or C++.
 
-- **SV/Verilog frontend** — parse Verilog and elaborate SystemVerilog RTL into a browsable design model
+- **Gate-level Verilog frontend** — load structural netlists and their connectivity
+- **SystemVerilog RTL frontend** — elaborate supported Verilog and SystemVerilog RTL into a browsable design model through slang
 - **VHDL frontend (Beta)** — parse and elaborate supported VHDL RTL into the same design model
 - **Netlist analysis** — hierarchy, connectivity, equipotentials
 - **Logic optimization** — dead logic elimination, constant propagation
 - **ECO transformations** — direct netlist editing
 - **Serialization** — SNL interchange format (Cap'n Proto) and Verilog output
+
+In the APIs and CLI, `load_gate_level_verilog`, `NLDB.loadGateLevelVerilog`, and `-f gate-level-verilog` mean
+**gate-level (structural) Verilog**, not general behavioral RTL. For Verilog or
+SystemVerilog RTL, including `.v` sources, use `load_system_verilog`,
+`NLDB.loadSystemVerilog`, or `-f systemverilog` within the slang frontend's
+supported RTL subset. Verilog export writes structural netlists. The former Python names
+(`load_verilog`, `VerilogConfig`, `dump_verilog`, `VerilogDumpConfig`, and raw
+`loadVerilog`/`dumpVerilog`) remain compatibility aliases and warn that they
+will be deprecated soon. The CLI also keeps `-f verilog` and `-t verilog` as
+compatibility aliases with the same migration warning; prefer `gate-level-verilog`.
 
 ### Architecture
 
@@ -154,11 +165,11 @@ Six hands-on notebooks — open any of them in Colab with no local install neede
 :tv: Presented at [ORConf 2024](https://www.youtube.com/watch?v=JpwZGCuWekU).
 
 ```bash
-# Translate Verilog → SNL
-naja_edit -f verilog -t snl -i input.v -o output.snl
+# Translate gate-level Verilog → SNL
+naja_edit -f gate-level-verilog -t snl -i input.v -o output.snl
 
-# Parse SystemVerilog with explicit top
-naja_edit -f systemverilog -t verilog -i input.sv -o output.v --sv_top top
+# Elaborate Verilog/SystemVerilog RTL with explicit top; export a gate-level netlist
+naja_edit -f systemverilog -t gate-level-verilog -i input.sv -o output.v --sv_top top
 
 # Dead logic elimination
 naja_edit -f snl -t snl -i input.snl -o output.snl -a dle

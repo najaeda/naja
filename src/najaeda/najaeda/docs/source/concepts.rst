@@ -16,7 +16,7 @@ For normal scripts, :mod:`najaeda.netlist` manages this structure:
 * :func:`najaeda.netlist.reset` clears the current universe.
 * :func:`najaeda.netlist.create_top` creates a new top design.
 * :func:`najaeda.netlist.get_top` returns the current top design wrapper.
-* load functions such as :func:`najaeda.netlist.load_verilog` create or update
+* load functions such as :func:`najaeda.netlist.load_gate_level_verilog` create or update
   the top database and return the top :class:`najaeda.netlist.Instance`.
 
 Instances and models
