@@ -79,7 +79,7 @@ const char* resetModeName(SNLDesignModeling::MemoryResetMode mode) {
     case Mode::SyncLow: return "sync_low";
     case Mode::SyncHigh: return "sync_high";
   }
-  throw NLException("Unknown memory reset mode");
+  throw NLException("Unknown memory reset mode"); // LCOV_EXCL_LINE defensive: all MemoryResetMode values handled above
 }
 
 PyObject* toMemoryInterface(const SNLDesignModeling::MemoryInterface& memory) {
@@ -102,7 +102,7 @@ PyObject* PySNLDesign_hasMemoryInterface(PySNLDesign* self) {
   GENERIC_METHOD_HEAD(SNLDesign, "SNLDesign.hasMemoryInterface()")
   TRY
   return PyBool_FromLong(SNLDesignModeling::hasMemoryInterface(selfObject));
-  NLCATCH
+  NLCATCH // LCOV_EXCL_LINE defensive: hasMemoryInterface only queries existing metadata
 }
 
 PyObject* PySNLDesign_getMemoryInterface(PySNLDesign* self) {
