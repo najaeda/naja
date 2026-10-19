@@ -40,6 +40,22 @@
 namespace naja::NL {
 namespace {
 using boost::multiprecision::int128_t;
+// Boost 1.66 (Rocky Linux 8) expects allocator members removed from
+// std::allocator in C++20. Keep its arbitrary-precision backend usable with
+// both old and new Boost headers without changing allocation behavior.
+template<typename T>
+struct IntegerAllocator: std::allocator<T> {
+  using pointer = T*;
+  using const_pointer = const T*;
+  template<typename U>
+  struct rebind { using other = IntegerAllocator<U>; };
+  IntegerAllocator() = default;
+  template<typename U>
+  IntegerAllocator(const IntegerAllocator<U>&) {}
+};
+using Integer = boost::multiprecision::number<boost::multiprecision::cpp_int_backend<
+    0, 0, boost::multiprecision::signed_magnitude, boost::multiprecision::unchecked,
+    IntegerAllocator<boost::multiprecision::limb_type>>>;
 using Expr = vhdl::Expression;
 using Statement = vhdl::SequentialStatement;
 using Bits = std::vector<SNLBitNet*>;
@@ -3001,7 +3017,7 @@ class RTLConstructor {
   Value readDynamicSlice(Value source, const Expr& slice, const State& state) {
     if (source.shape.ranges.size() != 1 || source.shape.enumeration || !source.shape.fields.empty())
       fail("dynamic slices require a logic vector");
-    struct Linear { std::map<std::string, boost::multiprecision::cpp_int> terms; boost::multiprecision::cpp_int constant = 0; };
+    struct Linear { std::map<std::string, Integer> terms; Integer constant = 0; };
     const auto linear = [&](const auto& self, const Expr& expression) -> Linear {
       if (isStatic(expression)) return {{}, integer(expression)};
       if (expression.kind == Expr::Kind::Binary && (expression.text == "+" || expression.text == "-")) {

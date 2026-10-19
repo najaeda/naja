@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Use --build-arg ROCKY_VERSION=8 for a Rocky/RHEL 8-compatible image.
+# Use --build-arg ROCKY_VERSION=8, 9 or 10 to select the Rocky/RHEL version.
 ARG ROCKY_VERSION=9
 ARG GCC_TOOLSET_VERSION=12
 

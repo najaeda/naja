@@ -6789,6 +6789,25 @@ begin y <= bounds(a(to_integer(address)+1 downto to_integer(address))); end;
 )"), NLException);
 }
 
+TEST_F(VHDLConstructorTest, DynamicSlicesRejectLargeRuntimeWidthCoefficients) {
+  // The coefficient is 2^160: fixed-width arithmetic would wrap it to zero
+  // and incorrectly accept this runtime-dependent width as a two-bit slice.
+  try {
+    VHDLConstructor(library_).construct(R"(
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity variable_slice is port(a : in std_ulogic_vector(7 downto 0);
+  address : in unsigned(1 downto 0); y : out std_ulogic_vector(1 downto 0)); end;
+architecture rtl of variable_slice is begin
+  y <= a(to_integer(address)*4294967296*4294967296*4294967296*4294967296*4294967296+1
+         downto to_integer(address)*0);
+end;
+)");
+    FAIL() << "accepted a runtime-dependent slice width";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string(error.what()).find("runtime-dependent slice widths are unsupported"), std::string::npos);
+  }
+}
+
 TEST_F(VHDLConstructorTest, NestedDynamicWritesUpdateRecordFieldsAndVariables) {
   auto* design = VHDLConstructor(library_).construct(R"(
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
