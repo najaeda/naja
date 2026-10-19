@@ -6,7 +6,7 @@
 ARG ROCKY_VERSION=9
 ARG GCC_TOOLSET_VERSION=12
 
-FROM rockylinux:${ROCKY_VERSION} AS builder
+FROM rockylinux/rockylinux:${ROCKY_VERSION} AS builder
 ARG ROCKY_VERSION
 ARG GCC_TOOLSET_VERSION
 
@@ -110,7 +110,7 @@ RUN mkdir -p /naja/runtime-lib \
         cp -L -f "${lib}" /naja/runtime-lib/; \
       done
 
-FROM rockylinux:${ROCKY_VERSION} AS release
+FROM rockylinux/rockylinux:${ROCKY_VERSION} AS release
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV PYTHONPATH=/naja/lib/python
