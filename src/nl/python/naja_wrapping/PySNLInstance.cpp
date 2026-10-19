@@ -11,6 +11,7 @@
 
 #include "PySNLDesign.h"
 #include "PySNLSequentialModel.h"
+#include "PySNLMemoryInterface.h"
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
@@ -136,6 +137,8 @@ GetContainerMethod(SNLInstance, SNLInstParameter*, SNLInstParameters, InstParame
 DirectGetNumericMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
 
 PyMethodDef PySNLInstance_Methods[] = {
+  { "getMemoryInterface", (PyCFunction)PySNLInstance_getMemoryInterface, METH_NOARGS,
+    "Return the memory interface dictionary; raise RuntimeError if absent."},
   { "getSequentialModel", (PyCFunction)PySNLInstance_getSequentialModel, METH_NOARGS,
     "Resolve the instance sequential model as expression trees."},
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
