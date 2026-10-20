@@ -616,22 +616,24 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   int keep_ast_link = 0;  // Default: false
   int blackbox_unknown_modules = 0;  // Default: false
   int blackbox_multi_writer_memories = 0;  // Default: false
+  PyObject* default_timescale = nullptr;  // Optional: fallback time scale
 
   static const char* const kwords[] = {
     "files", "keep_assigns", "elaborated_ast_json_path",
     "pretty_print_elaborated_ast_json", "include_source_info_in_elaborated_ast_json", "flist",
     "diagnostics_report_path", "defines", "suppress_warnings", "keep_ast_link",
-    "blackbox_unknown_modules", "library", "blackbox_multi_writer_memories",
+    "blackbox_unknown_modules", "library", "blackbox_multi_writer_memories", "default_timescale",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pOppOOOOppOp:NLDB.loadSystemVerilog",
+    args, kwargs, "O|pOppOOOOppOpO:NLDB.loadSystemVerilog",
     const_cast<char**>(kwords),
     &files, &keep_assigns, &elaborated_ast_json_path,
     &pretty_print_elaborated_ast_json,
     &include_source_info_in_elaborated_ast_json, &flist, &diagnostics_report_path,
-    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules, &libraryObject, &blackbox_multi_writer_memories)) {
+    &defines, &suppress_warnings, &keep_ast_link, &blackbox_unknown_modules, &libraryObject,
+    &blackbox_multi_writer_memories, &default_timescale)) {
     return nullptr;
   }
 
@@ -652,6 +654,21 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   options.keepASTLink = keep_ast_link;
   options.blackboxUnknownModules = blackbox_unknown_modules;
   options.blackboxMultiWriterMemories = blackbox_multi_writer_memories;
+  if (default_timescale != nullptr && default_timescale != Py_None) {
+    if (not PyUnicode_Check(default_timescale)) {
+      PyErr_SetString(PyExc_TypeError,
+        "NLDB.loadSystemVerilog: default_timescale must be a str or None");
+      return nullptr;
+    }
+    const char* value = PyUnicode_AsUTF8(default_timescale);
+    if (value == nullptr) return nullptr;
+    if (PyUnicode_GetLength(default_timescale) == 0) {
+      PyErr_SetString(PyExc_ValueError,
+        "NLDB.loadSystemVerilog: default_timescale must not be empty");
+      return nullptr;
+    }
+    options.defaultTimeScale = value;
+  }
 
   if (elaborated_ast_json_path != nullptr &&
       elaborated_ast_json_path != Py_None) {
@@ -1011,6 +1028,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "(default naja_sv_diagnostics.log; None disables the report file)\n"
     "  defines (list[str], optional): SystemVerilog preprocessor defines passed as -D<name>[=<value>]\n"
     "  suppress_warnings (list[str], optional): frontend warning names to suppress\n"
+    "  default_timescale (str | None, optional): fallback time scale, e.g. 1ns/1ps (default None)\n"
     "  blackbox_multi_writer_memories (bool, optional): blackbox entire modules with unsupported multi-writer memories (default False)\n"
     "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "
     "(default False)."},

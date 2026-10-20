@@ -56,6 +56,27 @@ endmodule
 """
 
 class SNLDBTest(unittest.TestCase):
+  def test_default_timescale(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    for value in (1, False, []):
+      with self.assertRaisesRegex(TypeError, "default_timescale must be a str or None"):
+        db.loadSystemVerilog([], default_timescale=value)
+    with self.assertRaisesRegex(ValueError, "default_timescale must not be empty"):
+      db.loadSystemVerilog([], default_timescale="")
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "source.sv")
+      with open(path, "w", encoding="utf-8") as source:
+        source.write("module leaf(output wire y); assign y = 1'b1; endmodule\n"
+                     "module top(output wire y); timeunit 1ns/1ps; leaf u(y); endmodule\n")
+      with self.assertRaisesRegex(naja.SystemVerilogSyntaxError, "time scale"):
+        db.loadSystemVerilog([path], default_timescale=None)
+      for value in ("invalid", "1ns/1us"):
+        with self.assertRaises(naja.SystemVerilogSyntaxError):
+          db.loadSystemVerilog([path], default_timescale=value)
+      top = db.loadSystemVerilog([path], default_timescale="1ns/1ps")
+      self.assertEqual("top", top.getName())
+
   def setUp(self):
     naja.NLUniverse.create()
 

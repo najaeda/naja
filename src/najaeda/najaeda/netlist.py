@@ -2240,6 +2240,8 @@ class SystemVerilogConfig:
     blackbox_multi_writer_memories: bool = False
     # Share preprocessor macros across source files in input order.
     single_unit: bool = False
+    # Fallback for design elements without an explicit time scale.
+    default_timescale: Optional[str] = None
 
     def __post_init__(self):
         self.validate()
@@ -2280,6 +2282,12 @@ class SystemVerilogConfig:
                     f"(got {type(self.top).__name__})")
             if not self.top.strip():
                 raise ValueError("SystemVerilogConfig.top must not be empty")
+
+        if self.default_timescale is not None:
+            if not isinstance(self.default_timescale, str):
+                raise TypeError("SystemVerilogConfig.default_timescale must be a str or None")
+            if not self.default_timescale.strip():
+                raise ValueError("SystemVerilogConfig.default_timescale must not be empty")
 
         self._validate_string_list("defines", allow_whitespace=False)
         self._validate_string_list("suppress_warnings", allow_whitespace=False)
@@ -2512,6 +2520,7 @@ def load_system_verilog(
             blackbox_multi_writer_memories=config.blackbox_multi_writer_memories,
             library=library,
             suppress_warnings=config.suppress_warnings,
+            default_timescale=config.default_timescale,
             keep_ast_link=config.keep_ast_link,
         )
     finally:
