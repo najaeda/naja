@@ -4,6 +4,7 @@
 
 #include "SNLDesign.h"
 
+#include <algorithm>
 #include <list>
 #include <sstream>
 #include <vector>
@@ -139,6 +140,11 @@ void SNLDesign::postCreateAndSetID() {
 
 void SNLDesign::commonPreDestroy() {
   NAJA_LOG_TRACE("Destroying {}", getDescription());
+  //Clocks reference terminals of this design, so they go before those terminals.
+  std::vector<NLClock*> clocks = clocks_;
+  for (NLClock* clock: clocks) {
+    clock->destroy();
+  }
   if (rtlInfos_) {
     rtlInfos_->destroy();
   }
@@ -193,6 +199,18 @@ void SNLDesign::preDestroy() {
   }
   library_->removeSNLDesign(this);
   commonPreDestroy();
+}
+
+NajaCollection<NLClock*> SNLDesign::getClocks() const {
+  return new NajaSTLCollection(&clocks_);
+}
+
+void SNLDesign::addClock(NLClock* clock) {
+  clocks_.push_back(clock);
+}
+
+void SNLDesign::removeClock(NLClock* clock) {
+  clocks_.erase(std::remove(clocks_.begin(), clocks_.end(), clock), clocks_.end());
 }
 
 void SNLDesign::addTermAndSetID(SNLTerm* term) {
