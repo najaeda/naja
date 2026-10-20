@@ -12,13 +12,21 @@ entry point.  It exposes native SNL objects directly and assumes that callers
 understand database ownership, object lifetimes, uniquification, and the SNL
 hierarchy model.
 
-Raw methods and module functions use camelCase, for example ``isClock()``,
-``getNodes()``, ``createBinary()``, ``fromString()``, and
-``snapshotManifest()``. The source-intent helpers follow the same convention:
-``liveCompilation()``, ``astSymbolOf()``, ``snlObjectsOf()``,
-``intentAvailable()``, ``intentTypeOf()``, ``intentParametersOf()``, and
-``intentPackageMember()``. Callers of the former snake_case spellings must
-switch to these names; those spellings are no longer exported. High-level
+Raw methods and module functions use camelCase, for example
+:meth:`isClock() <najaeda.naja.SNLBitTerm.isClock>`,
+:meth:`getNodes() <najaeda.naja.LogicCone.getNodes>`,
+:meth:`createBinary() <najaeda.naja.SNLParameter.createBinary>`,
+:meth:`fromString() <najaeda.naja.NLID.fromString>`, and
+:func:`snapshotManifest() <najaeda.naja.snapshotManifest>`.
+The source-intent helpers follow the same convention:
+:func:`liveCompilation() <najaeda.naja.liveCompilation>`,
+:func:`astSymbolOf() <najaeda.naja.astSymbolOf>`,
+:func:`snlObjectsOf() <najaeda.naja.snlObjectsOf>`,
+:func:`intentAvailable() <najaeda.naja.intentAvailable>`,
+:func:`intentTypeOf() <najaeda.naja.intentTypeOf>`,
+:func:`intentParametersOf() <najaeda.naja.intentParametersOf>`, and
+:func:`intentPackageMember() <najaeda.naja.intentPackageMember>`.
+Callers of the former snake_case spellings must switch to these names; those spellings are no longer exported. High-level
 :mod:`najaeda.netlist` methods continue to use snake_case, such as
 ``Term.is_clock()``. Dictionary keys returned by raw functions retain their
 existing spellings.
@@ -104,17 +112,20 @@ names still work, but they emit a ``DeprecationWarning`` saying they will be
 removed in the next release, and forward to the new name:
 
 * ``naja.SNLParameter.create_string``, ``create_decimal``, ``create_binary``,
-  ``create_boolean`` -> ``createString``, ``createDecimal``, ``createBinary``,
-  ``createBoolean``
-* ``naja.NLID.from_string`` -> ``fromString``
-* ``naja.snapshot_manifest`` -> ``snapshotManifest``
-* ``naja.live_compilation`` -> ``liveCompilation``
-* ``naja.ast_symbol_of`` -> ``astSymbolOf``
-* ``naja.snl_objects_of`` -> ``snlObjectsOf``
-* ``naja.intent_available`` -> ``intentAvailable``
-* ``naja.intent_type_of`` -> ``intentTypeOf``
-* ``naja.intent_parameters_of`` -> ``intentParametersOf``
-* ``naja.intent_package_member`` -> ``intentPackageMember``
+  ``create_boolean`` ->
+  :meth:`createString <najaeda.naja.SNLParameter.createString>`,
+  :meth:`createDecimal <najaeda.naja.SNLParameter.createDecimal>`,
+  :meth:`createBinary <najaeda.naja.SNLParameter.createBinary>`,
+  :meth:`createBoolean <najaeda.naja.SNLParameter.createBoolean>`
+* ``naja.NLID.from_string`` -> :meth:`fromString <najaeda.naja.NLID.fromString>`
+* ``naja.snapshot_manifest`` -> :func:`snapshotManifest <najaeda.naja.snapshotManifest>`
+* ``naja.live_compilation`` -> :func:`liveCompilation <najaeda.naja.liveCompilation>`
+* ``naja.ast_symbol_of`` -> :func:`astSymbolOf <najaeda.naja.astSymbolOf>`
+* ``naja.snl_objects_of`` -> :func:`snlObjectsOf <najaeda.naja.snlObjectsOf>`
+* ``naja.intent_available`` -> :func:`intentAvailable <najaeda.naja.intentAvailable>`
+* ``naja.intent_type_of`` -> :func:`intentTypeOf <najaeda.naja.intentTypeOf>`
+* ``naja.intent_parameters_of`` -> :func:`intentParametersOf <najaeda.naja.intentParametersOf>`
+* ``naja.intent_package_member`` -> :func:`intentPackageMember <najaeda.naja.intentPackageMember>`
 
 Memory interface inspection
 ---------------------------
