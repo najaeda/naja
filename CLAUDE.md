@@ -366,3 +366,9 @@ established. Permission to analyze an input is not permission to publish it.
 ## Git
 
 - Default/PR base branch: `main`. Don't commit or push unless asked; if on `main`, branch first.
+- Create feature branches with `git switch --no-track -c <branch> origin/main`.
+  Never configure a feature branch to track `origin/main`.
+- Before pushing, verify the current branch and its configured upstream. Push
+  feature branches to an explicit destination, for example
+  `git push -u origin HEAD:refs/heads/<branch>`, and confirm that the destination
+  is the intended feature branch. Never push a feature branch to `main`.
