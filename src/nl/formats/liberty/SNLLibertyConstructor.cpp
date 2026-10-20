@@ -817,7 +817,7 @@ void populateSequentialModel(
   bool hasBank = false;
   for (auto* child : cell->children) {
     size_t width = 0;
-    if (child->id == "ff") {
+    if (child->id == "ff" || child->id == "latch") {
       width = 1;
     } else if (child->id == "ff_bank") {
       if (child->args.size() < 3) {
@@ -842,21 +842,30 @@ void populateSequentialModel(
     return;
   }
 
-  if (findDirectChild(cell, "latch") != nullptr ||
+  // A `latch` group is level-sensitive: `enable` takes the role of
+  // `clocked_on` and `data_in` that of `next_state`. SequentialModel has one
+  // shared control, so a cell mixing flip-flop and latch state, or using
+  // `latch_bank`, keeps no model and stays loadable.
+  const bool hasLatch = std::any_of(
+      groups.begin(), groups.end(),
+      [](const StateGroup& group) { return group.node->id == "latch"; });
+  const bool allLatches = std::all_of(
+      groups.begin(), groups.end(),
+      [](const StateGroup& group) { return group.node->id == "latch"; });
+  if ((hasLatch && !allLatches) ||
       findDirectChild(cell, "latch_bank") != nullptr) {
-    // SequentialModel has one shared control and cannot faithfully represent
-    // mixed flip-flop and latch state. Keep the cell loadable instead of
-    // attaching a partial model that omits the latch state.
     return;
   }
+  const char* const controlName = hasLatch ? "enable" : "clocked_on";
+  const char* const dataName = hasLatch ? "data_in" : "next_state";
 
   const Yosys::LibertyAst* firstClockedOn = nullptr;
   for (const auto& group : groups) {
     if (group.node->args.empty()) {
       return;
     }
-    auto* clockedOn = findDirectChild(group.node, "clocked_on");
-    auto* nextState = findDirectChild(group.node, "next_state");
+    auto* clockedOn = findDirectChild(group.node, controlName);
+    auto* nextState = findDirectChild(group.node, dataName);
     if (clockedOn == nullptr || nextState == nullptr) {
       return;
     }
@@ -912,15 +921,18 @@ void populateSequentialModel(
 
   auto buildModel = [&]() {
     SNLDesignModeling::SequentialModel model;
+    model.kind = hasLatch ? SNLDesignModeling::SequentialModel::Kind::Latch
+                          : SNLDesignModeling::SequentialModel::Kind::FlipFlop;
     model.clockedOn = parseSequentialExpression(
         primitive,
         firstClockedOn->value,
         stateIdentifiersForBit(0),
         termAliasesForBit(0),
-        "`clocked_on` expression for " + getGroupDescription(groups.front().node),
+        "`" + std::string(controlName) + "` expression for " +
+            getGroupDescription(groups.front().node),
         firstClockedOn->line);
     for (const auto& group : groups) {
-      auto* nextState = findDirectChild(group.node, "next_state");
+      auto* nextState = findDirectChild(group.node, dataName);
       auto* clear = findDirectChild(group.node, "clear");
       auto* preset = findDirectChild(group.node, "preset");
       for (size_t bit = 0; bit < group.width; ++bit) {
@@ -932,7 +944,8 @@ void populateSequentialModel(
             nextState->value,
             identifiers,
             aliases,
-            "`next_state` expression for " + getGroupDescription(group.node),
+            "`" + std::string(dataName) + "` expression for " +
+                getGroupDescription(group.node),
             nextState->line);
         if (clear != nullptr) {
           state.clear = parseSequentialExpression(
@@ -1337,9 +1350,10 @@ void parseCell(
         sourcePath.string());
     }
     FunctionParsingType type = FunctionParsingType::Combinational;
-    if (cell->find("ff") || cell->find("ff_bank") || cell->find("memory")) {
+    if (cell->find("ff") || cell->find("ff_bank") || cell->find("memory") ||
+        cell->find("latch")) {
       type = FunctionParsingType::Sequential;
-    } else if (cell->find("latch") || cell->find("latch_bank")) {
+    } else if (cell->find("latch_bank")) {
       type = FunctionParsingType::Ignore;
     } else if (hasUnsupportedStateModel) {
       type = FunctionParsingType::TimingOnly;
