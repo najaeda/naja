@@ -5,10 +5,9 @@
 if(TEST_CASE STREQUAL "gate-level-verilog-formats")
   set(TEST_DIR "${CMAKE_CURRENT_BINARY_DIR}/naja-edit-format-test")
   file(MAKE_DIRECTORY "${TEST_DIR}")
-  file(WRITE "${TEST_DIR}/input.v"
-    "// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>\n"
-    "// SPDX-License-Identifier: Apache-2.0\n"
-    "module top(input a, output y); assign y = a; endmodule\n")
+  file(WRITE "${TEST_DIR}/input.v" [=[
+module top(input a, output y); assign y = a; endmodule
+]=])
   foreach(INPUT_FORMAT gate-level-verilog verilog)
     foreach(OUTPUT_FORMAT gate-level-verilog verilog inferred)
       set(OUTPUT_FILE "${TEST_DIR}/${INPUT_FORMAT}-${OUTPUT_FORMAT}.v")
