@@ -52,11 +52,13 @@ module leaf(input logic [4:0] a, b, input logic [1:0] op,
       end
     endcase
     y = (first * second) ^ (third >> op); z = third;
+    if (b !=? {2'b?1, 3'bz0x}) y = second;
     for (int k = 0; k < 5; k++) z[k] = third[k] ^ first[k];
     z *= second;
     z -= first;
     y >>= op;
     if (first < second) z[{3'b0, op}] = ^(first + second);
+    if (a ==? 5'b1?0xz) z = first;
   end
 endmodule
 module stateful(input logic clk, rst, enable, input logic [4:0] a, b,
