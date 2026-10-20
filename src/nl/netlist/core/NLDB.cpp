@@ -186,7 +186,7 @@ NajaCollection<NLClock*> NLDB::getClocks() const {
   auto designClocksFlattener = [](SNLDesign* design) { return design->getClocks(); };
   auto libraryClocksFlattener = [designClocksFlattener](NLLibrary* library) {
     return library->getSNLDesigns().getFlatCollection<SNLDesign*, NLClock*, NLClock*>(designClocksFlattener);
-  };
+  }; // LCOV_EXCL_LINE Compiler-generated exception cleanup during collection construction.
   return getGlobalLibraries().getFlatCollection<NLLibrary*, NLClock*, NLClock*>(libraryClocksFlattener);
 }
 

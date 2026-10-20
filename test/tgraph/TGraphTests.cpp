@@ -6,6 +6,7 @@
 #include "gtest/gtest.h"
 
 #include <stdexcept>
+#include <utility>
 
 #include "NLDB.h"
 #include "NLLibrary.h"
@@ -18,9 +19,11 @@
 #include "TClock.h"
 #include "TClockPropagator.h"
 #include "TEdge.h"
+#include "TEdgeProxy.h"
 #include "TGraph.h"
 #include "TLoopBreaker.h"
 #include "TNode.h"
+#include "TNodeProxy.h"
 
 using namespace naja::NL;
 using namespace naja::TG;
@@ -133,6 +136,39 @@ TEST_F(TGraphTests, testEdgeSlotReuseResetsStateAndEndpoints) {
   EXPECT_TRUE(view.getNode(b)->getInEdges().empty());
 }
 
+TEST_F(TGraphTests, testEdgeMoveAssignmentTransfersStateAndProxyOwnership) {
+  struct Proxy: TEdgeProxy {
+    explicit Proxy(bool& destroyed): destroyed_(destroyed) {}
+    ~Proxy() override { destroyed_ = true; }
+    bool& destroyed_;
+  };
+  bool sourceDestroyed = false;
+  bool replacedDestroyed = false;
+  {
+    auto* proxy = new Proxy(sourceDestroyed);
+    auto source = TEdge::create(7, 2, 3, proxy);
+    const TEdge::ClockMask from(3, 5);
+    const TEdge::ClockMask to(3, 2);
+    source.setFromClocks(from);
+    source.setToClocks(to);
+    source.setDisabled(true);
+    auto destination = TEdge::create(8, 4, 5, new Proxy(replacedDestroyed));
+    destination = std::move(source);
+    EXPECT_TRUE(replacedDestroyed);
+    EXPECT_FALSE(sourceDestroyed);
+    EXPECT_EQ(nullptr, source.getProxy());
+    EXPECT_EQ(proxy, destination.getProxy());
+    EXPECT_EQ(7u, destination.getIndex());
+    EXPECT_EQ(2u, destination.getSource());
+    EXPECT_EQ(3u, destination.getTarget());
+    EXPECT_TRUE(destination.isAlive());
+    EXPECT_TRUE(destination.isDisabled());
+    EXPECT_EQ(from, destination.getFromClocks());
+    EXPECT_EQ(to, destination.getToClocks());
+  }
+  EXPECT_TRUE(sourceDestroyed);
+}
+
 TEST_F(TGraphTests, testRemoveNodeDisconnectsAllSignalEdges) {
   TGraph graph;
   auto source = graph.createNode(nullptr);
@@ -219,6 +255,45 @@ TEST_F(TGraphTests, testNodeClassificationSurvivesGrowthAndClearsOnReuse) {
   EXPECT_EQ(TNode::CellKind::Unknown, graph.getNode(id)->getCellKind());
   EXPECT_EQ(TNode::PinRole::Unknown, graph.getNode(id)->getPinRole());
   EXPECT_FALSE(graph.getNode(id)->isFlopDataOutput());
+}
+
+TEST_F(TGraphTests, testNodeMoveAssignmentTransfersStateAndProxyOwnership) {
+  struct Proxy: TNodeProxy {
+    explicit Proxy(bool& destroyed): destroyed_(destroyed) {}
+    ~Proxy() override { destroyed_ = true; }
+    bool& destroyed_;
+  };
+  bool sourceDestroyed = false;
+  bool replacedDestroyed = false;
+  {
+    TGraph graph;
+    auto* proxy = new Proxy(sourceDestroyed);
+    auto before = graph.createNode(nullptr);
+    auto source = graph.createNode(proxy);
+    auto after = graph.createNode(nullptr);
+    auto incoming = graph.createEdge(before, source, nullptr);
+    auto outgoing = graph.createEdge(source, after, nullptr);
+    auto captureIn = graph.createCaptureEdge(before, source);
+    auto captureOut = graph.createCaptureEdge(source, after);
+    graph.getNode(source)->setCellKind(TNode::CellKind::FlipFlop);
+    graph.getNode(source)->setPinRole(TNode::PinRole::DataInput);
+    auto destination = TNode::create(99, new Proxy(replacedDestroyed));
+    destination = std::move(*graph.getNode(source));
+    EXPECT_TRUE(replacedDestroyed);
+    EXPECT_FALSE(sourceDestroyed);
+    EXPECT_EQ(nullptr, graph.getNode(source)->getProxy());
+    EXPECT_EQ(proxy, destination.getProxy());
+    EXPECT_EQ(source, destination.getIndex());
+    EXPECT_TRUE(destination.isAlive());
+    EXPECT_EQ(TNode::CellKind::FlipFlop, destination.getCellKind());
+    EXPECT_EQ(TNode::PinRole::DataInput, destination.getPinRole());
+    EXPECT_TRUE(destination.isFlopDataInput());
+    EXPECT_EQ((std::vector<TNode::EdgeId>{incoming}), destination.getInEdges());
+    EXPECT_EQ((std::vector<TNode::EdgeId>{outgoing}), destination.getOutEdges());
+    EXPECT_EQ((std::vector<TNode::CaptureEdgeId>{captureIn}), destination.getCaptureInEdges());
+    EXPECT_EQ((std::vector<TNode::CaptureEdgeId>{captureOut}), destination.getCaptureOutEdges());
+  }
+  EXPECT_TRUE(sourceDestroyed);
 }
 
 TEST_F(TGraphTests, testCaptureEdgesAreSeparateFromSignalTraversal) {
@@ -542,6 +617,30 @@ TEST_F(TGraphTests, testClockPropagatorBreaksCyclesAutomatically) {
   graph.createEdge(n1, n0, nullptr);
   EXPECT_NO_THROW(TClockPropagator::run(graph));
   EXPECT_EQ(0u, TLoopBreaker::run(graph));
+}
+
+TEST_F(TGraphTests, testClockPropagatorSkipsRemovedNodeSlots) {
+  TGraph graph;
+  auto root = graph.createNode(nullptr);
+  auto removed = graph.createNode(nullptr);
+  auto sink = graph.createNode(nullptr);
+  auto incoming = graph.createEdge(root, removed, nullptr);
+  auto outgoing = graph.createEdge(removed, sink, nullptr);
+  auto surviving = graph.createEdge(root, sink, nullptr);
+  auto clock = graph.createClock("clk", nullptr, root);
+  graph.createCaptureEdge(root, sink);
+  TClockPropagator::run(graph);
+  ASSERT_TRUE(graph.removeNode(removed));
+  EXPECT_EQ(3u, graph.getNodesStorage().size());
+  EXPECT_EQ(2u, graph.getNodesCount());
+  EXPECT_NO_THROW(TClockPropagator::run(graph));
+  EXPECT_FALSE(graph.isNodeValid(removed));
+  EXPECT_FALSE(graph.isEdgeValid(incoming));
+  EXPECT_FALSE(graph.isEdgeValid(outgoing));
+  EXPECT_EQ(1u, graph.getEdgesCount());
+  EXPECT_TRUE(graph.getEdge(surviving)->hasFromClock(clock));
+  EXPECT_TRUE(graph.getEdge(surviving)->hasToClock(clock));
+  EXPECT_FALSE(graph.getEdge(surviving)->hasClockCrossing());
 }
 
 TEST_F(TGraphTests, testClockPropagatorRegisterTransfer) {

@@ -68,8 +68,10 @@ std::vector<std::size_t> TClockPropagator::propagateForward(TGraph& graph) {
   }
 
   if (processedCount != graph.getNodesCount()) {
+    // LCOV_EXCL_START run() always breaks enabled cycles before calling this private helper.
     throw std::logic_error(
       "TClockPropagator::propagateForward: cycle among enabled edges - run TLoopBreaker first");
+    // LCOV_EXCL_STOP
   }
 
   for (TGraph::NodeId n = 0; n < nodesCount; ++n) {

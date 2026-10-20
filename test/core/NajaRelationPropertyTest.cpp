@@ -29,6 +29,15 @@ class RelationObject: public NajaObject {
 
 }  // namespace
 
+TEST(NajaRelationPropertyTest, testNullOwnerIsRejected) {
+  try {
+    NajaRelationProperty::create(nullptr, "rel");
+    FAIL() << "Expected a null owner to be rejected";
+  } catch (const NajaException& error) {
+    EXPECT_STREQ("NajaRelationProperty::create(): owner is null", error.what());
+  }
+}
+
 TEST(NajaRelationPropertyTest, testOwnerAndMembersShareOneInstance) {
   RelationObject* owner = RelationObject::create();
   RelationObject* member = RelationObject::create();
