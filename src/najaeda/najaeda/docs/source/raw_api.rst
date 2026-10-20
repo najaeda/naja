@@ -618,6 +618,14 @@ RTL subset. The normal high-level equivalents are ``netlist.load_gate_level_veri
 ``SNLDesign.dumpGateLevelVerilog`` export structural netlists rather than reconstructing
 the original behavioral RTL.
 
+``NLDB.loadSystemVerilog(..., default_timescale="1ns/1ps")`` sets a fallback
+time unit and precision for design elements without an explicit time scale.
+The optional argument accepts a nonempty string or ``None`` (the default,
+preserving frontend defaults). Explicit source declarations take precedence;
+invalid time scales raise ``SystemVerilogSyntaxError`` during loading. Experts
+using the raw loader can set this directly; high-level callers have the same
+setting in ``netlist.SystemVerilogConfig.default_timescale``.
+
 ``NLDB.loadSystemVerilog`` writes incremental frontend diagnostics to
 ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
 to disable the report file and keep diagnostics console-only.

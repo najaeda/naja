@@ -1126,6 +1126,38 @@ TEST(SNLSVConstructorStandaloneTest, constructRequiresValidLibrary) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, defaultTimeScale) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "default_timescale";
+  std::filesystem::create_directories(outPath);
+  const auto sourcePath = outPath / "source.sv";
+  std::ofstream source(sourcePath);
+  source << "module leaf(output wire y);\n"
+         << "  localparam integer UNIT = 1ns; assign y = (UNIT == 1000);\n"
+         << "endmodule\n"
+         << "module top(output wire a, b);\n"
+         << "  timeunit 1ns/1ps;\n"
+         << "  localparam integer UNIT = 1ns; assign a = (UNIT == 1);\n"
+         << "  leaf u(b);\nendmodule\n";
+  source.close();
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+  EXPECT_THROW(constructor.construct(sourcePath, options), SNLSVSyntaxError);
+  for (const auto& value : {"", "invalid", "1ns/1us"}) {
+    options.defaultTimeScale = value;
+    EXPECT_THROW(constructor.construct(sourcePath, options), SNLSVSyntaxError);
+  }
+  options.defaultTimeScale = "1ps/1ps";
+  ASSERT_NO_THROW(constructor.construct(sourcePath, options));
+  library_->getDB()->mergeAssigns();
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto leaf = library_->getSNLDesign(NLName("leaf"));
+  ASSERT_NE(leaf, nullptr);
+  EXPECT_TRUE(top->getScalarTerm(NLName("a"))->getNet()->isConstant1());
+  EXPECT_TRUE(leaf->getScalarTerm(NLName("y"))->getNet()->isConstant1());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

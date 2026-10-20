@@ -350,6 +350,15 @@ By default, an incremental diagnostics report is written to
 :class:`najaeda.netlist.SystemVerilogConfig` to disable that file and retain
 console diagnostics only.
 
+Set ``SystemVerilogConfig(default_timescale="1ns/1ps")`` to supply the default
+time unit and precision for design elements that do not specify a time scale.
+Explicit source ``timeunit`` / ``timeprecision`` declarations and `` `timescale``
+directives retain their normal precedence over this fallback. The default is
+``None``, which leaves the frontend default unchanged. Slang validates the
+``<unit>/<precision>`` value during loading and reports invalid values as
+``SystemVerilogSyntaxError``. This setting does not add simulation or delay
+support to Naja.
+
 ``SystemVerilogConfig`` validates path, boolean, define, and warning-suppression
 fields when it is created and again when loading begins.  Entries in
 ``suppress_warnings`` are warning names such as ``"width-trunc"``; omit the

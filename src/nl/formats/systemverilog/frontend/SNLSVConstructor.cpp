@@ -2969,7 +2969,7 @@ endmodule
 
       std::vector<std::string> args;
       args.reserve(
-        paths.size() + 7 + options_.preprocessorDefines.size() +
+        paths.size() + 8 + options_.preprocessorDefines.size() +
         options_.suppressWarnings.size());
       args.emplace_back("snl_sv_constructor");
       args.emplace_back("--translate-off-format");
@@ -2978,6 +2978,12 @@ endmodule
       args.emplace_back("synthesis,translate_off,translate_on");
       args.emplace_back("--translate-off-format");
       args.emplace_back("synopsys,translate_off,translate_on");
+      if (options_.defaultTimeScale) {
+        if (options_.defaultTimeScale->empty()) {
+          throw SNLSVSyntaxError("defaultTimeScale must not be empty", {});
+        }
+        args.emplace_back("--timescale=" + *options_.defaultTimeScale);
+      }
       for (const auto& define : options_.preprocessorDefines) {
         args.emplace_back("-D" + define);
       }

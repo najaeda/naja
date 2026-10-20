@@ -129,6 +129,8 @@ class SNLSVConstructor {
       /// Preserve only the ports of modules with unsupported overlapping or
       /// dynamic writes to a memory from multiple sequential processes.
       bool blackboxMultiWriterMemories {false};
+      /// Fallback time scale (for example "1ns/1ps") for design elements without one.
+      std::optional<std::string> defaultTimeScale {};
     };
 
     SNLSVConstructor() = delete;
