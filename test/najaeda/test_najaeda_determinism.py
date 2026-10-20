@@ -245,6 +245,21 @@ class NajaEDADeterminismTest(unittest.TestCase):
     def test_systemverilog(self):
         self.check_determinism("sv", SYSTEMVERILOG)
 
+    def test_systemverilog_selected_sequential_arithmetic(self):
+        self.check_determinism("sv", """
+module top(input logic clk, rst, enable,
+           output logic [4:0] a, b, c);
+  always_ff @(posedge clk) begin
+    if (rst) begin a <= '0; b <= '0; c <= '0; end
+    else if (enable) begin
+      a[4:0] <= a + 1'b1;
+      b[3:1] <= 1'b1 + b;
+      c[2:2] <= c - 1'b1;
+    end
+  end
+endmodule
+""")
+
     def test_verilog(self):
         self.check_determinism("v", VERILOG)
 

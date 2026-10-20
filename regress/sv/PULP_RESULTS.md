@@ -5,6 +5,31 @@ SPDX-License-Identifier: Apache-2.0
 
 # PULP EDA benchmark frontend survey
 
+## NVDLA regular regression (2026-10-20)
+
+`nvdla.top` joins the regular load/dump/lint regression tier. The runner sets
+`default_timescale="1ns/1ps"` for this variant, preserving explicit source time
+scales and leaving the pinned release sources unchanged. The sequential
+lowering fix resolves selected-target arithmetic through the ordinary RHS
+lowering path, avoiding a whole-register increment shortcut that required
+precomputed incrementer bits.
+
+The maintained runner passes locally: load/dump takes 81.11 seconds and strict
+Verilator 5.052 lint takes 44.84 seconds. The same complete dump also passes
+strict lint with upstream Verilator v5.046, matching the standard CI image's
+version, in 19.34 seconds. Docker was unavailable locally, so the 5.046 check
+uses a native build of upstream tag v5.046. All 14 PULP runner/report tests pass,
+and the regular/survey matrix has no duplicate NVDLA case. The GitHub workflow
+has not yet been run with this promotion.
+The frontend suite passes all 1,311 tests, including exhaustive selected-target
+next-state checks; cross-process determinism and snapshot round trips pass.
+Earlier survey tables below retain their historical failure results.
+
+Regular CI now has five smoke checks, four elaboration checks, C910 lint, and
+ITA functional simulation: eleven verification jobs. Nightly surveys add
+seventeen variants, keeping twenty-eight verification jobs overall and running
+NVDLA only once.
+
 ## C910 standard verification pass (2026-10-04)
 
 C910 now passes the standard prepared-PULP runner, with **load/dump in

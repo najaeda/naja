@@ -39350,6 +39350,47 @@ endmodule
   EXPECT_TRUE(q->getBit(3)->getInstTerms().empty());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSelectedArithmetic) {
+  for (const auto& selection : {std::pair{4, 0}, std::pair{3, 1}, std::pair{2, 2}}) {
+    for (const auto& rhs : {"a + 1'b1", "1'b1 + a", "a - 1'b1"}) {
+      SCOPED_TRACE(std::to_string(selection.first) + ":" +
+                   std::to_string(selection.second) + " <= " + rhs);
+      const auto name = "selected_arithmetic_" + std::to_string(library_->getSNLDesigns().size());
+      const auto selected = "a[" + std::to_string(selection.first) +
+        (selection.first == selection.second ? "" : ":" + std::to_string(selection.second)) + "]";
+      const auto source = "module " + name + "(input logic clk, output logic [4:0] a);\n"
+        "always_ff @(posedge clk) begin\n"
+        "  if (a[4]) a <= '0;\n"
+        "  else if (a[3]) " + selected + " <= " + rhs + ";\n"
+        "  else a <= 5'd2;\nend\nendmodule\n";
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(writeSVTestFile(name, source)));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_EQ(5u, countDFFBits(top));
+      auto* state = top->getBusTerm(NLName("a"));
+      ASSERT_NE(nullptr, state);
+      const unsigned width = selection.first - selection.second + 1;
+      const unsigned mask = ((1u << width) - 1) << selection.second;
+      for (unsigned value = 0; value < 32; ++value) {
+        unsigned expected = 2;
+        if (value & 16) expected = 0;
+        else if (value & 8) {
+          const unsigned updated = std::string(rhs).find('-') == std::string::npos
+            ? value + 1 : value - 1;
+          expected = (value & ~mask) | ((updated << selection.second) & mask);
+        }
+        for (auto* bit : state->getBusBits()) {
+          auto* data = dynamic_cast<SNLBitNet*>(getDFFDataForOutputBit(top, bit->getNet()));
+          ASSERT_NE(nullptr, data);
+          EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, data, value)) << "state=" << value;
+        }
+      }
+    }
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalIncrementer) {
   SNLSVConstructor constructor(library_);
   const auto svPath = writeSVTestFile(
