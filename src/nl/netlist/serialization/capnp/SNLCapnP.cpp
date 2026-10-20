@@ -5,6 +5,7 @@
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "SNLDump.h"
 #include "SNLDumpException.h"
 #include "NajaVersion.h"
@@ -89,6 +90,13 @@ NLDB* SNLCapnP::load(
   const auto manifest = SNLDumpManifest::load(path);
   checkManifestCompatibility(manifest);
   checkManifestProducer(manifest);
+  if (manifest.getDB0LibraryIDVersion() != NLDB0::LibraryIDVersion) {
+    std::ostringstream reason;
+    reason << "Incompatible SNL snapshot DB0 library ID version: manifest has "
+      << manifest.getDB0LibraryIDVersion() << ", reader expects "
+      << NLDB0::LibraryIDVersion << ". Regenerate the snapshot.";
+    throw SNLDumpException(reason.str());
+  }
   loadInterface(path/InterfaceName, loadingConfiguration);
   NLDB* db = loadImplementation(path/ImplementationName, loadingConfiguration);
   return db;

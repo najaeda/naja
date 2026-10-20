@@ -291,3 +291,92 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testMemoryRoundTrip) {
   // The signature was rebuilt from the round-tripped instance parameters.
   EXPECT_EQ(signature, NLDB0::getMemorySignature(reloadedMem));
 }
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testMultiplyRoundTrip) {
+  auto* top = db_->getTopDesign();
+  for (size_t width : {1u, 7u, 96u}) {
+    auto* model = NLDB0::getOrCreateMultiply(width);
+    auto* instance = SNLInstance::create(top, model, NLName("mul" + std::to_string(width)));
+    for (auto* term : {NLDB0::getMultiplyInputA(model), NLDB0::getMultiplyInputB(model),
+                       NLDB0::getMultiplyOutput(model)}) {
+      auto* net = SNLBusNet::create(top, width - 1, 0,
+          NLName(term->getName().getString() + std::to_string(width)));
+      connectBus(instance, term, net);
+    }
+  }
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "multiply_round_trip";
+  SNLCapnP::dump(db_, outPath);
+  NLUniverse::get()->destroy();
+  db_ = SNLCapnP::load(outPath);
+  ASSERT_NE(db_, nullptr);
+  top = db_->getTopDesign();
+  for (size_t width : {1u, 7u, 96u}) {
+    auto* instance = top->getInstance(NLName("mul" + std::to_string(width)));
+    ASSERT_NE(instance, nullptr);
+    EXPECT_EQ(NLDB0::getOrCreateMultiply(width), instance->getModel());
+    EXPECT_EQ(width, NLDB0::getMultiplyWidth(instance));
+    for (auto* term : instance->getInstTerms()) EXPECT_NE(nullptr, term->getNet());
+  }
+}
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testAddSubRoundTrip) {
+  auto* top = db_->getTopDesign();
+  for (bool subtract : {false, true}) {
+    for (size_t width : {1u, 7u, 96u}) {
+      auto* model = NLDB0::getOrCreateAddSub(width, subtract);
+      auto* instance = SNLInstance::create(top, model, NLName(std::string(subtract ? "sub" : "add") + std::to_string(width)));
+      for (auto* term : {NLDB0::getAddSubInputA(model), NLDB0::getAddSubInputB(model),
+                         NLDB0::getAddSubOutput(model)}) {
+        auto* net = SNLBusNet::create(top, width - 1, 0,
+            NLName(std::string(subtract ? "sub" : "add") + term->getName().getString() + std::to_string(width)));
+        connectBus(instance, term, net);
+      }
+    }
+  }
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "add_sub_round_trip";
+  SNLCapnP::dump(db_, outPath);
+  NLUniverse::get()->destroy();
+  db_ = SNLCapnP::load(outPath);
+  ASSERT_NE(db_, nullptr);
+  top = db_->getTopDesign();
+  for (bool subtract : {false, true}) {
+    for (size_t width : {1u, 7u, 96u}) {
+      auto* instance = top->getInstance(NLName(std::string(subtract ? "sub" : "add") + std::to_string(width)));
+      ASSERT_NE(instance, nullptr);
+      EXPECT_EQ(NLDB0::getOrCreateAddSub(width, subtract), instance->getModel());
+      EXPECT_EQ(width, NLDB0::getAddSubWidth(instance));
+      EXPECT_EQ(subtract, NLDB0::isSubtract(instance->getModel()));
+      for (auto* term : instance->getInstTerms()) EXPECT_NE(nullptr, term->getNet());
+    }
+  }
+}
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testAllGateFamiliesRoundTrip) {
+  auto* top = db_->getTopDesign();
+  std::vector<std::pair<std::string, NLID::LibraryID>> expected;
+  for (auto type : {NLDB0::GateType::And, NLDB0::GateType::Nand,
+      NLDB0::GateType::Or, NLDB0::GateType::Nor, NLDB0::GateType::Xor,
+      NLDB0::GateType::Xnor, NLDB0::GateType::Buf, NLDB0::GateType::Not}) {
+    const NLDB0::GateType gateType(type);
+    auto* model = gateType.isNInput()
+      ? NLDB0::getOrCreateNInputGate(gateType, 3)
+      : NLDB0::getOrCreateNOutputGate(gateType, 3);
+    SNLInstance::create(top, model, model->getName());
+    expected.emplace_back(model->getName().getString(), model->getLibrary()->getID());
+  }
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH)
+    / "allGateFamiliesRoundTrip";
+  SNLCapnP::dump(db_, outPath);
+  NLUniverse::get()->destroy();
+  db_ = SNLCapnP::load(outPath);
+  for (const auto& [name, libraryID] : expected) {
+    auto* instance = db_->getTopDesign()->getInstance(NLName(name));
+    ASSERT_NE(nullptr, instance);
+    auto* model = instance->getModel();
+    EXPECT_TRUE(NLDB0::isGate(model));
+    EXPECT_EQ(name, model->getName().getString());
+    EXPECT_EQ(libraryID, model->getLibrary()->getID());
+    EXPECT_EQ(model, NLDB0::getOrCreatePrimitive(libraryID, 3));
+  }
+  EXPECT_EQ(11u, db_->getTopDesign()->getInstances().size());
+}

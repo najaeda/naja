@@ -235,6 +235,9 @@ std::string getEmittedDefaultParameterValue(
       return "0";
     }
   }
+  if (NLDB0::isMultiply(instance->getModel())) {
+    return "1";
+  }
   if (NLDB0::isShift(instance->getModel())) {
     // Shift instances emit their full signature directly, bypassing dumpInstParameters.
     return parameterName == NLName("WIDTH") || parameterName == NLName("COUNT_WIDTH") ? "1" : "0"; // LCOV_EXCL_LINE
@@ -1859,6 +1862,29 @@ bool SNLVRLDumper::dumpInstance(
     o << ";" << '\n';
     return true;
   }
+  if (NLDB0::isMultiply(instance->getModel())) {
+    const auto width = NLDB0::getMultiplyWidth(instance);
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName = instance->isUnnamed()
+      ? createInstanceName(instance, naming) : instance->getName().getString();
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << "naja_mul #(.WIDTH(" << width << ")) " << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";\n";
+    return true;
+  }
+  if (NLDB0::isAddSub(instance->getModel())) {
+    const auto width = NLDB0::getAddSubWidth(instance);
+    emitNajaPrimitiveModels_ = true;
+    std::string instanceName = instance->isUnnamed()
+      ? createInstanceName(instance, naming) : instance->getName().getString();
+    dumpAttributes(instance, o, AttributeDumpSite::Instance);
+    o << (NLDB0::isSubtract(instance->getModel()) ? "naja_sub" : "naja_add")
+      << " #(.WIDTH(" << width << ")) " << dumpName(instanceName);
+    dumpInstanceInterface(instance, o, naming);
+    o << ";\n";
+    return true;
+  }
   if (NLDB0::isShift(instance->getModel())) {
     const auto signature = NLDB0::getShiftSignature(instance);
     emitNajaPrimitiveModels_ = true;
@@ -2376,6 +2402,35 @@ void SNLVRLDumper::dumpNajaMux2Model(std::ostream& o) {
   o << "endmodule //naja_mux2\n";
 }
 
+void SNLVRLDumper::dumpNajaMultiplyModel(std::ostream& o) {
+  o << R"(module naja_mul #(parameter WIDTH = 1) (
+  input [WIDTH-1:0] A,
+  input [WIDTH-1:0] B,
+  output [WIDTH-1:0] Y
+);
+  assign Y = A * B;
+endmodule //naja_mul
+)";
+}
+
+void SNLVRLDumper::dumpNajaAddSubModels(std::ostream& o) {
+  o << R"(module naja_add #(parameter WIDTH = 1) (
+  input [WIDTH-1:0] A,
+  input [WIDTH-1:0] B,
+  output [WIDTH-1:0] Y
+);
+  assign Y = A + B;
+endmodule //naja_add
+module naja_sub #(parameter WIDTH = 1) (
+  input [WIDTH-1:0] A,
+  input [WIDTH-1:0] B,
+  output [WIDTH-1:0] Y
+);
+  assign Y = A - B;
+endmodule //naja_sub
+)";
+}
+
 void SNLVRLDumper::dumpNajaShiftModel(std::ostream& o) {
   o << R"(module naja_shift #(
   parameter WIDTH = 1,
@@ -2890,6 +2945,10 @@ void SNLVRLDumper::dumpNajaPrimitiveFile(const std::filesystem::path& path) {
   dumpNajaFAModel(outFile);
   outFile << '\n';
   dumpNajaMux2Model(outFile);
+  outFile << '\n';
+  dumpNajaAddSubModels(outFile);
+  outFile << '\n';
+  dumpNajaMultiplyModel(outFile);
   outFile << '\n';
   dumpNajaShiftModel(outFile);
   outFile << '\n';

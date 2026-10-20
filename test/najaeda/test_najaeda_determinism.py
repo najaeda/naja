@@ -51,8 +51,12 @@ module leaf(input logic [4:0] a, b, input logic [1:0] op,
         first = adjust(b); second = adjust(a); third = rotate(a);
       end
     endcase
-    y = first ^ second; z = third;
+    y = (first * second) ^ (third >> op); z = third;
     for (int k = 0; k < 5; k++) z[k] = third[k] ^ first[k];
+    z *= second;
+    z -= first;
+    y >>= op;
+    if (first < second) z[{3'b0, op}] = ^(first + second);
   end
 endmodule
 module stateful(input logic clk, rst, enable, input logic [4:0] a, b,

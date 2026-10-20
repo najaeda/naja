@@ -623,6 +623,30 @@ size_t countFAInstances(const SNLDesign* design) {
   return count;
 }
 
+size_t countAddSubInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isAddSub(instance->getModel())) ++count;
+  }
+  return count;
+}
+
+size_t countMultiplyInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isMultiply(instance->getModel())) ++count;
+  }
+  return count;
+}
+
+size_t countShiftInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++count;
+  }
+  return count;
+}
+
 size_t countDivModInstances(const SNLDesign* design, size_t width = 0, bool isSigned = false) {
   size_t count = 0;
   for (auto inst : design->getInstances()) {
@@ -6800,6 +6824,42 @@ static bool evaluateFunctionResultBit(
       return name == "nand" || name == "nor" || name == "xnor" || name == "not"
         ? !result : result;
     }
+    if (NLDB0::isAddSub(model) || NLDB0::isMultiply(model) || NLDB0::isShift(model)) {
+      const auto readBus = [&](SNLBusTerm* bus) {
+        uint64_t value = 0;
+        for (auto* bit : bus->getBusBits()) {
+          const bool one = read(bit);
+          if (one && bit->getBit() < 64) value |= uint64_t{1} << bit->getBit();
+        }
+        return value;
+      };
+      uint64_t value = 0;
+      if (NLDB0::isAddSub(model)) {
+        const auto a = readBus(NLDB0::getAddSubInputA(model));
+        const auto b = readBus(NLDB0::getAddSubInputB(model));
+        value = NLDB0::isSubtract(model) ? a - b : a + b;
+      } else if (NLDB0::isMultiply(model)) {
+        value = readBus(NLDB0::getMultiplyInputA(model)) *
+                readBus(NLDB0::getMultiplyInputB(model));
+      } else {
+        const auto signature = NLDB0::getShiftSignature(instance);
+        const auto data = readBus(NLDB0::getShiftData(model));
+        const auto count = readBus(NLDB0::getShiftCount(model));
+        bool oversized = count >= signature.width;
+        for (auto* bit : NLDB0::getShiftCount(model)->getBusBits())
+          if (bit->getBit() >= 64 && read(bit)) oversized = true;
+        const bool negative = signature.arithmetic &&
+            read(NLDB0::getShiftData(model)->getBit(signature.width - 1));
+        if (oversized) value = negative ? ~uint64_t{0} : 0;
+        else if (!signature.right) value = data << count;
+        else {
+          const auto extended = negative && signature.width < 64
+            ? data | (~uint64_t{0} << signature.width) : data;
+          value = signature.arithmetic ? uint64_t(int64_t(extended) >> count) : data >> count;
+        }
+      }
+      return (value >> driver->getBitTerm()->getBit()) & 1u;
+    }
     if (NLDB0::isDivMod(model)) {
       const auto readBus = [&](SNLBusTerm* bus) {
         uint64_t value = 0;
@@ -6856,6 +6916,252 @@ static bool evaluateFunctionResultBit(
   }();
   (*memo)[net] = result;
   return result;
+}
+
+TEST_F(SNLSVConstructorTestSimple, compactMultiplyAndShiftsPreserveSizing) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("compact_arithmetic", R"(
+module top(input logic [11:0] a, output wire [8:0] product,
+           output wire [6:0] signed_product, mixed_product, output wire [2:0] narrow,
+           output wire scalar, output wire [6:0] shifted,
+           output wire [6:0] signed_shift,
+           output logic [6:0] compound_product,
+           output logic signed [6:0] compound_shift);
+  assign product = a[3:0] * (a[7:4] + 1);
+  assign signed_product = $signed(a[3:0]) * $signed(a[7:4]);
+  assign mixed_product = $signed(a[3:0]) * a[7:4];
+  always_comb begin
+    compound_product = a[3:0];
+    compound_product *= a[7:4];
+    compound_shift = $signed(a[3:0]);
+    compound_shift >>>= a[11:8];
+  end
+  assign narrow = a[3:0] * a[7:4];
+  assign scalar = a[0] * a[4];
+  assign shifted = (a[3:0] * a[7:4]) << a[11:8];
+  assign signed_shift = ($signed(a[3:0]) * $signed(a[7:4])) >>> a[11:8];
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 80u);
+  std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+  const auto check = [&](const char* name, unsigned input, uint64_t expected) {
+    SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+    auto* output = top->getBusTerm(NLName(name));
+    ASSERT_NE(output, nullptr);
+    for (auto* bit : output->getBusBits())
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+                evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+  };
+  for (unsigned input = 0; input < 4096; ++input) {
+    memo.clear();
+    const unsigned a = input & 15u, b = (input >> 4) & 15u, count = input >> 8;
+    const int sa = a < 8 ? int(a) : int(a) - 16;
+    const int sb = b < 8 ? int(b) : int(b) - 16;
+    check("product", input, a * (b + 1));
+    check("signed_product", input, uint64_t(sa * sb));
+    check("mixed_product", input, a * b);
+    check("compound_product", input, a * b);
+    check("compound_shift", input, uint64_t(sa >> count));
+    check("narrow", input, a * b);
+    check("shifted", input, uint64_t(a * b) << count);
+    const unsigned bits = unsigned(sa * sb) & 127u;
+    const int signedBits = bits < 64 ? int(bits) : int(bits) - 128;
+    check("signed_shift", input, uint64_t(signedBits >> count));
+    EXPECT_EQ(bool((a & 1u) && (b & 1u)),
+      evaluateFunctionResultBit(top, top->getScalarTerm(NLName("scalar"))->getNet(), input, 0, &memo));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, compactAddSubPreservesSizingAndCompoundUpdates) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("compact_add_sub", R"(
+module top(input logic [11:0] a, output wire [8:0] sum, difference,
+           signed_sum, signed_difference, mixed_sum, mixed_difference,
+           output wire [2:0] narrow_sum, narrow_difference,
+           output wire scalar_sum, scalar_difference,
+           output logic [6:0] compound);
+  assign sum = a[3:0] + a[7:4];
+  assign difference = a[3:0] - a[7:4];
+  assign signed_sum = $signed(a[3:0]) + $signed(a[7:4]);
+  assign signed_difference = $signed(a[3:0]) - $signed(a[7:4]);
+  assign mixed_sum = $signed(a[3:0]) + a[7:4];
+  assign mixed_difference = $signed(a[3:0]) - a[7:4];
+  assign narrow_sum = a[3:0] + a[7:4];
+  assign narrow_difference = a[3:0] - a[7:4];
+  assign scalar_sum = a[0] + a[4];
+  assign scalar_difference = a[0] - a[4];
+  always_comb begin
+    compound = a[3:0];
+    compound += a[7:4];
+    compound -= a[11:8];
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 30u);
+  EXPECT_EQ(0u, countFAInstances(top));
+  for (unsigned input = 0; input < 4096; ++input) {
+    const unsigned a = input & 15u, b = (input >> 4) & 15u, c = input >> 8;
+    const int sa = a < 8 ? int(a) : int(a) - 16;
+    const int sb = b < 8 ? int(b) : int(b) - 16;
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](const char* name, uint64_t expected) {
+      SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+      auto* output = top->getBusTerm(NLName(name));
+      ASSERT_NE(output, nullptr);
+      for (auto* bit : output->getBusBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+      }
+    };
+    check("sum", a + b);
+    check("difference", uint64_t(int(a) - int(b)));
+    check("signed_sum", uint64_t(sa + sb));
+    check("signed_difference", uint64_t(sa - sb));
+    check("mixed_sum", a + b);
+    check("mixed_difference", uint64_t(int(a) - int(b)));
+    check("narrow_sum", a + b);
+    check("narrow_difference", uint64_t(int(a) - int(b)));
+    check("compound", uint64_t(int(a) + int(b) - int(c)));
+    for (const auto* name : {"scalar_sum", "scalar_difference"}) {
+      EXPECT_EQ(bool((a ^ b) & 1u), evaluateFunctionResultBit(
+        top, top->getScalarTerm(NLName(name))->getNet(), input, 0, &memo));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, relationalExpressionsShareOnlyRequiredLogic) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_relations", R"(
+module top(input logic [11:0] a, output wire [7:0] y);
+  wire [5:0] first = a[5:0], second = a[11:6];
+  assign y = {first < second, first <= second, first > second, first >= second,
+              $signed(first) < $signed(second), $signed(first) <= $signed(second),
+              $signed(first) > $signed(second), $signed(first) >= $signed(second)};
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 140u);
+  auto* output = top->getBusTerm(NLName("y"));
+  ASSERT_NE(output, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto first = input & 63u, second = input >> 6;
+    const int signedFirst = first < 32 ? int(first) : int(first) - 64;
+    const int signedSecond = second < 32 ? int(second) : int(second) - 64;
+    const unsigned expected = ((first < second) << 7) | ((first <= second) << 6) |
+      ((first > second) << 5) | ((first >= second) << 4) |
+      ((signedFirst < signedSecond) << 3) | ((signedFirst <= signedSecond) << 2) |
+      ((signedFirst > signedSecond) << 1) | (signedFirst >= signedSecond);
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << input;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, dynamicElementWriteSharesRhsAndDecoderPrefixes) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_element_write", R"(
+module top(input logic [11:0] a, output logic [2:0][2:0] y);
+  wire [23:0] index = {20'b0, a[11:8]};
+  always_comb begin
+    y = '0;
+    y[index] = a[2:0] + a[5:3];
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  size_t adders = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isAddSub(instance->getModel())) ++adders;
+    EXPECT_FALSE(NLDB0::isFA(instance->getModel()));
+  }
+  EXPECT_EQ(adders, 1u);
+  EXPECT_LT(top->getInstances().size(), 100u);
+  auto* output = top->getBusTerm(NLName("y"));
+  ASSERT_NE(output, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto index = input >> 8;
+    const auto sum = ((input & 7u) + ((input >> 3) & 7u)) & 7u;
+    const auto expected = index < 3 ? sum << (3 * index) : 0;
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << input;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, sharedElementWritePreservesReplayAndCompoundUpdates) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_element_write_replay", R"(
+module top(input logic [11:0] a, output logic [8:0] nested, ascending,
+           compound, incremented, self_read, unpacked_value);
+  typedef struct packed { logic flag; logic [2:0] value; } entry_t;
+  entry_t [2:0] entries;
+  logic [0:2][2:0] forward;
+  logic [2:0][2:0] updates, steps, replay;
+  logic [2:0] values [0:2];
+  wire [79:0] index = {15'b0, a[7], 60'b0, a[11:8]};
+  always_comb begin
+    entries = '0;
+    entries[index].value = a[2:0] + a[5:3];
+    nested = {entries[2].value, entries[1].value, entries[0].value};
+    forward = '0;
+    forward[index] = a[2:0] + a[5:3];
+    ascending = forward;
+    updates = a[8:0];
+    updates[index] += a[2:0];
+    compound = updates;
+    steps = a[8:0];
+    steps[index]++;
+    incremented = steps;
+    replay = a[8:0];
+    replay[index] = replay[index] + a[2:0];
+    self_read = replay;
+    for (int k=0; k<3; k++) values[k] = '0;
+    values[index] = a[2:0] + a[5:3];
+    unpacked_value = {values[2], values[1], values[0]};
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto index = input & 128u ? 16u : input >> 8;
+    const auto sum = ((input & 7u) + ((input >> 3) & 7u)) & 7u;
+    const unsigned selected = index < 3 ? sum << (3 * index) : 0;
+    const unsigned reversed = index < 3 ? sum << (3 * (2 - index)) : 0;
+    const unsigned original = input & 511u;
+    const auto updated = [&](unsigned delta) {
+      if (index >= 3) return original;
+      const auto shift = 3 * index;
+      const auto value = ((original >> shift) + delta) & 7u;
+      return (original & ~(7u << shift)) | (value << shift);
+    };
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](const char* name, unsigned expected) {
+      SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+      auto* output = top->getBusTerm(NLName(name));
+      ASSERT_NE(output, nullptr);
+      for (auto* bit : output->getBusBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+      }
+    };
+    check("nested", selected);
+    check("ascending", reversed);
+    check("compound", updated(input & 7u));
+    check("incremented", updated(1));
+    check("self_read", updated(input & 7u));
+    check("unpacked_value", selected);
+  }
 }
 
 // Each expression is evaluated independently of destination truncation. The
@@ -12812,13 +13118,13 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAddSupported) {
   ASSERT_NE(yCount, nullptr);
   EXPECT_EQ(2, yCount->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_EQ(10u, faCount);
+  EXPECT_EQ(3u, addSubCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_add_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12841,23 +13147,15 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplySupported) {
   ASSERT_NE(ySignedMul, nullptr);
   EXPECT_EQ(8, ySignedMul->getWidth());
 
-  size_t faCount = 0;
-  size_t andGateCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
-      continue;
+  size_t multiplyCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isMultiply(instance->getModel())) {
+      ++multiplyCount;
+      EXPECT_EQ(8u, NLDB0::getMultiplyWidth(instance));
     }
-    if (!NLDB0::isGate(inst->getModel())) {
-      continue;
-    }
-    const auto gateName = NLDB0::getGateName(inst->getModel());
-    if (gateName == "and") {
-      ++andGateCount;
-    }
+    EXPECT_FALSE(NLDB0::isFA(instance->getModel()));
   }
-  EXPECT_GT(faCount, 0u);
-  EXPECT_GT(andGateCount, 0u);
+  EXPECT_EQ(2u, multiplyCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_mul_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12902,13 +13200,7 @@ endmodule
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(18, y->getWidth());
 
-  size_t faCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
-    }
-  }
-  EXPECT_GT(faCount, 0u);
+  EXPECT_EQ(1u, countMultiplyInstances(top));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,
@@ -12959,7 +13251,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyRightConstOneBitShortc
   input logic [1:0] s,
   output logic [3:0] y
 );
-  // Exercises rowEnableBit == const1 shortcut in createMultiplyAssign.
   assign y = a * $signed({1'b1, s});
 endmodule
 )";
@@ -12992,7 +13283,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyLeftConstOneBitShortcu
   input logic [3:0] b,
   output logic [3:0] y
 );
-  // Exercises multiplicandBit == const1 shortcut in createMultiplyAssign.
   assign y = $signed({1'b1, s}) * b;
 endmodule
 )";
@@ -13023,7 +13313,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyZeroPartialRowShortcut
     << R"(module continuous_mul_zero_partial_row_shortcut_supported_top(
   output logic [3:0] y
 );
-  // Exercises the rowHasSignal == false shortcut in createMultiplyAssign.
   assign y = 4'b1000 * 4'b1111;
 endmodule
 )";
@@ -13247,11 +13536,11 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   ASSERT_NE(yConcatSub, nullptr);
   EXPECT_EQ(6, yConcatSub->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -13262,8 +13551,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
       ++notGateCount;
     }
   }
-  EXPECT_EQ(16u, faCount);
-  EXPECT_EQ(16u, notGateCount);
+  EXPECT_EQ(4u, addSubCount);
+  EXPECT_EQ(0u, notGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_sub_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13284,11 +13573,11 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandSupported) {
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -13298,8 +13587,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandSupported) {
       ++notGateCount;
     }
   }
-  EXPECT_EQ(4u, faCount);
-  EXPECT_EQ(4u, notGateCount);
+  EXPECT_EQ(1u, addSubCount);
+  EXPECT_EQ(0u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubBitSliceLHSSupported) {
@@ -13359,20 +13648,12 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
   ASSERT_NE(yLogical, nullptr);
   EXPECT_EQ(8, yLogical->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-
-  size_t mux2Count = 0;
-  size_t assignCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    } else if (NLDB0::isAssign(inst->getModel())) {
-      ++assignCount;
-    }
+  size_t shiftCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++shiftCount;
+    EXPECT_FALSE(NLDB0::isMux2(instance->getModel()));
   }
-  EXPECT_EQ(48u, mux2Count);
-  EXPECT_EQ(8u, assignCount);
+  EXPECT_EQ(2u, shiftCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_left_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13430,20 +13711,12 @@ endmodule
   ASSERT_NE(yVar, nullptr);
   EXPECT_EQ(32, yVar->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-
-  size_t mux2Count = 0;
-  size_t assignCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    } else if (NLDB0::isAssign(inst->getModel())) {
-      ++assignCount;
-    }
+  size_t shiftCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++shiftCount;
+    EXPECT_FALSE(NLDB0::isMux2(instance->getModel()));
   }
-  EXPECT_EQ(128u, mux2Count);
-  EXPECT_EQ(32u, assignCount);
+  EXPECT_EQ(1u, shiftCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_right_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13573,15 +13846,8 @@ endmodule
   ASSERT_NE(icacheData, nullptr);
   EXPECT_EQ(32, icacheData->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-  size_t mux2Count = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    }
-  }
-  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(1u, countShiftInstances(top));
+
 }
 
 TEST_F(
@@ -15771,13 +16037,13 @@ endmodule
   EXPECT_NE(top->getNet(NLName("carry_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("sum_o")), nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_EQ(12u, faCount);
+  EXPECT_EQ(2u, addSubCount);
 }
 
 TEST_F(
@@ -17762,7 +18028,7 @@ endmodule
     NLName("always_comb_compound_add_assignment_unknown_rhs_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -17793,7 +18059,7 @@ endmodule
     NLName("coverage3_always_comb_compound_recovered_operand_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -22001,13 +22267,13 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractVariableRHSSupported) {
@@ -22044,11 +22310,11 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_variable_rhs_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -22058,8 +22324,8 @@ endmodule
       ++notGateCount;
     }
   }
-  EXPECT_GT(faCount, 0u);
-  EXPECT_GT(notGateCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
+  EXPECT_EQ(0u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionUnaryNotLogicalAndSupported) {
@@ -25932,7 +26198,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSuppor
   auto yBit = dynamic_cast<SNLBitNet*>(yNet);
   ASSERT_NE(yBit, nullptr);
   EXPECT_FALSE(yBit->getInstTerms().empty());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "unary_not_arithmetic_binary_supported");
@@ -25962,7 +26228,7 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
     EXPECT_FALSE(bitNet->getInstTerms().empty()) << output;
   }
 
-  EXPECT_GE(countFAInstances(top), 1u);
+  EXPECT_GE(countAddSubInstances(top), 1u);
   EXPECT_GE(countDivModInstances(top, 1), 2u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_extended_supported");
@@ -26678,8 +26944,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksSuppo
   EXPECT_EQ(4, ySub->getWidth());
   EXPECT_EQ(2, yEqBus->getWidth());
   EXPECT_EQ(2, yNeBus->getWidth());
-  EXPECT_GT(countMux2Instances(top), 0u);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countShiftInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -26712,7 +26978,7 @@ TEST_F(
   ASSERT_NE(top, nullptr);
   ASSERT_NE(top->getBusNet(NLName("y_known")), nullptr);
   ASSERT_NE(top->getBusNet(NLName("y_unknown")), nullptr);
-  EXPECT_EQ(8u, countFAInstances(top));
+  EXPECT_EQ(2u, countAddSubInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectPackedScalarUnderAdd) {
@@ -26816,7 +27082,7 @@ endmodule
   EXPECT_FALSE(top->isBlackBox());
   EXPECT_NE(top->getNet(NLName("o_r")), nullptr);
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
@@ -26877,7 +27143,7 @@ endmodule
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_EQ(1u, countMultiplyInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddSupported) {
@@ -27284,18 +27550,18 @@ endmodule
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(16u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(
@@ -27342,17 +27608,17 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(2u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
@@ -33518,7 +33784,7 @@ endmodule
   ASSERT_NE(valid, nullptr);
 
   EXPECT_EQ(2u, countMux2Instances(top, 4));
-  EXPECT_EQ(4u, countFAInstances(top));
+  EXPECT_EQ(1u, countAddSubInstances(top));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_star_combinational_snippet_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -33581,7 +33847,7 @@ endmodule
   ASSERT_NE(valid, nullptr);
 
   EXPECT_EQ(2u, countMux2Instances(top, 4));
-  EXPECT_EQ(4u, countFAInstances(top));
+  EXPECT_EQ(1u, countAddSubInstances(top));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "always_explicit_sensitivity_combinational_snippet_supported");
@@ -34039,18 +34305,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableActionSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionSupported) {
@@ -34064,18 +34330,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
@@ -34091,18 +34357,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAlignDownMultiplySupported) {
@@ -34171,18 +34437,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSupported) {
@@ -34255,18 +34521,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupporte
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialSubtractWithUnbasedXLiteralSupported) {
@@ -34307,18 +34573,18 @@ endmodule
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(
@@ -34459,18 +34725,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnaryNotSupported) {
@@ -37838,7 +38104,7 @@ endmodule
     }
   }
   EXPECT_EQ(1u, dlatchCount);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDefaultMultiplyUnsupported) {
@@ -38953,7 +39219,7 @@ endmodule
   ASSERT_NE(x, nullptr);
   ASSERT_NE(o, nullptr);
   EXPECT_EQ(5, o->getWidth());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 
   for (size_t outBit = 0; outBit < 3; ++outBit) {
     auto* oBit = dynamic_cast<SNLBitNet*>(o->getBit(outBit));

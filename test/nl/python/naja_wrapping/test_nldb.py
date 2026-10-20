@@ -313,7 +313,7 @@ begin y <= data(to_integer(a)); end;
         db.loadVHDL("input.vhd")
     self.assertEqual(len(list(db.getLibraries())), 0)
 
-  def testVHDLAndSystemVerilogFullAdders(self):
+  def testVHDLAndSystemVerilogAdditionPrimitives(self):
     sources = {
       ".vhd": """library ieee; use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -335,7 +335,8 @@ architecture rtl of add4 is begin s <= a + b; end;
           else:
             top = db.loadSystemVerilog([hdl.name], diagnostics_report_path=None)
         arithmetic = [i for i in top.getInstances() if not i.getModel().isAssign()]
-        self.assertEqual([i.getModel().getName() for i in arithmetic], ["naja_fa"] * 4)
+        expected = ["naja_add__w4"] if suffix == ".v" else ["naja_fa"] * 4
+        self.assertEqual([i.getModel().getName() for i in arithmetic], expected)
         db.destroy()
 
   def testVHDLTruncatedArithmetic(self):
@@ -838,6 +839,32 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertEqual(1, a.getMSB())
     self.assertEqual(0, a.getLSB())
     self.assertEqual(2, a.getWidth())
+
+  def testSystemVerilogCompactArithmeticDependencies(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, "arithmetic.sv")
+      with open(source, "w") as stream:
+        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module arithmetic(input logic [4:0] a, b, input logic [79:0] count,
+                  output logic [10:0] y, sum, difference, output logic [4:0] z);
+  assign y = a * b;
+  assign sum = a + b;
+  assign difference = a - b;
+  assign z = a >> count;
+endmodule
+""")
+      top = db.loadSystemVerilog([source],
+          diagnostics_report_path=os.path.join(directory, "diagnostics.log"))
+      models = {instance.getModel().getName(): instance.getModel()
+                for instance in top.getInstances()
+                if instance.getModel().getName().startswith(("naja_mul__", "naja_shift__", "naja_add__", "naja_sub__"))}
+      self.assertEqual(4, len(models))
+      for name, model in models.items():
+        expected = 85 if name.startswith("naja_shift__") else 22
+        for output in model.getBusTerm("Y").getBits():
+          self.assertEqual(expected, sum(1 for _ in naja.SNLDesign.getCombinatorialInputs(output)))
 
   def testSystemVerilog(self):
     u = naja.NLUniverse.get()

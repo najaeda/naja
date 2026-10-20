@@ -269,6 +269,16 @@ Accordingly, ``SNLInstance.create(owner, model, name)`` raises
 ``model`` remains the normal way to instantiate that primitive in a
 non-primitive design.
 
+SystemVerilog loading can produce canonical ``naja_add__w...``,
+``naja_sub__w...``, ``naja_mul__w...`` and ``naja_shift__...`` models.
+Addition, subtraction and multiplication retain the low ``WIDTH`` result
+bits after frontend operand sizing. Add/subtract models have width-bit ``A``,
+``B`` and ``Y`` ports; their operation is fixed by their canonical family. These word-level models expose conservative
+combinational dependencies through ``SNLDesign.getCombinatorialInputs`` and
+``getCombinatorialOutputs``; they do not expose Boolean truth tables. Inspect
+these models through the raw API when working on primitive-level analysis;
+normal loading and exporting use the high-level API.
+
 Sequential primitives should declare both their timing arcs and the role of
 each bit term:
 
@@ -1146,6 +1156,10 @@ it does not load the Cap'n Proto payload or create an ``NLUniverse``.  It
 returns the schema version and the Naja producer version / Git hash.  At
 present, loading a snapshot requires an exact match of both producer
 values with the reader build; regenerate snapshots after changing builds.
+The manifest also records ``D <db0-library-id-version>``. Loading requires
+this canonical primitive library ID layout to match the reader; snapshots
+without this record use the legacy layout and must be regenerated. This
+layout version is independent of the wire schema version owned by ``naja-if``.
 
 .. autofunction:: najaeda.naja.snapshotManifest
 .. autofunction:: najaeda.naja.setLogLevel

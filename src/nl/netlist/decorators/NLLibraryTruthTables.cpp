@@ -111,6 +111,8 @@ void addDesignTruthTable(
     naja::NL::SNLDesign* design,
     naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
   if (naja::NL::NLDB0::isMemory(design) || naja::NL::NLDB0::isShift(design) ||
+      naja::NL::NLDB0::isMultiply(design) ||
+      naja::NL::NLDB0::isAddSub(design) ||
       naja::NL::NLDB0::isDivMod(design)) {
     return;
   }
