@@ -872,7 +872,16 @@ Naja interchange
    netlist.dump_naja_if("roundtrip.naja")
 
 Naja interchange preserves the SNL database more directly than Verilog and is
-useful for round-tripping internal analyses and transformations.
+useful for round-tripping internal analyses and transformations. Schema 0.3.0
+preserves attributes on designs, scalar/bus ports and nets, individual bus bits,
+instances, and instance terminals, including attribute order, duplicate names,
+and string/number value types. This also preserves the attributes returned by
+``get_attributes()`` after a dump/load round trip.
+
+Snapshots written with older schema revisions must be regenerated from the
+original input. Older dumps omitted attributes; upgrading cannot recover them.
+The loader checks the schema revision and producer identity before reading the
+payloads.
 
 Verilog output
 --------------

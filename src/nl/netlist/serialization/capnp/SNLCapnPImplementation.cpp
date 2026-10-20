@@ -27,6 +27,7 @@
 #include "SNLDesignObject.h"
 #include "SNLRTLInfos.h"
 #include "SNLCapnPRTLInfos.h"
+#include "SNLCapnPAttributes.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -87,24 +88,28 @@ void dumpInstance(
     auto instParameterBuilder = instParameters[id++];
     dumpInstParameter(instParameterBuilder, instParameter);
   }
+  dumpAttributes(instance, snlInstance);
   if (snlInstance->hasRTLInfos()) {
     dumpRTLInfos(instance.initRtlInfos(), snlInstance->getRTLInfos());
   }
   size_t count = 0;
   for (auto term: snlInstance->getInstTerms()) {
-    if (term->hasRTLInfos()) ++count;
+    if (term->hasRTLInfos() or not SNLAttributes::getAttributes(term).empty()) ++count;
   }
   if (count) {
     auto termInfos = instance.initTermInfos(count);
     size_t id = 0;
     for (auto term: snlInstance->getInstTerms()) {
-      if (term->hasRTLInfos()) {
+      if (term->hasRTLInfos() or not SNLAttributes::getAttributes(term).empty()) {
         auto builder = termInfos[id++];
         builder.setTermID(term->getBitTerm()->getID());
         if (auto bit = dynamic_cast<const SNLBusTermBit*>(term->getBitTerm())) {
           builder.setBit(bit->getBit());
         }
-        dumpRTLInfos(builder.initRtlInfos(), term->getRTLInfos());
+        dumpAttributes(builder, term);
+        if (term->hasRTLInfos()) {
+          dumpRTLInfos(builder.initRtlInfos(), term->getRTLInfos());
+        }
       }
     }
   }
@@ -160,6 +165,7 @@ void dumpScalarNet(
       dumpNetComponentReference(componentRefBuilder, component);
     }
   }
+  dumpAttributes(scalarNetBuilder, scalarNet);
   if (scalarNet->hasRTLInfos()) {
     dumpRTLInfos(scalarNetBuilder.initRtlInfos(), scalarNet->getRTLInfos());
   }
@@ -182,6 +188,7 @@ void dumpBusNetBit(
         dumpNetComponentReference(componentRefBuilder, component);
       }
     }
+    dumpAttributes(bitBuilder, busNetBit);
     if (busNetBit->hasRTLInfos()) {
       dumpRTLInfos(bitBuilder.initRtlInfos(), busNetBit->getRTLInfos());
     }
@@ -200,6 +207,7 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
+  dumpAttributes(busNetBuilder, busNet);
   if (busNet->hasRTLInfos()) {
     dumpRTLInfos(busNetBuilder.initRtlInfos(), busNet->getRTLInfos());
   }
@@ -348,6 +356,7 @@ void loadInstance(
       loadInstParameter(snlInstance, instParameter);
     }
   }
+  loadAttributes(instance, snlInstance);
   if (instance.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(snlInstance), instance.getRtlInfos());
   }
@@ -360,7 +369,11 @@ void loadInstance(
     if (not bit) {
       throw NLException("cannot deserialize instance term metadata: term not found");
     }
-    loadRTLInfos(SNLRTLInfos::create(snlInstance->getInstTerm(bit)), termInfo.getRtlInfos());
+    auto instTerm = snlInstance->getInstTerm(bit);
+    loadAttributes(termInfo, instTerm);
+    if (termInfo.hasRtlInfos()) {
+      loadRTLInfos(SNLRTLInfos::create(instTerm), termInfo.getRtlInfos());
+    }
   }
 }
 
@@ -483,11 +496,13 @@ void loadBusNet(
           }
         }
       }
+      loadAttributes(bitNet, busNetBit);
       if (bitNet.hasRtlInfos()) {
         loadRTLInfos(SNLRTLInfos::create(busNetBit), bitNet.getRtlInfos());
       }
     }
   }
+  loadAttributes(net, busNet);
   if (net.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(busNet), net.getRtlInfos());
   }
@@ -511,6 +526,7 @@ void loadScalarNet(
       }
     }
   }
+  loadAttributes(net, scalarNet);
   if (net.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(scalarNet), net.getRtlInfos());
   }

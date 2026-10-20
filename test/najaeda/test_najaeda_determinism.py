@@ -97,12 +97,14 @@ endmodule
 """
 
 VERILOG = """
+(* model_tag = "leaf" *)
 module leaf(input [2:0] a, output [2:0] y);
   assign y = {a[1:0], a[2]};
 endmodule
-module top(input [5:0] a, output [5:0] y);
-  wire [2:0] first, second;
-  leaf u0(.a(a[2:0]), .y(first));
+(* design_tag = "top", revision = 7, marker *)
+module top((* port_tag = "input" *) input [5:0] a, output [5:0] y);
+  (* net_tag = "lanes" *) wire [2:0] first, second;
+  (* instance_tag = "first" *) leaf u0(.a(a[2:0]), .y(first));
   leaf u1(.a(a[5:3]), .y(second));
   assign y = {second, first};
 endmodule
@@ -129,16 +131,21 @@ def dump_state(output):
     # cannot repair unstable creation order, IDs, names or connectivity.
     state = []
 
+    def attributes(obj):
+        return [[a.getName(), a.getValue(), a.hasValue()] for a in obj.getAttributes()]
+
     def visit(library):
         for design in library.getSNLDesigns():
             state.append([
-                design.getNLID().toTuple(), design.getName(),
-                [[i.getNLID().toTuple(), i.getName(),
-                  [[t.getNLID().toTuple(),
+                design.getNLID().toTuple(), design.getName(), attributes(design),
+                [[i.getNLID().toTuple(), i.getName(), attributes(i),
+                  [[t.getNLID().toTuple(), attributes(t),
                     t.getNet().getNLID().toTuple() if t.getNet() else None]
                    for t in i.getInstTerms()]] for i in design.getInstances()],
-                [[n.getNLID().toTuple(), n.getName()] for n in design.getNets()],
-                [[t.getNLID().toTuple(), t.getName()] for t in design.getTerms()],
+                [[n.getNLID().toTuple(), n.getName(), attributes(n)] for n in design.getNets()],
+                [[t.getNLID().toTuple(), t.getName(), attributes(t)] for t in design.getTerms()],
+                [[t.getNLID().toTuple(), attributes(t)] for t in design.getBitTerms()],
+                [[n.getNLID().toTuple(), attributes(n)] for n in design.getBitNets()],
             ])
         for child in library.getLibraries():
             visit(child)
@@ -165,6 +172,16 @@ def worker(kind, source, output, run):
             top="top", diagnostics_report_path=None))
     elif kind == "v":
         netlist.load_verilog(source)
+        from najaeda import naja
+        top = naja.NLUniverse.get().getTopDesign()
+        instance = top.getInstance("u0")
+        # Exercise sparse bit/terminal records without source metadata, as well
+        # as ordered duplicates and typed values constructed directly in Python.
+        for obj in (top.getTerm("a").getBusTermBit(1), top.getNet("first").getBit(1),
+                    instance.getInstTerm(instance.getModel().getTerm("a").getBusTermBit(1))):
+            obj.addAttribute(naja.SNLAttribute("tag", "23"))
+            obj.addAttribute(naja.SNLAttribute("tag", 23))
+            obj.addAttribute(naja.SNLAttribute("marker"))
     elif kind == "vhd":
         netlist.load_vhdl(source, top="top", diagnostics_report_path=None)
     else:

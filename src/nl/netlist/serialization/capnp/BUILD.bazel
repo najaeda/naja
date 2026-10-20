@@ -28,6 +28,7 @@ cc_library(
     hdrs = [
         "SNLCapnP.h",
         "SNLCapnPRTLInfos.h",
+        "SNLCapnPAttributes.h",
         "SNLDump.h",
         "SNLDumpException.h",
         "SNLDumpManifest.h",
