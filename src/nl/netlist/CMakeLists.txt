@@ -9,7 +9,7 @@ set(NL_SOURCES
   core/NLName.cpp
   core/NLObject.cpp
   core/NLUniverse.cpp
-  core/NLDB.cpp core/NLDB0.cpp
+  core/NLDB.cpp core/NLDB0.cpp core/NLClock.cpp
   core/NLLibrary.cpp
   core/NLDesign.cpp
 )
@@ -63,6 +63,7 @@ set(HEADERS
   core/NLObject.h
   core/NLLibrary.h
   core/NLUniverse.h core/NLDB.h
+  core/NLClock.h
   core/NLDesign.h
   core/NLException.h
   decorators/NLLibraryTruthTables.h

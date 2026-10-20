@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "naja_tgraph",
+    srcs = [
+        "TClock.cpp",
+        "TClockPropagator.cpp",
+        "TEdge.cpp",
+        "TGraph.cpp",
+        "TLoopBreaker.cpp",
+        "TNode.cpp",
+        "TSNLGraphConstructor.cpp",
+    ],
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/nl/netlist:naja_nl",
+        "@boost.dynamic_bitset",
+    ],
+)

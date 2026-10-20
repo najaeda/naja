@@ -19,6 +19,8 @@
 #include "PySNLAttribute.h"
 #include "PySNLDesign.h"
 #include "PySNLParameter.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 #include "PySNLNetType.h"
 #include "PySNLBusNet.h"
 #include "PySNLScalarNet.h"
@@ -672,6 +674,15 @@ static PyObject* intentPackageMember(PyObject*, PyObject* args) {
   // LCOV_EXCL_STOP
 }
 
+DEFINE_DEPRECATED_ALIAS(PyNLDB_snapshotManifest_deprecated, PyNLDB_snapshotManifest, "snapshot_manifest", "snapshotManifest")
+DEFINE_DEPRECATED_ALIAS(liveCompilation_deprecated, liveCompilation, "live_compilation", "liveCompilation")
+DEFINE_DEPRECATED_ALIAS(astSymbolOf_deprecated, astSymbolOf, "ast_symbol_of", "astSymbolOf")
+DEFINE_DEPRECATED_ALIAS(snlObjectsOf_deprecated, snlObjectsOf, "snl_objects_of", "snlObjectsOf")
+DEFINE_DEPRECATED_ALIAS(intentAvailable_deprecated, intentAvailable, "intent_available", "intentAvailable")
+DEFINE_DEPRECATED_ALIAS(intentTypeOf_deprecated, intentTypeOf, "intent_type_of", "intentTypeOf")
+DEFINE_DEPRECATED_ALIAS(intentParametersOf_deprecated, intentParametersOf, "intent_parameters_of", "intentParametersOf")
+DEFINE_DEPRECATED_ALIAS(intentPackageMember_deprecated, intentPackageMember, "intent_package_member", "intentPackageMember")
+
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
@@ -700,6 +711,22 @@ static PyMethodDef NajaMethods[] = {
     "Return a plain Python dict with live source parameter intent for an SNL object, or None." },
   { "intentPackageMember", intentPackageMember, METH_VARARGS,
     "Return a plain Python dict for a live source package member, or None." },
+  { "snapshot_manifest", PyNLDB_snapshotManifest_deprecated, METH_VARARGS,
+    "deprecated alias of snapshotManifest; emits a DeprecationWarning."},
+  { "live_compilation", liveCompilation_deprecated, METH_NOARGS,
+    "deprecated alias of liveCompilation; emits a DeprecationWarning."},
+  { "ast_symbol_of", astSymbolOf_deprecated, METH_O,
+    "deprecated alias of astSymbolOf; emits a DeprecationWarning."},
+  { "snl_objects_of", snlObjectsOf_deprecated, METH_O,
+    "deprecated alias of snlObjectsOf; emits a DeprecationWarning."},
+  { "intent_available", intentAvailable_deprecated, METH_NOARGS,
+    "deprecated alias of intentAvailable; emits a DeprecationWarning."},
+  { "intent_type_of", intentTypeOf_deprecated, METH_O,
+    "deprecated alias of intentTypeOf; emits a DeprecationWarning."},
+  { "intent_parameters_of", intentParametersOf_deprecated, METH_O,
+    "deprecated alias of intentParametersOf; emits a DeprecationWarning."},
+  { "intent_package_member", intentPackageMember_deprecated, METH_VARARGS,
+    "deprecated alias of intentPackageMember; emits a DeprecationWarning."},
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -723,6 +750,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyNLID_LinkPyType();
   PyNLDB_LinkPyType();
   PyNLLibrary_LinkPyType();
+  PyNLClock_LinkPyType();
   PySNLAttribute_LinkPyType();
   PySNLDesign_LinkPyType();
   PySNLParameter_LinkPyType();
@@ -753,10 +781,11 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyLogicCone_LinkPyType();
   PySNLOccurrence_LinkPyType();
 
-  PySNLAttributes_LinkPyType();
   PyNLDBs_LinkPyType();
   PyNLLibraries_LinkPyType();
+  PyNLClocks_LinkPyType();
   PySNLDesigns_LinkPyType();
+  PySNLAttributes_LinkPyType();
   PySNLParameters_LinkPyType();
   PySNLTerms_LinkPyType();
   PySNLBitTerms_LinkPyType();
@@ -810,6 +839,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(NLDBsIterator);
   PYTYPE_READY(NLLibraries);
   PYTYPE_READY(NLLibrariesIterator);
+  PYTYPE_READY(NLClocks);
+  PYTYPE_READY(NLClocksIterator);
   PYTYPE_READY(SNLDesigns);
   PYTYPE_READY(SNLDesignsIterator);
   PYTYPE_READY(SNLParameters);
@@ -868,6 +899,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeNLLibrary);
   PyModule_AddType(mod, &PyTypeSNLDesign);
   PyModule_AddType(mod, &PyTypeSNLParameter);
+  PyModule_AddType(mod, &PyTypeNLClock);
   PyModule_AddType(mod, &PyTypeSNLDesignObject);
   PyModule_AddType(mod, &PyTypeSNLNet);
   PyModule_AddType(mod, &PyTypeSNLBusNet);

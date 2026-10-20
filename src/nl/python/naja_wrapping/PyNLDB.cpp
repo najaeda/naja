@@ -4,6 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PyNLDB.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 
 #include <Python.h>
 #include <filesystem>
@@ -927,6 +929,7 @@ GetObjectMethod(NLDB, SNLDesign, getTopDesign)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, Libraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, GlobalLibraries)
 GetContainerMethod(NLDB, NLLibrary*, NLLibraries, PrimitiveLibraries)
+GetContainerMethod(NLDB, NLClock*, NLClocks, Clocks)
 
 static PyObject* PyNLDB_destroy(PyNLDB* self) {
   TRY
@@ -956,6 +959,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "get the NLID."},
   { "isTopDB", (PyCFunction)PyNLDB_isTopDB, METH_NOARGS,
     "Returns True if the NLDB is the top DB."},
+  { "getClocks", (PyCFunction)PyNLDB_getClocks, METH_NOARGS,
+    "get a container of every NLClock defined in the designs of this NLDB."},
   { "getTopDesign", (PyCFunction)PyNLDB_getTopDesign, METH_NOARGS,
     "get the top design."},
   { "loadNajaIF", (PyCFunction)PyNLDB_loadNajaIF, METH_VARARGS | METH_STATIC,
