@@ -158,6 +158,14 @@ RTL within the supported subset. It elaborates the design through slang and
 then builds SNL objects. Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
+Interface ports with modports are flattened into scalar or packed member ports.
+Net and variable members retain their identity across separate interface
+instances, interface arrays and generated scopes. Forwarding a modport through
+a module connects the flattened ports to that module's internal logic; connected
+interface parameters determine member widths and packed ranges. Explicit modport
+connection expressions, such as ``input .value(payload[2:0])``, are currently
+rejected with an unsupported-construct diagnostic.
+
 In a fresh universe, loading the same ordered sources and configuration with the
 same Naja build reproduces instance and net names, IDs, and creation order,
 including generated function-call temporaries. Verilog dumps match after

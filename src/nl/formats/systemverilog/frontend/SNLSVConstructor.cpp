@@ -3359,7 +3359,15 @@ endmodule
         return existingIt->second;
       }
       auto& representativeBodies = representativeBodiesByDefinition_[&definition];
+      const bool hasInterfacePorts = std::any_of(
+        body.getPortList().begin(), body.getPortList().end(),
+        [](const Symbol* port) { return port->kind == SymbolKind::InterfacePort; });
+      // hasSameType compares module parameters, not the types or aliasing of
+      // connected interfaces. Only Slang's canonical-body cache covers those.
       for (const auto* representativeBody : representativeBodies) {
+        if (hasInterfacePorts) {
+          break;
+        }
         if (!representativeBody || !representativeBody->hasSameType(body)) {
           continue;
         }
@@ -4575,6 +4583,13 @@ endmodule
           return nullptr;
         }
         auto loweredName = getLoweredSymbolName(symbol);
+        if (isInterfaceMember(symbol)) {
+          const auto baseName = loweredName;
+          size_t suffix = 0;
+          while (design->getNet(NLName(loweredName))) {
+            loweredName = baseName + "_" + std::to_string(suffix++);
+          }
+        }
         auto* net = getOrCreateNet(design, loweredName, symbol.getType());
         setLoweredValueSymbolNet(design, symbol, net);
         annotateSourceInfo(net, getSourceRange(symbol), true);
@@ -9585,6 +9600,47 @@ endmodule
       }
     }
 
+    void visitInterfacePortSignals(
+      const slang::ast::InterfacePortSymbol& port,
+      const std::function<void(const std::string&,
+        const slang::ast::ModportPortSymbol&)>& visit) {
+      auto [connected, modport] = port.getConnection();
+      if (!connected || !modport) return;
+      std::function<void(const Symbol&, const std::string&)> visitInstance;
+      visitInstance = [&](const Symbol& symbol, const std::string& prefix) {
+        if (symbol.kind == SymbolKind::InstanceArray) {
+          size_t position = 0;
+          for (const auto* element : symbol.as<slang::ast::InstanceArraySymbol>().elements) {
+            visitInstance(*element, prefix + "__" + std::to_string(position++));
+          }
+          return;
+        }
+        if (symbol.kind != SymbolKind::Instance) {
+          reportUnsupportedError("Unsupported interface port connection", getSourceRange(port));
+          return;
+        }
+        const auto& ifaceBody = symbol.as<InstanceSymbol>().body;
+        const auto* instanceModport = ifaceBody.find(modport->name);
+        if (!instanceModport || instanceModport->kind != SymbolKind::Modport) {
+          reportUnsupportedError("Missing connected interface modport", getSourceRange(port));
+          return;
+        }
+        for (const auto& member : instanceModport->as<slang::ast::ModportSymbol>().members()) {
+          if (member.kind != SymbolKind::ModportPort) continue;
+          const auto& mpPort = member.as<slang::ast::ModportPortSymbol>();
+          if (!mpPort.internalSymbol ||
+              (mpPort.internalSymbol->kind != SymbolKind::Variable &&
+               mpPort.internalSymbol->kind != SymbolKind::Net)) {
+            reportUnsupportedError(
+              "Unsupported interface modport member connection", getSourceRange(mpPort));
+            continue;
+          }
+          visit(prefix + "__" + std::string(mpPort.name), mpPort);
+        }
+      };
+      visitInstance(*connected, std::string(port.name));
+    }
+
     void createTerms(SNLDesign* design, const InstanceBodySymbol& body) {
       for (const auto& sym : body.getPortList()) {
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
@@ -9592,13 +9648,34 @@ endmodule
         noteSVPerfProgress();
 #endif
         if (sym->kind != SymbolKind::Port) {
-          // Interface ports (e.g. AXI_BUS.Slave slave) are flattened into
-          // individual scalar/bus terms using the modport signal list.
           if (sym->kind == SymbolKind::InterfacePort) {
-            // Interface port terms are created lazily at instantiation time
-            // when the live ModportSymbol is available via getIfaceConn().
-            // getModport() requires the INTERFACE instance body (not the
-            // module body), which is only known once we have a real connection.
+            visitInterfacePortSignals(sym->as<slang::ast::InterfacePortSymbol>(),
+              [&](const std::string& name, const slang::ast::ModportPortSymbol& port) {
+                auto direction = toSNLDirection(port.direction);
+                if (!direction || getUnsupportedTypeReason(port.getType())) {
+                  reportUnsupportedError(
+                    "Unsupported interface modport member type or direction", getSourceRange(port));
+                  return;
+                }
+                SNLTerm* term = nullptr;
+                auto range = getRangeFromType(port.getType());
+                if (range && range->width() > 1) {
+                  term = SNLBusTerm::create(design, *direction,
+                    range->left, range->right, NLName(name));
+                } else {
+                  term = SNLScalarTerm::create(design, *direction, NLName(name));
+                }
+                const auto& signal = port.internalSymbol->as<slang::ast::ValueSymbol>();
+                auto* net = getLoweredValueSymbolNet(design, signal);
+                if (!net) net = getOrCreateNet(design, name, port.getType());
+                term->setNet(net);
+                setLoweredValueSymbolNet(design, port, net);
+                setLoweredValueSymbolNet(design, signal, net);
+                annotateSourceInfo(term, getSourceRange(port), true);
+                annotateSourceInfo(net, getSourceRange(port), true);
+                bindLiveASTLink(term, port);
+                bindLiveASTLink(net, port);
+              });
             continue;
           }
           std::string portName(sym->name);
@@ -18758,10 +18835,18 @@ endmodule
       return false;
     }
 
+    bool isInterfaceMember(const Symbol& symbol) const {
+      const auto* scope = symbol.getParentScope();
+      if (!scope || scope->asSymbol().kind != SymbolKind::InstanceBody) return false;
+      const auto* instance = scope->asSymbol().as<InstanceBodySymbol>().parentInstance;
+      return instance && instance->isInterface();
+    }
+
     std::string getLoweredSymbolName(const Symbol& symbol) const {
       const auto* parentScope = symbol.getParentScope();
       const bool useHierarchicalName =
         isInsideGenerateScope(symbol) ||
+        isInterfaceMember(symbol) ||
         (parentScope && parentScope->asSymbol().kind != SymbolKind::InstanceBody);
       if (!useHierarchicalName) {
         return std::string(symbol.name);
@@ -35539,6 +35624,10 @@ endmodule
 
     void connectTermsToNets(SNLDesign* design) {
       for (auto term : design->getTerms()) {
+        // Flattened interface terms are bound before lowering their body.
+        if (auto* scalar = dynamic_cast<SNLScalarTerm*>(term); scalar && scalar->getNet()) continue;
+        if (auto* bus = dynamic_cast<SNLBusTerm*>(term);
+            bus && bus->getBitAtPosition(0)->getNet()) continue;
         auto name = term->getName().getString();
         SNLNet* net = design->getNet(NLName(name));
         if (!net) {
@@ -35785,79 +35874,21 @@ endmodule
         }
         auto term = model->getTerm(NLName(portName));
         if (!term) {
-          // If this is a flattened interface port, try to connect each
-          // individual signal term.  The model's terms are named
-          // <portName>__<signalName> (created in createTerms above).
           if (conn->port.kind == SymbolKind::InterfacePort) {
-            (void)conn->port.as<slang::ast::InterfacePortSymbol>();
-            auto [ifaceSymbol, modportSym] = conn->getIfaceConn();
-            if (modportSym) {
-              // Lazy term creation: create flattened terms on the model the
-              // first time this module is instantiated.  Terms are named
-              // <portName>__<signalName> (e.g. slave__aw_valid).
-              for (const auto& mpMember : modportSym->members()) {
-                if (mpMember.kind != SymbolKind::ModportPort) continue;
-                const auto& mpPort =
-                  mpMember.as<slang::ast::ModportPortSymbol>();
-                const std::string flatName =
-                  portName + "__" + std::string(mpPort.name);
-                if (!model->getTerm(NLName(flatName))) {
-                  auto direction = toSNLDirection(mpPort.direction);
-                  if (!direction) continue;
-                  auto range = getRangeFromType(mpPort.getType());
-                  if (range && range->width() > 1) {
-                    SNLBusTerm::create(
-                      model, *direction,
-                      static_cast<NLID::Bit>(range->left),
-                      static_cast<NLID::Bit>(range->right),
-                      NLName(flatName));
-                  } else {
-                    SNLScalarTerm::create(model, *direction, NLName(flatName));
-                  }
+            visitInterfacePortSignals(conn->port.as<slang::ast::InterfacePortSymbol>(),
+              [&](const std::string& name, const slang::ast::ModportPortSymbol& port) {
+                auto* flatTerm = model->getTerm(NLName(name));
+                const auto* expression = port.getConnectionExpr();
+                auto* signalNet = expression
+                  ? resolveExpressionNet(inst->getDesign(), *expression) : nullptr;
+                if (!flatTerm || !signalNet || flatTerm->getWidth() != signalNet->getWidth()) {
+                  reportUnsupportedError(
+                    "Unsupported flattened interface connection for '" + name + "'",
+                    getSourceRange(instance));
+                  return;
                 }
-              }
-              // Now connect each flattened term to its interface signal net.
-              if (ifaceSymbol && ifaceSymbol->kind == SymbolKind::Instance) {
-                const auto& ifaceBody =
-                  ifaceSymbol->as<slang::ast::InstanceSymbol>().body;
-                for (const auto& mpMember : modportSym->members()) {
-                  if (mpMember.kind != SymbolKind::ModportPort) continue;
-                  const auto& mpPort =
-                    mpMember.as<slang::ast::ModportPortSymbol>();
-                  const std::string flatTermName =
-                    portName + "__" + std::string(mpPort.name);
-                  auto* flatTerm = model->getTerm(NLName(flatTermName));
-                  if (!flatTerm) continue;
-                  const auto* signalSym = ifaceBody.find(mpPort.name);
-                  if (!signalSym ||
-                      (signalSym->kind != SymbolKind::Variable &&
-                       signalSym->kind != SymbolKind::Net)) {
-                    continue;
-                  }
-                  auto* signalNet = getLoweredValueSymbolNet(
-                    inst->getDesign(),
-                    signalSym->as<slang::ast::ValueSymbol>());
-                  if (!signalNet) continue;
-                  std::vector<SNLBitNet*> netBits = collectBits(signalNet);
-                  if (netBits.empty()) continue;
-                  if (auto* st = dynamic_cast<SNLScalarTerm*>(flatTerm)) {
-                    auto* si = inst->getInstTerm(st);
-                    if (si && netBits.front()) si->setNet(netBits.front());
-                  } else if (auto* bt = dynamic_cast<SNLBusTerm*>(flatTerm)) {
-                    auto msb = bt->getMSB(), lsb = bt->getLSB();
-                    auto step = lsb <= msb ? 1 : -1;
-                    size_t idx = 0;
-                    for (auto b = lsb;
-                         b != msb + step && idx < netBits.size();
-                         b += step, ++idx) {
-                      auto* bb = bt->getBit(b);
-                      auto* si = bb ? inst->getInstTerm(bb) : nullptr;
-                      if (si && netBits[idx]) si->setNet(netBits[idx]);
-                    }
-                  }
-                }
-              }
-            }
+                inst->setTermNet(flatTerm, signalNet);
+              });
             continue;
           }
           std::ostringstream reason;

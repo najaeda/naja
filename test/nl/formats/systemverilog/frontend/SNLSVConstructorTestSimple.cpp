@@ -11594,6 +11594,163 @@ endmodule
   EXPECT_NE(child->getTerm(NLName("bus__data")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, interfaceModportConnectivityAndSimulation) {
+  const std::string name = "interface_modport_connectivity";
+  const auto path = writeSVTestFile(name, R"(
+interface lane_if #(parameter W = 3);
+  logic [W-1:0] payload;
+  logic [0:W-1] result;
+  logic request, ack;
+  modport endpoint(input payload, request, output result, ack);
+endinterface
+module endpoint(lane_if.endpoint bus);
+  assign bus.result = ~bus.payload;
+  assign bus.ack = bus.request;
+endmodule
+module relay(lane_if.endpoint bus);
+  endpoint worker(bus);
+endmodule
+module array_relay(lane_if.endpoint lanes[2:1]);
+  for (genvar g = 1; g <= 2; g++) begin: generated
+    endpoint worker(lanes[g]);
+  end
+endmodule
+module interface_modport_connectivity(input logic [16:0] a,
+  input logic [4:0] request, output wire [16:0] y, output wire [4:0] ack);
+  lane_if left(), right(), lanes[4:3]();
+  lane_if #(.W(5)) wide();
+  // A user net can collide with a sanitized hierarchical member name.
+  wire interface_modport_connectivity_left_payload = a[16];
+  assign left.payload = a[2:0];
+  assign right.payload = a[5:3];
+  assign lanes[4].payload = a[8:6];
+  assign lanes[3].payload = a[11:9];
+  assign wide.payload = a[16:12];
+  assign {wide.request, lanes[3].request, lanes[4].request,
+          right.request, left.request} = request;
+  assign y = {wide.result, lanes[3].result, lanes[4].result,
+              right.result, left.result};
+  assign ack = {wide.ack, lanes[3].ack, lanes[4].ack, right.ack, left.ack};
+  relay first(left);
+  relay second(right);
+  relay wider(wide);
+  array_relay grouped(lanes);
+endmodule
+)");
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName(name));
+  ASSERT_NE(nullptr, top);
+  auto* first = top->getInstance(NLName("first"));
+  auto* second = top->getInstance(NLName("second"));
+  auto* wider = top->getInstance(NLName("wider"));
+  ASSERT_NE(nullptr, first);
+  ASSERT_NE(nullptr, second);
+  ASSERT_NE(nullptr, wider);
+  for (const auto* member : {"payload", "result", "request", "ack"}) {
+    const auto termName = NLName(std::string("bus__") + member);
+    auto* firstTerm = first->getModel()->getTerm(termName);
+    auto* secondTerm = second->getModel()->getTerm(termName);
+    ASSERT_NE(nullptr, firstTerm);
+    ASSERT_NE(nullptr, secondTerm);
+    EXPECT_NE(first->getInstTerm(*firstTerm->getBits().begin())->getNet(),
+              second->getInstTerm(*secondTerm->getBits().begin())->getNet());
+  }
+  EXPECT_EQ(3, first->getModel()->getTerm(NLName("bus__payload"))->getWidth());
+  EXPECT_EQ(5, wider->getModel()->getTerm(NLName("bus__payload"))->getWidth());
+  for (auto* model : library_->getSNLDesigns()) {
+    for (auto* term : model->getBitTerms()) {
+      EXPECT_NE(nullptr, term->getNet()) << model->getName().getString();
+    }
+    for (auto* instance : model->getInstances()) {
+      if (NLDB0::isAssign(instance->getModel())) {
+        EXPECT_NE(instance->getInstTerm(NLDB0::getAssignInput())->getNet(),
+                  instance->getInstTerm(NLDB0::getAssignOutput())->getNet());
+      }
+    }
+  }
+  const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for the interface behavior check";
+  }
+  const auto tbPath = path.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg [16:0] a;
+  reg [4:0] request;
+  wire [16:0] y;
+  wire [4:0] ack;
+  interface_modport_connectivity dut(a, request, y, ack);
+  initial begin
+    for (integer i = 0; i < 514; i = i + 1) begin
+      a = 17'(i * 131 + 17);
+      request = 5'(i);
+      if (i == 512) begin a = 'x; request = 'x; end
+      if (i == 513) begin a = 'z; request = 'z; end
+      #1;
+      if (y !== ~a || ack !== request)
+        $fatal(1, "interface connectivity: a=%b y=%b request=%b ack=%b", a, y, request, ack);
+    end
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto quote = [](const std::filesystem::path& file) {
+    return "'" + file.string() + "'";
+  };
+  const auto executable = path.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(dumped);
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+TEST_F(SNLSVConstructorTestSimple, interfaceMemberAssignmentsPreserveDistinctNets) {
+  const auto path = writeSVTestFile("interface_member_assignments", R"(
+interface lane_if;
+  wire [4:0] payload;
+endinterface
+module interface_member_assignments(input [4:0] a, output [4:0] y);
+  lane_if source_lane(), destination_lane();
+  assign source_lane.payload = a;
+  assign destination_lane.payload = source_lane.payload;
+  assign y = destination_lane.payload;
+endmodule
+)");
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName("interface_member_assignments"));
+  ASSERT_NE(nullptr, top);
+  size_t assigns = 0;
+  for (auto* instance : top->getInstances()) {
+    if (!NLDB0::isAssign(instance->getModel())) continue;
+    ++assigns;
+    EXPECT_NE(instance->getInstTerm(NLDB0::getAssignInput())->getNet(),
+              instance->getInstTerm(NLDB0::getAssignOutput())->getNet());
+  }
+  EXPECT_EQ(15u, assigns);
+}
+
+TEST_F(SNLSVConstructorTestSimple, interfaceModportExpressionReportedUnsupported) {
+  const auto path = writeSVTestFile("interface_modport_expression", R"(
+interface lane_if;
+  logic [4:0] payload;
+  modport endpoint(input .value(payload[2:0]));
+endinterface
+module endpoint(lane_if.endpoint bus, output wire [2:0] y);
+  assign y = bus.value;
+endmodule
+module interface_modport_expression(input [4:0] a, output [2:0] y);
+  lane_if lane();
+  assign lane.payload = a;
+  endpoint worker(lane, y);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"Unsupported interface modport member connection"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

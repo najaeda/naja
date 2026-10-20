@@ -263,6 +263,32 @@ endmodule
     def test_verilog(self):
         self.check_determinism("v", VERILOG)
 
+    def test_systemverilog_interfaces(self):
+        self.check_determinism("sv", """
+interface lane_if #(parameter W = 3);
+  logic [W-1:0] value, result;
+  modport endpoint(input value, output result);
+endinterface
+module endpoint(lane_if.endpoint bus);
+  assign bus.result = ~bus.value;
+endmodule
+module relay(lane_if.endpoint lanes[2:1]);
+  for (genvar g = 1; g <= 2; g++) begin: generated
+    endpoint worker(lanes[g]);
+  end
+endmodule
+module top(input logic [10:0] a, output wire [10:0] y);
+  lane_if lanes[4:3]();
+  lane_if #(.W(5)) wide();
+  assign lanes[4].value = a[2:0];
+  assign lanes[3].value = a[5:3];
+  assign wide.value = a[10:6];
+  assign y = {wide.result, lanes[3].result, lanes[4].result};
+  relay grouped(lanes);
+  endpoint wider(wide);
+endmodule
+""")
+
     def test_vhdl(self):
         self.check_determinism("vhd", VHDL)
 
