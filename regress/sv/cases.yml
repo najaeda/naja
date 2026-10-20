@@ -81,18 +81,20 @@ cases:
       rtl_infos_as_attributes: true
     # Structural integration signatures are intentionally tied to the pinned
     # CVA6 commit above. Update these counts only after reviewing the cone diff.
+    # Shared index decoding removes 42 XNOR and 20 AND gates (82 edges);
+    # cone boundary counts and the individual-bit probes remain unchanged.
     logic_cones:
       - term: noc_req_o
         direction: fanin
         expected:
-          nodes: 1695
-          edges: 2398
+          nodes: 1633
+          edges: 2316
           leaves: 19
           roots: 471
           registers: 16
           ports: 3
           blackboxes: 0
-          internal: 1205
+          internal: 1143
       - term: noc_req_o
         bit: 468
         direction: fanin
