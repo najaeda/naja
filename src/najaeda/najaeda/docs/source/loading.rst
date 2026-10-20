@@ -17,17 +17,61 @@ Call :func:`najaeda.netlist.reset` at the beginning of scripts and tests when
 you need an empty universe.  Loading a design returns the top
 :class:`najaeda.netlist.Instance` wrapper.
 
-Verilog
--------
+Gate-level Verilog
+------------------
+
+``load_gate_level_verilog`` and ``GateLevelVerilogConfig`` refer to **gate-level (structural)
+Verilog**: modules, cell instances, nets, ports, and structural connections.
+This loader does not provide general behavioral Verilog RTL support, such as
+procedural ``always`` blocks or RTL arithmetic expressions.
+
+For Verilog or SystemVerilog RTL, use ``load_system_verilog`` with
+``SystemVerilogConfig``, including for ``.v`` files. That frontend elaborates a
+supported RTL subset through slang; it is not a full language implementation or
+a simulator. Choose the loader by the source's contents, not its file extension.
+
+The explicit gate-level names are preferred. Existing names remain compatibility
+aliases and emit a visible ``FutureWarning`` saying they **will be deprecated
+soon**, with the replacement to use. No removal version is scheduled yet.
+
+.. list-table:: Gate-level Verilog API migration
+   :header-rows: 1
+   :widths: 45 55
+
+   * - Compatibility name
+     - Preferred name
+   * - ``netlist.load_verilog``
+     - ``netlist.load_gate_level_verilog``
+   * - ``netlist.VerilogConfig``
+     - ``netlist.GateLevelVerilogConfig``
+   * - ``Instance.dump_verilog``
+     - ``Instance.dump_gate_level_verilog``
+   * - ``netlist.VerilogDumpConfig``
+     - ``netlist.GateLevelVerilogDumpConfig``
+   * - ``NLDB.loadVerilog``
+     - ``NLDB.loadGateLevelVerilog``
+   * - ``NLDB.dumpVerilog``
+     - ``NLDB.dumpGateLevelVerilog``
+   * - ``SNLDesign.dumpVerilog``
+     - ``SNLDesign.dumpGateLevelVerilog``
+
+Arguments, defaults, return values and netlist behavior are unchanged. Existing
+configuration objects work with the new methods, and the compatibility methods
+also accept the new configuration classes. New calls do not emit compatibility
+warnings internally. The CLI uses ``-f gate-level-verilog`` for gate-level input and
+``-t gate-level-verilog`` for structural output. Both options still accept
+``verilog`` as a compatibility alias and warn that it will be deprecated soon.
+An inferred output format does not produce a second warning.
+``-f systemverilog`` (or ``-f sv``) selects RTL elaboration.
 
 .. code-block:: python
 
    from najaeda import netlist
 
-   config = netlist.VerilogConfig()
-   top = netlist.load_verilog(["cells.v", "design.v"], config)
+   config = netlist.GateLevelVerilogConfig()
+   top = netlist.load_gate_level_verilog(["cells.v", "design.v"], config)
 
-Use Verilog loading for structural Verilog netlists.  Load Liberty or
+Load Liberty or
 primitive libraries first when the design instantiates standard cells or
 technology primitives.
 
@@ -42,8 +86,8 @@ the parser's line and column range, including when loading multiple files.
 With preprocessing enabled, these positions refer to the preprocessed text.
 
 Verilog dumps can opt into Verilator's packed-signal splitting with
-``VerilogDumpConfig(verilatorSplitPackedSignals=True)`` passed to
-``Instance.dump_verilog``. This adds ``/* verilator split_var */`` comments to
+``GateLevelVerilogDumpConfig(verilatorSplitPackedSignals=True)`` passed to
+``Instance.dump_gate_level_verilog``. This adds ``/* verilator split_var */`` comments to
 internal bus nets and child-module bus ports so Verilator can track dependencies
 between separate packed sections. Public top-module ports are excluded. The
 option defaults to ``False`` and adds no warning suppression or logic changes.
@@ -65,9 +109,9 @@ It does not fall back to declarations or origins.
 
 Select Yosys provenance explicitly when loading synthesized output::
 
-   top = netlist.load_verilog(
+   top = netlist.load_gate_level_verilog(
        "synthesized.v",
-       netlist.VerilogConfig(yosys_source_attributes=True))
+       netlist.GateLevelVerilogConfig(yosys_source_attributes=True))
    cell = top.get_child_instance("u")
    gate_location = cell.get_source_declaration()
    upstream_locations = cell.get_source_origins()
@@ -99,8 +143,8 @@ source map: automatic declarations are omitted when ``preprocess_enabled=True``;
 explicit upstream Yosys references still work. Locating relocated
 source files and linking origins to separately loaded RTL/ASTs are future work.
 
-SystemVerilog
--------------
+Verilog and SystemVerilog RTL
+-----------------------------
 
 .. code-block:: python
 
@@ -109,8 +153,9 @@ SystemVerilog
    config = netlist.SystemVerilogConfig()
    top = netlist.load_system_verilog(["pkg.sv", "rtl.sv"], config)
 
-SystemVerilog loading elaborates the design through the native frontend and
-then builds SNL objects.  Frontend diagnostics are raised as native
+``load_system_verilog`` accepts both Verilog (``.v``) and SystemVerilog (``.sv``)
+RTL within the supported subset. It elaborates the design through slang and
+then builds SNL objects. Frontend diagnostics are raised as native
 ``SystemVerilog*`` exceptions from :mod:`najaeda.naja`.
 
 In a fresh universe, loading the same ordered sources and configuration with the

@@ -35,7 +35,7 @@ Load or create a design first, using the same APIs as in :doc:`loading` and
    from najaeda.schematic import show
 
    netlist.load_liberty(["cells.lib"])
-   top = netlist.load_verilog("design.v")
+   top = netlist.load_gate_level_verilog("design.v")
 
    view = show(height=700)
    view

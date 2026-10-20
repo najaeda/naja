@@ -313,7 +313,9 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+static PyObject* loadGateLevelVerilog(
+    PyNLDB* self, PyObject* args, PyObject* kwargs, const char* methodName) {
+  const std::string parseFormat = std::string("O|pppOp:") + methodName;
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
   int blackbox_unknown_modules = 0; // Default: false
@@ -328,7 +330,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pppOp:NLDB.loadVerilog",
+    args, kwargs, parseFormat.c_str(),
     const_cast<char**>(kwords),
     &files, &keep_assigns, &blackbox_unknown_modules, &preprocess_enabled,
     &conflicting_design_name_policy, &yosys_source_attributes)) {
@@ -338,14 +340,14 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   if (not PyList_Check(files)) {
     PyErr_Format(
       PyExc_TypeError,
-      "NLDB.loadVerilog: files must be a list[str], got %s",
-      Py_TYPE(files)->tp_name);
+      "%s: files must be a list[str], got %s",
+      methodName, Py_TYPE(files)->tp_name);
     return nullptr;
   }
   if (PyList_Size(files) == 0) {
-    PyErr_SetString(
+    PyErr_Format(
       PyExc_ValueError,
-      "NLDB.loadVerilog: files must contain at least one Verilog path");
+      "%s: files must contain at least one Verilog path", methodName);
     return nullptr;
   }
   using Policy = SNLVRLConstructor::Config::ConflictingDesignNamePolicy;
@@ -355,9 +357,9 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     if (!PyUnicode_Check(conflicting_design_name_policy)) {
       PyErr_Format(
         PyExc_TypeError,
-        "NLDB.loadVerilog: conflicting_design_name_policy must be a str or None, "
+        "%s: conflicting_design_name_policy must be a str or None, "
         "got %s",
-        Py_TYPE(conflicting_design_name_policy)->tp_name);
+        methodName, Py_TYPE(conflicting_design_name_policy)->tp_name);
       return nullptr;
     }
 
@@ -373,9 +375,9 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     } else {
       PyErr_Format(
         PyExc_ValueError,
-        "NLDB.loadVerilog: invalid conflicting_design_name_policy '%s'; "
+        "%s: invalid conflicting_design_name_policy '%s'; "
         "expected one of: forbid, first, last, verify",
-        s.c_str());
+        methodName, s.c_str());
       return nullptr;
     }
   }
@@ -386,8 +388,8 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     if (not PyUnicode_Check(object)) {
       PyErr_Format(
         PyExc_TypeError,
-        "NLDB.loadVerilog: files[%d] must be a str path, got %s",
-        i,
+        "%s: files[%d] must be a str path, got %s",
+        methodName, i,
         Py_TYPE(object)->tp_name);
       return nullptr;
     }
@@ -395,18 +397,18 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     if (pathStr.empty()) {
       PyErr_Format(
         PyExc_ValueError,
-        "NLDB.loadVerilog: files[%d] must not be empty",
-        i);
+        "%s: files[%d] must not be empty",
+        methodName, i);
       return nullptr;
     }
     const std::filesystem::path path(pathStr);
     inputPaths.push_back(path);
   }
-  METHOD_HEAD("NLDB.loadVerilog()")
+  METHOD_HEAD("NLDB.loadGateLevelVerilog()")
   NLDB* db = selfObject;
   SNLDesign* top = nullptr;
   TRY
-  // loadVerilog can be called multiple times; the last load determines the top.
+  // The loader can be called multiple times; the last load determines the top.
   NLLibrary* designLibrary = db->getLibrary(NLName("DESIGN"));
   if (designLibrary == nullptr) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
@@ -475,6 +477,19 @@ static bool parseHDLLibrary(PyObject* object, std::string& name) {
 static NLLibrary* hdlDestination(NLDB* db, const std::string& name) {
   auto* result = findHDLLibrary(db, name);
   return result ? result : NLLibrary::create(db, NLName(name));
+}
+
+
+PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+  if (PyErr_WarnEx(PyExc_FutureWarning,
+      "NLDB.loadVerilog will be deprecated soon; use NLDB.loadGateLevelVerilog instead.", 1) < 0) {
+    return nullptr;
+  }
+  return loadGateLevelVerilog(self, args, kwargs, "NLDB.loadVerilog");
+}
+
+static PyObject* PyNLDB_loadGateLevelVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
+  return loadGateLevelVerilog(self, args, kwargs, "NLDB.loadGateLevelVerilog");
 }
 
 PyObject* PyNLDB_loadVHDL(PyNLDB* self, PyObject* args, PyObject* kwargs) {
@@ -862,14 +877,14 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
   return PySNLDesign_Link(top);
 }
 
-PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {
+static PyObject* PyNLDB_dumpGateLevelVerilog(PyNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:NLDB.dumpVerilog", &arg)) {
-    setError("malformed NLDB dumpVerilog");
+  if (not PyArg_ParseTuple(args, "O:NLDB.dumpGateLevelVerilog", &arg)) {
+    setError("malformed NLDB dumpGateLevelVerilog");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
-    setError("NLDB dumpVerilog argument should be a file path");
+    setError("NLDB dumpGateLevelVerilog argument should be a file path");
     return nullptr;
   }
   std::ofstream output(PyUnicode_AsUTF8(arg));
@@ -877,6 +892,14 @@ PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(self->object_->getTopDesign(), output);
   Py_RETURN_NONE;
+}
+
+PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {
+  if (PyErr_WarnEx(PyExc_FutureWarning,
+      "NLDB.dumpVerilog will be deprecated soon; use NLDB.dumpGateLevelVerilog instead.", 1) < 0) {
+    return nullptr;
+  }
+  return PyNLDB_dumpGateLevelVerilog(self, args);
 }
 
 PyObject* PyNLDB_getLibrary(PyNLDB* self, PyObject* arg) {
@@ -942,9 +965,13 @@ PyMethodDef PyNLDB_Methods[] = {
   { "loadLibertyPrimitives", (PyCFunction)PyNLDB_loadLibertyPrimitives, METH_VARARGS,
     "import primitives from Liberty format."},
   { "loadVerilog", (PyCFunction)PyNLDB_loadVerilog, METH_VARARGS|METH_KEYWORDS,
-    "create a design from Verilog format.\n\n"
+    "Compatibility alias for loadGateLevelVerilog; will be deprecated soon. Emits FutureWarning."},
+  { "loadGateLevelVerilog", (PyCFunction)PyNLDB_loadGateLevelVerilog, METH_VARARGS|METH_KEYWORDS,
+    "create a design from gate-level (structural) Verilog netlists.\n"
+    "This loader does not support general behavioral RTL. Use loadSystemVerilog\n"
+    "for Verilog or SystemVerilog RTL, including .v files, within its supported subset.\n\n"
     "Args:\n"
-    "  files (list[str]): input Verilog files\n"
+    "  files (list[str]): input gate-level Verilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
     "  blackbox_unknown_modules (bool, optional): create unknown modules as blackboxes (default False)\n"
     "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
@@ -963,7 +990,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "  diagnostics_report_path (str | None): all warning occurrences; defaults to naja_vhdl_diagnostics.log.\n"
     "  top (str | None, optional): entity selected as the structural top"},
   { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
-    "create a design from SystemVerilog format.\n\n"
+    "elaborate Verilog or SystemVerilog RTL using slang, including .v and .sv files.\n"
+    "Supports an RTL subset; this is not a full language implementation or a simulator.\n\n"
     "Warning:\n"
     "  SystemVerilog support is under active development and in early beta mode.\n\n"
     "Args:\n"
@@ -982,7 +1010,9 @@ PyMethodDef PyNLDB_Methods[] = {
     "  keep_ast_link (bool, optional): retain live frontend AST to SNL object links when supported "
     "(default False)."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
-    "dump this NLDB to SNL format."},
+    "Compatibility alias for dumpGateLevelVerilog; will be deprecated soon. Emits FutureWarning."},
+  { "dumpGateLevelVerilog", (PyCFunction)PyNLDB_dumpGateLevelVerilog, METH_VARARGS,
+    "dump this NLDB as gate-level (structural) Verilog, not the original behavioral RTL."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,
     "retrieve a NLLibrary."},
   { "getLibraries", (PyCFunction)PyNLDB_getLibraries, METH_NOARGS,

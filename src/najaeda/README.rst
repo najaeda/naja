@@ -16,7 +16,7 @@ najaeda
 ----
 
 **najaeda** is a Python package for loading, elaborating, navigating, editing,
-and analysing hardware designs from simple Verilog netlists to large
+and analysing hardware designs from gate-level Verilog netlists to large
 SystemVerilog RTL cores.
 
 .. code-block:: python
@@ -25,7 +25,7 @@ SystemVerilog RTL cores.
 
     # Load a gate-level Verilog design with a Liberty standard-cell library
     netlist.load_liberty(['NangateOpenCellLibrary.lib'])
-    top = netlist.load_verilog('my_design.v')
+    top = netlist.load_gate_level_verilog('my_design.v')
 
     # Navigate the hierarchy
     for inst in top.get_child_instances():
@@ -42,8 +42,8 @@ SystemVerilog RTL cores.
 What you can do
 ---------------
 
-- **Load** Verilog and elaborated SystemVerilog designs, with or without
-  Liberty standard-cell libraries
+- **Load** gate-level Verilog netlists and elaborate supported
+  Verilog/SystemVerilog RTL, with or without Liberty standard-cell libraries
 - **Navigate** hierarchy, nets, and ports at any level of detail —
   instance-by-instance or flat via equipotentials
 - **Edit** netlists: rename instances and nets, disconnect and reconnect

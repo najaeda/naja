@@ -3,8 +3,8 @@ Quick Start
 
 This page shows the shape of a typical :mod:`najaeda.netlist` script.
 
-Load a design
--------------
+Load a gate-level Verilog netlist
+---------------------------------
 
 .. code-block:: python
 
@@ -12,9 +12,14 @@ Load a design
 
    netlist.reset()
    netlist.load_liberty(["NangateOpenCellLibrary_typical.lib"])
-   top = netlist.load_verilog("counter.v")
+   top = netlist.load_gate_level_verilog("counter_netlist.v")
 
    print(top.get_name())
+
+``load_gate_level_verilog`` loads gate-level (structural) connectivity. For Verilog or
+SystemVerilog RTL, including behavioral ``.v`` files, use
+``netlist.load_system_verilog("counter.v")`` within the frontend's supported
+RTL subset. See :doc:`loading` for loader selection and limitations.
 
 Browse hierarchy
 ----------------
