@@ -86,6 +86,24 @@ class PulpBenchmarksTest(unittest.TestCase):
             self.assertEqual("timeout", result["status"])
             self.assertEqual(5, result["design_stats"]["top_terms"])
 
+    def test_case_timescale_reaches_only_the_configured_worker(self):
+        for variant, expected in (("configured", "1ns/1ps"), ("default", None)):
+            with self.subTest(variant=variant), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                source = root / "design" / "variants" / variant
+                source.mkdir(parents=True)
+                (source / "filelist.f").write_text("source.sv\n")
+                with patch.object(pulp, "DEFAULT_TIMESCALES", {"design.configured": "1ns/1ps"}), \
+                     patch.object(pulp, "run_command", return_value=subprocess.CompletedProcess([], 1)) as run:
+                    result = pulp.run_target(root, f"design.{variant}", "top",
+                                             root / "artifacts", root, 1)
+                command = run.call_args.args[0]
+                if expected is None:
+                    self.assertNotIn("--default-timescale", command)
+                else:
+                    self.assertEqual(expected, command[command.index("--default-timescale") + 1])
+                self.assertEqual(expected, result["default_timescale"])
+
     def test_lint_failure_is_not_a_load_dump_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

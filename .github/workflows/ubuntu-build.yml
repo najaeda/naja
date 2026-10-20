@@ -52,6 +52,9 @@ jobs:
         CC:  ${{ matrix.compiler.cc }}
         CXX: ${{ matrix.compiler.cxx }}
 
+    - name: Check netlist determinism
+      run: ctest --test-dir build -L determinism --no-tests=error --output-on-failure
+
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.

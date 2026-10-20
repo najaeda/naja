@@ -257,6 +257,9 @@ class SNLVRLDumper {
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpNajaFAModel(std::ostream& o);
     void dumpNajaMux2Model(std::ostream& o);
+    void dumpNajaAddSubModels(std::ostream& o);
+    void dumpNajaMultiplyModel(std::ostream& o);
+    void dumpNajaShiftModel(std::ostream& o);
     void dumpNajaTableSelectModel(std::ostream& o);
     void dumpNajaDFFModel(std::ostream& o);
     void dumpNajaDLatchModel(std::ostream& o);

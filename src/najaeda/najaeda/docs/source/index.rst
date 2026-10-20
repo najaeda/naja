@@ -2,7 +2,7 @@ najaeda documentation
 =====================
 
 ``najaeda`` is the Python interface to Naja's structured netlist model.
-It is designed for scripts and tools that load Verilog, elaborate
+It is designed for scripts and tools that load gate-level Verilog netlists, elaborate
 SystemVerilog RTL, browse hierarchy and connectivity, compute design metrics,
 and make controlled ECO-style edits.
 

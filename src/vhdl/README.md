@@ -671,8 +671,9 @@ Architecture-local components use the existing interface-checked binding path,
 and ports can explicitly declare the `signal` interface class.
 
 Explicit binary signal initializers on locally clocked registers are encoded in
-canonical DFF `INIT` parameters. Variable initialization, nonbinary values, and
-initialization with other drivers remain rejected. The standalone analyzer
+canonical DFF `INIT` parameters. Nonbinary register initialization remains rejected. Static temporary-variable
+initializers are accepted only when overwritten before use; combinational signal
+initializers must be proved redundant from explicit initialized state and constants. The standalone analyzer
 reports that initialized signals require RTL elaboration.
 
 
@@ -898,8 +899,9 @@ with a required `begin` after declarations. Declarations are elaborated in sourc
 order, and each selected body or loop iteration receives distinct local nets
 under its generate prefix. Nested bodies can read enclosing declarations; local
 bindings are removed at scope exit. Initializers and driver checks remain attached
-to the elaborated hardware. Local arrays use register/mux lowering. Outer-name
-shadowing and local subtypes, functions, and component declarations are diagnosed.
+to the elaborated hardware. Eligible local arrays infer canonical RAMs; other arrays use register/mux lowering. Outer-name
+shadowing and local component declarations are diagnosed. Local subtypes and
+pure functions/procedures retain their generate scope.
 
 All 183 VHDL tests pass. Self-contained regressions cover repeated local names,
 per-iteration widths, nested conditional bodies, record and array types, constant
@@ -914,8 +916,10 @@ ordered signal assignments, definite-assignment variables, static loops, and
 nested conditionals. Unassigned bits start unavailable during lowering; branch
 merges retain that state until an unconditional assignment fills it. A driven bit
 left unavailable is diagnosed as requiring a latch. Explicit sensitivity lists
-must include all read signals. Reads of signals written by the same process,
-initialized local variables and waits remain unsupported.
+must include all read signals. Reads of signals written by the same process retain scheduled semantics and
+require a provably acyclic combinational dependency. Retained variable state and
+active waits remain unsupported. Process constants,
+local shadowing, and overwritten static variable initializers are supported.
 
 All 186 VHDL tests pass, including 128 input/sensitivity combinations covering
 defaults, conditional overrides, variable updates, ascending output vectors,
@@ -952,10 +956,10 @@ removed with their generate scope.
 
 All 195 VHDL tests pass, including a three-state record FSM with enum-array
 history, repeated local enum declarations, and rejection of cross-type values,
-duplicate/overloaded literals, illegal operators, and incomplete cases. NVC
-independently confirms the FSM and history across 24 cycles. Enum ports, character
-literals, subtype constraints, ordering comparisons, attributes, and enum-valued
-static functions remain unsupported; implicit enum initialization is not emitted.
+duplicate literals, illegal operators, and incomplete cases. NVC
+independently confirms the FSM and history across 24 cycles. Enum ports, context-resolved overloaded literals, and ordering comparisons are
+supported. Character literals, enumeration subtype constraints, attributes, and
+enum-valued static functions remain unsupported; implicit enum initialization is not emitted.
 The complete NEORV32 top has still not loaded.
 
 ## Record-field sensitivity lists
@@ -1005,3 +1009,73 @@ entity, including across libraries and through component instances. Types are
 checked: integer `0`/`1` are not boolean `false`/`true`. Cached model names encode
 boolean overrides as `__name_false` or `__name_true`, retaining existing integer
 specialization naming. Vector generic defaults and actuals are supported for static binary vectors; runtime vector helpers remain unsupported.
+
+## RTL elaboration support and regression coverage
+
+Supporting synthetic constructor regressions cover sized/signed/decimal
+bit strings, based integer exponents, bounded subtype aliases, static while
+functions, logic reductions, process constants and scope restoration,
+expression input actuals, enabled clock guards, labeled cases and loops,
+variable-parameter procedures, nominal enum overload resolution and enum ports.
+Integer temporaries retain signed comparisons and static loop-derived slice
+bounds. Numeric functions include static `to_signed`, constant-count shifts and
+rotates, signed unary operators, scalar logic carry addition/subtraction, and
+runtime-function cases that all return or all update local variables.
+
+Dynamic IEEE `is_X` folds to false for synthesis; constant operands retain
+X/Z detection. This introduces no DB0 primitive. Attribute mapping hints are
+ignored with `ignored-attribute` diagnostics. Overwritten temporary initializers
+are accepted without introducing state; combinational signal initializers must
+be proved consistent with constants and explicitly initialized local registers.
+
+Generate-local RAM inference preserves independent scope and loop-iteration
+state, write enables, and read-before-write behavior. Array dimensions retain
+the 65,536-element limit; total array/record capacity is bounded to 1,048,576
+bits. Constrained integer subtypes may index fixed arrays. Unused
+`ieee.math_real.all` imports are accepted without enabling real operations.
+Combinational self-reads preserve signal scheduling and require an acyclic
+local dependency proof, including paths through child instances; registers
+break the combinational dependency.
+
+Partial-word RAM writes now use the existing canonical `WMASK`/`WCLK`
+representation. A single syntactic write site can be unrolled with a shared
+decoded address; disabled bits hold and later overlapping assignments win.
+Output reads follow VHDL-2008 signal semantics, and constrained array subtype
+attributes can supply slice bounds inside runtime functions.
+
+Enum `'pos` retains nominal operand checks and `'val` checks ordinal range.
+Invalid static ordinals fail; invalid runtime ordinals select X without wrapping.
+Dynamic nonnegative integers, including enum positions, can feed `to_unsigned`.
+
+Fixed-width dynamic slices use canonical table-select primitives and preserve
+runtime bounds as an implementation limit: they can be assigned by position or
+returned, but cannot yet be indexed or forwarded to unconstrained formals.
+Nested dynamic writes support signal and variable array dimensions and record
+fields. Repeated guards and case selections retain conditional temporary values;
+reads without the required guard remain errors. Runtime function locals can hide
+imported or captured outer names, while formal/local conflicts remain errors.
+`std_match` accepts typed logic operands and literal wildcard patterns. Aggregate
+concatenations infer explicit bounds; ambiguous untyped vector matches and
+unconstrained `others` comparison aggregates are rejected. Integer hardware
+multiplication and modulo by a static positive power of two are supported.
+
+Runtime functions support early returns from conditional branches, bounded
+loops, and cases, with later statements supplying fallback returns. Every path
+must return; control-flow elaboration and recursion remain bounded. Startup
+proofs also accept combinational initializers whose fanout reaches only
+registered data/enable paths after settling, while retaining register INIT and
+rejecting unproved output/asynchronous-control effects. Entity interfaces and
+architecture signals can hide imported names without permitting duplicate
+direct declarations.
+
+Runtime numeric left/right shifts use canonical NLDB0 shift models, including
+arithmetic right shifts and oversized counts. Clocked record/vector variables
+retain incoming values with existing DFF primitives, while overwritten
+immediate temporaries remain combinational. VHDL-2008 scalar condition conversion
+and explicit `??` are supported. Diagnostic-only clocked processes create no
+hardware after their assertion/report diagnostics are emitted.
+
+Combinational processes that read a process variable before assigning it can
+depend on a previous process activation's value. The definite-assignment check
+rejects unsupported retained-state behavior; the loader does not rewrite source
+expressions to bypass this check.

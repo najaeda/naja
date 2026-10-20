@@ -295,6 +295,44 @@ endmodule
         self.assertEqual(
             "naja_sv_diagnostics.log", config.diagnostics_report_path)
 
+    def test_system_verilog_default_timescale(self):
+        self.assertIsNone(netlist.SystemVerilogConfig().default_timescale)
+        for value in (1, False, []):
+            with self.assertRaisesRegex(TypeError, "default_timescale must be a str or None"):
+                netlist.SystemVerilogConfig(default_timescale=value)
+        for value in ("", "  "):
+            with self.assertRaisesRegex(ValueError, "default_timescale must not be empty"):
+                netlist.SystemVerilogConfig(default_timescale=value)
+        config = netlist.SystemVerilogConfig()
+        config.default_timescale = 1
+        with self.assertRaisesRegex(TypeError, "default_timescale must be a str or None"):
+            netlist.load_system_verilog([], config)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "source.sv")
+            flist = os.path.join(directory, "sources.f")
+            with open(path, "w", encoding="utf-8") as source:
+                source.write("module leaf(output wire y);\n"
+                             "localparam integer UNIT = 1ns; assign y = (UNIT == 1000);\n"
+                             "endmodule\n"
+                             "module top(output wire a, b); timeunit 1ns/1ps;\n"
+                             "localparam integer UNIT = 1ns; assign a = (UNIT == 1);\n"
+                             "leaf u(b); endmodule\n")
+            with open(flist, "w", encoding="utf-8") as output:
+                output.write(path + "\n")
+            with self.assertRaisesRegex(naja.SystemVerilogSyntaxError, "time scale"):
+                netlist.load_system_verilog(path)
+            for use_flist in (False, True):
+                netlist.reset()
+                top = netlist.load_system_verilog([] if use_flist else path,
+                    netlist.SystemVerilogConfig(default_timescale="1ps/1ps", keep_assigns=False,
+                        flist=flist if use_flist else None, top="top"))
+                self.assertTrue(top.get_term("a").get_lower_net().is_const1())
+                self.assertTrue(top.get_child_instance("u").get_term("y").get_lower_net().is_const1())
+            netlist.reset()
+            with self.assertRaises(naja.SystemVerilogSyntaxError):
+                netlist.load_system_verilog(path,
+                    netlist.SystemVerilogConfig(default_timescale="invalid"))
+
     def test_system_verilog_config_single_unit_validation(self):
         self.assertFalse(netlist.SystemVerilogConfig().single_unit)
         for value in ("true", 1, None):

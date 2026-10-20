@@ -12,6 +12,13 @@ constants.  Query them with ``Net.is_constx()`` and ``Net.is_constz()``;
 For the lower-level compiled extension module, see :doc:`raw_api`.
 For the optional ``najaeda.schematic`` viewer API, see :doc:`schematic`.
 
+``load_gate_level_verilog`` and ``GateLevelVerilogConfig`` load gate-level (structural) Verilog
+netlists. For Verilog or SystemVerilog RTL, including ``.v`` files, use
+``load_system_verilog`` and ``SystemVerilogConfig`` within that frontend's
+supported subset. ``Instance.dump_gate_level_verilog`` and ``GateLevelVerilogDumpConfig`` export
+structural netlists, including after RTL elaboration; they do not reconstruct
+the original behavioral RTL. See :doc:`loading`.
+
 Source information
 ------------------
 
@@ -81,7 +88,7 @@ returns ``SNLTermRole.Other``.
     :undoc-members:
     :show-inheritance:
 
-``VerilogConfig.yosys_source_attributes`` defaults to ``False``. Set it to
+``GateLevelVerilogConfig.yosys_source_attributes`` defaults to ``False``. Set it to
 ``True`` to interpret Yosys ``src`` attributes as upstream origins without
 inferring a language, representation, or AST link. Structural Verilog now
 populates declarations independently of this option; see :doc:`loading`.

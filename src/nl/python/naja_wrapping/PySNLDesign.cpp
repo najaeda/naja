@@ -4,6 +4,7 @@
 
 #include "PySNLDesign.h"
 #include "PySNLSequentialModel.h"
+#include "PySNLMemoryInterface.h"
 
 #include "PyInterface.h"
 
@@ -18,6 +19,8 @@
 #include "PySNLBusNet.h"
 #include "PySNLInstance.h"
 #include "PySNLParameter.h"
+#include "PyNLClock.h"
+#include "PyNLClocks.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
 #include "PySNLInstTerms.h"
@@ -140,7 +143,7 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   return PySNLDesign_Link(newDesign);
 }
 
-static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+static PyObject* PySNLDesign_dumpGateLevelVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
   const char* path = nullptr;
   const char* topFileName = nullptr;
   int dumpRTLInfosAsAttributes = 0;
@@ -155,14 +158,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|ppsp:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|ppsp:SNLDesign.dumpGateLevelVerilog",
     const_cast<char**>(kwords),
     &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances,
     &rtlInfoDumpMode, &verilatorSplitPackedSignals)) {
-    setError("malformed SNLDesign.dumpVerilog method");
+    setError("malformed SNLDesign.dumpGateLevelVerilog method");
     return nullptr;
   }
-  METHOD_HEAD("SNLDesign.dumpVerilog()")
+  METHOD_HEAD("SNLDesign.dumpGateLevelVerilog()")
   TRY
   SNLVRLDumper dumper;
   dumper.setTopFileName(topFileName);
@@ -180,6 +183,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+  if (PyErr_WarnEx(PyExc_FutureWarning,
+      "SNLDesign.dumpVerilog will be deprecated soon; use SNLDesign.dumpGateLevelVerilog instead.", 1) < 0) {
+    return nullptr;
+  }
+  return PySNLDesign_dumpGateLevelVerilog(self, args, kwargs);
 }
 
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
@@ -739,6 +750,7 @@ GetBoolAttribute(SNLDesign, isMux)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
+GetContainerMethod(SNLDesign, NLClock*, NLClocks, Clocks)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
 GetContainerMethod(SNLDesign, SNLBusTerm*, SNLBusTerms, BusTerms)
@@ -905,6 +917,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get primitive data output terms"},
   { "setSequentialModelFromParameters", (PyCFunction)PySNLDesign_setSequentialModelFromParameters,
     METH_VARARGS|METH_KEYWORDS, "Set a table of parameter-selected sequential models."},
+  { "hasMemoryInterface", (PyCFunction)PySNLDesign_hasMemoryInterface, METH_NOARGS,
+    "Return whether this design has a memory interface."},
+  { "getMemoryInterface", (PyCFunction)PySNLDesign_getMemoryInterface, METH_NOARGS,
+    "Return the memory interface dictionary; raise RuntimeError if absent."},
   { "getSequentialModel", (PyCFunction)PySNLDesign_getSequentialModel,
     METH_NOARGS, "Get the static sequential model as expression trees."},
   { "hasSequentialModelFromParameters", (PyCFunction)PySNLDesign_hasSequentialModelFromParameters,
@@ -1024,6 +1040,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign has non-primitive instances."},
   { "getNonPrimitiveInstances", (PyCFunction)PySNLDesign_getNonPrimitiveInstances, METH_NOARGS,
     "get a container of NonPrimitive SNLInstances."},
+  { "getClocks", (PyCFunction)PySNLDesign_getClocks, METH_NOARGS,
+    "get a container of the NLClocks defined in this SNLDesign."},
   { "getParameters", (PyCFunction)PySNLDesign_getParameters, METH_NOARGS,
     "get a container of SNLParameters."},
   { "destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
@@ -1031,7 +1049,9 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
     "clone this SNLDesign."},
   { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS|METH_KEYWORDS,
-    "dump verilog file of this SNLDesign."},
+    "Compatibility alias for dumpGateLevelVerilog; will be deprecated soon. Emits FutureWarning."},
+  { "dumpGateLevelVerilog", (PyCFunction)PySNLDesign_dumpGateLevelVerilog, METH_VARARGS|METH_KEYWORDS,
+    "dump this SNLDesign as gate-level (structural) Verilog, not the original behavioral RTL."},
   { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
     "dump full dot file for this SNLDesign."},
   { "dumpContextDotFile", (PyCFunction)PySNLDesign_dumpContextDotFile, METH_VARARGS,

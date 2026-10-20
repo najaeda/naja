@@ -81,18 +81,20 @@ cases:
       rtl_infos_as_attributes: true
     # Structural integration signatures are intentionally tied to the pinned
     # CVA6 commit above. Update these counts only after reviewing the cone diff.
+    # Shared index decoding removes 42 XNOR and 20 AND gates (82 edges);
+    # cone boundary counts and the individual-bit probes remain unchanged.
     logic_cones:
       - term: noc_req_o
         direction: fanin
         expected:
-          nodes: 1695
-          edges: 2398
+          nodes: 1633
+          edges: 2316
           leaves: 19
           roots: 471
           registers: 16
           ports: 3
           blackboxes: 0
-          internal: 1205
+          internal: 1143
       - term: noc_req_o
         bit: 468
         direction: fanin
@@ -634,6 +636,37 @@ cases:
           - "--max-cycles"
           - "2000000"
       pass_regex: "IBEX_DUMMY_INSTR_SIM_PASS"
+
+  # CHERIoT Ibex (lowRISC/ibex) RTL against its Naja netlist: random-stimulus
+  # lockstep co-simulation of six parameter configurations (default, PMP, ICache,
+  # CHERIoT, RV32B, full opentitan), plus a determinism check (two loads must
+  # dump identical netlists). See cases/ibex_cheriot/ibex_cosim.py.
+  - name: ibex_cheriot
+    repo: https://github.com/lowRISC/ibex.git
+    commit: 7a4697f578c67c550fcad5e5e3078415e1f088d7
+    top: ibex_top
+    flist: "{naja}/regress/sv/cases/ibex_cheriot/ibex_top.f"
+    output: ibex_cheriot_naja.v
+    verilator:
+      image: verilator/verilator:v5.046
+      timeout_seconds: 3600
+    ibex_cosim:
+      timeout_seconds: 3600
+      tool_checks:
+        - verilator
+        - c++
+      commands:
+        - - python3
+          - "{naja}/regress/sv/cases/ibex_cheriot/ibex_cosim.py"
+          - "--repo"
+          - "{repo}"
+          - "--artifacts"
+          - "{artifacts}"
+          - "--najaeda-pythonpath"
+          - "{naja}/build/test/najaeda"
+          - "--rtl-cache"
+          - "{work}/ibex-cosim-rtl-cache"
+      pass_regex: "IBEX_COSIM_PASS"
 
   - name: cv32e40p
     repo: https://github.com/openhwgroup/cv32e40p.git

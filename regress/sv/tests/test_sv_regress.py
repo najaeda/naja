@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -338,6 +339,82 @@ cases:
         self.assertIn("parameter INIT = 1'b0", primitives)
         self.assertNotIn("parameter [WIDTH*DEPTH-1:0] INIT", primitives)
 
+    @unittest.skipUnless(shutil.which("iverilog") and shutil.which("vvp"),
+                         "Icarus Verilog is required for memory simulation")
+    def test_memory_primitive_rom_and_ram_behavior(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tb = Path(tmpdir) / "memory_tb.sv"
+            tb.write_text("""
+module memory_tb;
+  reg clk = 0, rst = 0;
+  reg [1:0] addr = 0, wclk = 0;
+  reg [7:0] data = 8'hd6, mask = 8'h0f;
+  wire [3:0] rom_data, zero_data, ram_data, multi_data;
+
+  naja_mem #(.WIDTH(4), .DEPTH(3), .ABITS(2), .WR_PORTS(0),
+             .INIT_ENABLE(1), .INIT(12'hb72)) rom (
+    .RADDR(addr), .RDATA(rom_data), .CLK(1'b0), .RST(1'b0),
+    .WADDR('0), .WDATA('0), .WE('0), .WCLK('0), .WMASK('0));
+  naja_mem #(.WIDTH(4), .DEPTH(3), .ABITS(2), .WR_PORTS(0),
+             .INIT_ENABLE(1)) zero_rom (
+    .RADDR(addr), .RDATA(zero_data), .CLK(1'b0), .RST(1'b0),
+    .WADDR('0), .WDATA('0), .WE('0), .WCLK('0), .WMASK('0));
+  naja_mem #(.WIDTH(4), .DEPTH(3), .ABITS(2), .RST_ENABLE(1),
+             .INIT_ENABLE(1)) ram (
+    .RADDR(addr), .RDATA(ram_data), .CLK(clk), .RST(rst),
+    .WADDR(2'd1), .WDATA(4'h9), .WE(1'b1), .WCLK('0), .WMASK('0));
+  naja_mem #(.WIDTH(4), .DEPTH(3), .ABITS(2), .WR_PORTS(2),
+             .MULTI_CLOCK(1), .INIT_ENABLE(1)) multi_ram (
+    .RADDR(addr), .RDATA(multi_data), .CLK(clk), .RST(1'b0),
+    .WADDR({2'd1, 2'd1}), .WDATA(data), .WE(2'b11),
+    .WCLK(wclk), .WMASK(mask));
+
+  initial begin
+    #1;
+    if (rom_data !== 4'h2 || zero_data !== 4'h0) $fatal(1, "ROM init");
+    addr = 1;
+    #1;
+    if (rom_data !== 4'h7 || zero_data !== 4'h0) $fatal(1, "ROM address");
+    clk = 1;
+    #1;
+    if (ram_data !== 4'h9) $fatal(1, "single-clock write");
+    if (multi_data !== 4'h0) $fatal(1, "shared clock must not write multi RAM");
+    wclk = 1;
+    #1;
+    if (multi_data !== 4'h6) $fatal(1, "first independent clock write");
+    wclk = 0;
+    mask = 8'h90;
+    #1; wclk = 2;
+    #1;
+    if (multi_data !== 4'hf) $fatal(1, "second independent masked write");
+    clk = 0; rst = 1;
+    #1; clk = 1;
+    #1;
+    if (ram_data !== 4'h0) $fatal(1, "synchronous reset");
+    addr = 2;
+    #1;
+    if (rom_data !== 4'hb || zero_data !== 4'h0) $fatal(1, "ROM last word");
+    addr = 3;
+    #1;
+    if (rom_data !== 4'hx || ram_data !== 4'h0) $fatal(1, "out-of-range read");
+    $finish;
+  end
+endmodule
+""", encoding="utf-8")
+            executable = Path(tmpdir) / "memory_sim"
+            result = subprocess.run(
+                ["iverilog", "-g2012", "-s", "memory_tb", "-o", str(executable),
+                 str(sv_regress.PRIMITIVES_PATH), str(tb)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = subprocess.run(["vvp", str(executable)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            if shutil.which("verilator"):
+                result = subprocess.run(
+                    ["verilator", "--lint-only", "--timing", "-Wno-fatal",
+                     "--top-module", "memory_tb", str(sv_regress.PRIMITIVES_PATH), str(tb)],
+                    cwd=tmpdir, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_sequential_primitives_accept_init_parameter(self):
         primitives = sv_regress.PRIMITIVES_PATH.read_text(encoding="utf-8")
 
@@ -561,14 +638,14 @@ cases:
         )
         self.assertEqual(
             {
-                "nodes": 1695,
-                "edges": 2398,
+                "nodes": 1633,
+                "edges": 2316,
                 "leaves": 19,
                 "roots": 471,
                 "registers": 16,
                 "ports": 3,
                 "blackboxes": 0,
-                "internal": 1205,
+                "internal": 1143,
             },
             cva6["logic_cones"][0]["expected"],
         )

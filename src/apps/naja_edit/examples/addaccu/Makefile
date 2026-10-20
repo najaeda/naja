@@ -16,13 +16,13 @@ yosys addaccu_netlist.v: addaccu.v
 	${YOSYS} synth.ys
 
 snl_if addaccu_snl/snl.mf: addaccu_netlist.v
-	${PYTHON_ENV} ${NAJA_EDIT} -l -f verilog -t snl -i $< -o addaccu_snl -p ${PRIMITIVES}
+	${PYTHON_ENV} ${NAJA_EDIT} -l -f gate-level-verilog -t snl -i $< -o addaccu_snl -p ${PRIMITIVES}
 
 addaccu_snl.v: addaccu_snl/snl.mf
-	${PYTHON_ENV} ${NAJA_EDIT} -l -f snl -t verilog -i addaccu_snl -o $@ 
+	${PYTHON_ENV} ${NAJA_EDIT} -l -f snl -t gate-level-verilog -i addaccu_snl -o $@
 
 addaccu_edited.v: addaccu_snl/snl.mf
-	${PYTHON_ENV} ${NAJA_EDIT} -l -f snl -t verilog -i addaccu_snl -o $@ -e edit.py
+	${PYTHON_ENV} ${NAJA_EDIT} -l -f snl -t gate-level-verilog -i addaccu_snl -o $@ -e edit.py
 
 clean:
 	-rm -rf __pycache__ addaccu_snl

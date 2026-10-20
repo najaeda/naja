@@ -10,12 +10,15 @@
 #include <string>
 #include <vector>
 
+#include "NLID.h"
+
 namespace slang::ast {
 class Symbol;
 }
 
 namespace naja::NL {
 class SNLInstance;
+class SNLDesign;
 }
 
 namespace naja::NL::detail {
@@ -234,6 +237,9 @@ std::string testSVConstructorFormatDescribedFailure(
 std::string testSVConstructorFormatQuotedDescriptionFailure(
   const std::string& prefix,
   const std::string& description);
+
+bool testSVConstructorCheckCombinationalBlockCycles(
+  SNLDesign* design, NLID::DesignObjectID firstInstanceID, std::string& reason);
 
 bool testSVConstructorTryCollapseAnonymousAssignAlias(
   SNLInstance* assignInstance,

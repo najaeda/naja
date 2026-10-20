@@ -36,6 +36,9 @@ class SNLBusTerm;
 class NLDB0 {
   friend class NLUniverse;
   public:
+    // Snapshot compatibility version for canonical primitive library identities.
+    static constexpr unsigned LibraryIDVersion = 1;
+
     enum class MemoryResetMode {
       None,
       AsyncLow,
@@ -94,6 +97,7 @@ class NLDB0 {
       size_t          depth      {0};
       size_t          abits      {0};
       size_t          readPorts  {0};
+      /// Zero creates a read-only memory, without clock/reset/write terminals.
       size_t          writePorts {0};
       MemoryResetMode resetMode  {MemoryResetMode::None};
       /// Independent write clocks and per-bit masks; reads remain asynchronous.
@@ -118,6 +122,50 @@ class NLDB0 {
         return width == other.width && isSigned == other.isSigned;
       }
     };
+
+    /// Count is an unsigned COUNT_WIDTH-bit value. Oversized counts produce
+    /// zero, or the original sign bit for arithmetic right shifts.
+    struct ShiftSignature {
+      size_t width {0};
+      size_t countWidth {0};
+      bool right {false};
+      bool arithmetic {false};
+
+      bool operator==(const ShiftSignature& other) const {
+        return width == other.width && countWidth == other.countWidth &&
+               right == other.right && arithmetic == other.arithmetic;
+      }
+    };
+
+    static SNLDesign* getOrCreateShift(const ShiftSignature& signature);
+    static bool isShift(const SNLDesign* design);
+    static ShiftSignature getShiftSignature(const SNLDesign* design);
+    static ShiftSignature getShiftSignature(const SNLInstance* instance);
+    static SNLBusTerm* getShiftData(const SNLDesign* design);
+    static SNLBusTerm* getShiftCount(const SNLDesign* design);
+    static SNLBusTerm* getShiftOutput(const SNLDesign* design);
+
+    /// Multiply two WIDTH-bit vectors modulo 2**WIDTH. Frontends must first
+    /// apply language-specific operand sizing and sign extension; the retained
+    /// low product bits then have the same signed and unsigned interpretation.
+    static SNLDesign* getOrCreateMultiply(size_t width);
+    static bool isMultiply(const SNLDesign* design);
+    static size_t getMultiplyWidth(const SNLDesign* design);
+    static size_t getMultiplyWidth(const SNLInstance* instance);
+    static SNLBusTerm* getMultiplyInputA(const SNLDesign* design);
+    static SNLBusTerm* getMultiplyInputB(const SNLDesign* design);
+    static SNLBusTerm* getMultiplyOutput(const SNLDesign* design);
+
+    /// Add or subtract WIDTH-bit operands modulo 2**WIDTH. The operation is
+    /// fixed by the canonical model; frontends apply operand sizing first.
+    static SNLDesign* getOrCreateAddSub(size_t width, bool subtract);
+    static bool isAddSub(const SNLDesign* design);
+    static bool isSubtract(const SNLDesign* design);
+    static size_t getAddSubWidth(const SNLDesign* design);
+    static size_t getAddSubWidth(const SNLInstance* instance);
+    static SNLBusTerm* getAddSubInputA(const SNLDesign* design);
+    static SNLBusTerm* getAddSubInputB(const SNLDesign* design);
+    static SNLBusTerm* getAddSubOutput(const SNLDesign* design);
 
     struct TableSelectSignature {
       size_t width {0};
@@ -198,8 +246,9 @@ class NLDB0 {
     ///
     /// DB0 (NLID::DBID 0) primitive IDs are canonical: \p libraryID selects the
     /// primitive family and \p designID encodes the single size parameter
-    /// (gate fan-in/out, mux/dff/divmod width). Multi-parameter families
-    /// (memory, table select) are rebuilt from \p parameters (the instance
+    /// (gate fan-in/out, mux/dff/divmod/multiply/add/subtract width).
+    /// Multi-parameter families (memory, table select, shift) are rebuilt from
+    /// \p parameters (the instance
     /// parameters, which carry the full signature). Returns nullptr if the
     /// reference does not designate a known DB0 primitive family.
     static SNLDesign* getOrCreatePrimitive(

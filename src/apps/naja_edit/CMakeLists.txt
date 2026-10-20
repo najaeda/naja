@@ -15,7 +15,8 @@ if(BUILD_TESTING)
       invalid-input-format
       missing-required-input
       missing-input-path
-      invalid-output-format)
+      invalid-output-format
+      gate-level-verilog-formats)
     add_test(
       NAME naja-edit-${TEST_CASE}
       COMMAND

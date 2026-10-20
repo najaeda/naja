@@ -12,8 +12,8 @@
 #include <system_error>
 #include <vector>
 
-#include "NajaUtils.h"
 #include "NajaVersion.h"
+#include "NLDB0.h"
 #include "SNLDump.h"
 #include "SNLDumpException.h"
 
@@ -46,7 +46,8 @@ unsigned parseVersionComponent(
     size_t lineNumber,
     const std::string& line,
     const std::string& token,
-    std::string_view component) {
+    std::string_view component,
+    const std::string& expected = "V <major> <minor> <revision>") {
   unsigned long long parsed = 0;
   const auto* begin = token.data();
   const auto* end = begin + token.size();
@@ -57,10 +58,10 @@ unsigned parseVersionComponent(
       path,
       lineNumber,
       line,
-      "schema " + std::string(component) +
+      std::string(component) +
         " must be a non-negative integer that fits in an unsigned value; got `" +
         token + "`",
-      "V <major> <minor> <revision>");
+      expected);
   }
   return static_cast<unsigned>(parsed);
 }
@@ -79,12 +80,14 @@ void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
     reason << "Cannot dump manifest as " << manifestPath.string() << " is not open";
     throw SNLDumpException(reason.str());
   }
-  NajaUtils::createBanner(stream, "SNL manifest", "#");
+  // Producer identity is recorded below; omit wall-clock time for reproducible snapshots.
+  stream << "# SNL manifest\n";
   stream << "V"
     << " " << SNLDump::getVersion().getMajor()
     << " " << SNLDump::getVersion().getMinor()
     << " " << SNLDump::getVersion().getRevision()
     << std::endl;
+  stream << "D " << NLDB0::LibraryIDVersion << "\n";
   stream << "P"
     << " " << naja::NAJA_VERSION
     << " " << naja::NAJA_GIT_HASH
@@ -104,6 +107,7 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
   size_t lineNumber = 0;
   bool sawVersion = false;
   bool sawProducer = false;
+  bool sawDB0Version = false;
   while (std::getline(stream, line)) {
     ++lineNumber;
     if (not line.empty()) {
@@ -135,11 +139,22 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
           }
           sawVersion = true;
           manifest.version_.major_ = parseVersionComponent(
-            manifestPath, lineNumber, line, tokens[1], "major version");
+            manifestPath, lineNumber, line, tokens[1], "schema major version");
           manifest.version_.minor_ = parseVersionComponent(
-            manifestPath, lineNumber, line, tokens[2], "minor version");
+            manifestPath, lineNumber, line, tokens[2], "schema minor version");
           manifest.version_.revision_ = parseVersionComponent(
-            manifestPath, lineNumber, line, tokens[3], "revision");
+            manifestPath, lineNumber, line, tokens[3], "schema revision");
+        } else if (command == "D") {
+          if (tokens.size() != 2 || sawDB0Version) {
+            throwManifestFormatError(manifestPath, lineNumber, line,
+              sawDB0Version ? "duplicate DB0 library ID version record"
+                            : "DB0 library ID version record requires one value",
+              "at most one D <db0-library-id-version> record");
+          }
+          sawDB0Version = true;
+          manifest.db0LibraryIDVersion_ = parseVersionComponent(
+            manifestPath, lineNumber, line, tokens[1], "DB0 library ID version",
+            "D <db0-library-id-version>");
         } else if (command == "P") {
           if (tokens.size() != 3) {
             throwManifestFormatError(
@@ -167,7 +182,8 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
             lineNumber,
             line,
             "unknown record type `" + command + "`",
-            "V <major> <minor> <revision>, P <naja-version> <git-hash>, "
+            "V <major> <minor> <revision>, D <db0-library-id-version>, "
+            "P <naja-version> <git-hash>, "
             "or a comment starting with #");
         }
       }

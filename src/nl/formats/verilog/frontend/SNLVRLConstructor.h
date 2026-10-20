@@ -21,6 +21,8 @@ class NLLibrary;
 class SNLDesign;
 class SNLScalarNet;
 
+/// Load gate-level (structural) Verilog connectivity into SNL.
+/// For Verilog or SystemVerilog RTL, use SNLSVConstructor's supported subset.
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
     struct Config {

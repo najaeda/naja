@@ -24,7 +24,7 @@ arm_core_netlist.v: src/arm_core.v
 
 arm_core_snl/snl.mf: arm_core_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
-	${PYTHON_ENV} ${NAJA_EDIT} -f verilog -t snl -i $< -o arm_core_snl -p ${PRIMITIVES}
+	${PYTHON_ENV} ${NAJA_EDIT} -f gate-level-verilog -t snl -i $< -o arm_core_snl -p ${PRIMITIVES}
 
 edges.list: arm_core_snl/snl.mf gen_edge_list.py
 	export PYTHONPATH=${SET_PYTHONPATH}; \
@@ -32,11 +32,11 @@ edges.list: arm_core_snl/snl.mf gen_edge_list.py
 
 arm_core_snl.v primitives.v: arm_core_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
-	${NAJA_EDIT} -f verilog -t verilog -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl.v -d primitives.v
+	${NAJA_EDIT} -f gate-level-verilog -t gate-level-verilog -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl.v -d primitives.v
 
 arm_core_snl_error.v: arm_core_netlist.v ../scripts/plot_designs_stats.py
 	export PYTHONPATH=${SET_PYTHONPATH}:./venv/lib/python3.12/site-packages; \
-	${NAJA_EDIT} -e ../scripts/plot_designs_stats.py -f verilog -p ${PRIMITIVES} -i arm_core_netlist.v
+	${NAJA_EDIT} -e ../scripts/plot_designs_stats.py -f gate-level-verilog -p ${PRIMITIVES} -i arm_core_netlist.v
 
 clean:
 	-rm arm_core_snl.v primitives.v arm_core_netlist.v 

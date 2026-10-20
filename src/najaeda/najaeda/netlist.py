@@ -1974,11 +1974,14 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(
+    def dump_gate_level_verilog(
             self,
             path: str,
-            config: "VerilogDumpConfig" = None):
-        """Dump the verilog of this instance.
+            config: "GateLevelVerilogDumpConfig" = None):
+        """Dump this instance as gate-level (structural) Verilog.
+
+        This exports the netlist, including when loaded from RTL; it does not
+        reconstruct the original behavioral RTL.
 
         :param str path: the file path where to dump the verilog.
         :param config: the configuration to use when dumping the verilog.
@@ -1993,7 +1996,7 @@ class Instance:
         if not os.path.exists(dir_path):
             raise FileNotFoundError(f"The directory {dir_path} does not exist")
         if config is None:
-            config = VerilogDumpConfig()
+            config = GateLevelVerilogDumpConfig()
         top_name = get_top().get_name()
         logger.info(
             f"Starting structural Verilog dumping for top '{top_name}' to '{path}'")
@@ -2005,7 +2008,7 @@ class Instance:
         }
         if config.dumpRTLInfosAsAttributes:
             dump_kwargs["rtlInfoDumpMode"] = config.rtlInfoDumpMode
-        self.__get_snl_model().dumpVerilog(
+        self.__get_snl_model().dumpGateLevelVerilog(
             dir_path,
             os.path.basename(path),
             **dump_kwargs)
@@ -2013,6 +2016,17 @@ class Instance:
         logger.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
             f"in {execution_time:.2f} seconds")
+
+    def dump_verilog(self, path: str, config: "GateLevelVerilogDumpConfig" = None):
+        """Compatibility alias for :meth:`dump_gate_level_verilog`.
+
+        This name will be deprecated soon and emits :class:`FutureWarning`.
+        """
+        warnings.warn(
+            "Instance.dump_verilog will be deprecated soon; "
+            "use Instance.dump_gate_level_verilog instead.",
+            FutureWarning, stacklevel=2)
+        return self.dump_gate_level_verilog(path, config)
 
     def get_truth_table(self):
         """
@@ -2097,7 +2111,13 @@ def create_top(name: str) -> Instance:
 
 
 @dataclass
-class VerilogConfig:
+class GateLevelVerilogConfig:
+    """Configure gate-level (structural) Verilog loading with :func:`load_gate_level_verilog`.
+
+    For Verilog or SystemVerilog RTL, use :class:`SystemVerilogConfig` with
+    :func:`load_system_verilog` instead.
+    """
+
     keep_assigns: bool = True
     # Treat instantiations of unresolved (unknown) modules as AutoBlackBox cells
     # instead of failing the load.
@@ -2118,7 +2138,7 @@ class VerilogConfig:
         self.validate()
         if self.allow_unknown_designs is not None:
             warnings.warn(
-                "VerilogConfig.allow_unknown_designs is deprecated; "
+                f"{type(self).__name__}.allow_unknown_designs is deprecated; "
                 "use blackbox_unknown_modules instead.",
                 DeprecationWarning,
                 stacklevel=2,
@@ -2133,12 +2153,12 @@ class VerilogConfig:
             value = getattr(self, field_name)
             if not isinstance(value, bool):
                 raise TypeError(
-                    f"VerilogConfig.{field_name} must be a bool "
+                    f"{type(self).__name__}.{field_name} must be a bool "
                     f"(got {type(value).__name__})")
         allowed = {"forbid", "first", "last", "verify"}
         if not isinstance(self.conflicting_design_name_policy, str):
             raise TypeError(
-                "VerilogConfig.conflicting_design_name_policy must be a str "
+                f"{type(self).__name__}.conflicting_design_name_policy must be a str "
                 f"(got {type(self.conflicting_design_name_policy).__name__})")
         if self.conflicting_design_name_policy not in allowed:
             raise ValueError(
@@ -2149,12 +2169,14 @@ class VerilogConfig:
         if self.allow_unknown_designs is not None:
             if not isinstance(self.allow_unknown_designs, bool):
                 raise TypeError(
-                    "VerilogConfig.allow_unknown_designs must be a bool or None "
+                    f"{type(self).__name__}.allow_unknown_designs must be a bool or None "
                     f"(got {type(self.allow_unknown_designs).__name__})")
 
 
 @dataclass
-class VerilogDumpConfig:
+class GateLevelVerilogDumpConfig:
+    """Configure gate-level (structural) Verilog export."""
+
     dumpRTLInfosAsAttributes: bool = False
     rtlInfoDumpMode: str = "CompactAttribute"
     dumpAssignsAsInstances: bool = False
@@ -2168,6 +2190,33 @@ class VerilogDumpConfig:
                 f"{self.rtlInfoDumpMode!r}. "
                 "Expected one of: None, VerboseAttributes, CompactAttribute."
             )
+
+
+class VerilogConfig(GateLevelVerilogConfig):
+    """Compatibility alias for :class:`GateLevelVerilogConfig`.
+
+    This name will be deprecated soon and emits :class:`FutureWarning`.
+    """
+
+    def __post_init__(self):
+        warnings.warn(
+            "VerilogConfig will be deprecated soon; use GateLevelVerilogConfig instead.",
+            FutureWarning, stacklevel=3)
+        super().__post_init__()
+
+
+class VerilogDumpConfig(GateLevelVerilogDumpConfig):
+    """Compatibility alias for :class:`GateLevelVerilogDumpConfig`.
+
+    This name will be deprecated soon and emits :class:`FutureWarning`.
+    """
+
+    def __post_init__(self):
+        warnings.warn(
+            "VerilogDumpConfig will be deprecated soon; "
+            "use GateLevelVerilogDumpConfig instead.",
+            FutureWarning, stacklevel=3)
+        super().__post_init__()
 
 
 @dataclass
@@ -2191,6 +2240,8 @@ class SystemVerilogConfig:
     blackbox_multi_writer_memories: bool = False
     # Share preprocessor macros across source files in input order.
     single_unit: bool = False
+    # Fallback for design elements without an explicit time scale.
+    default_timescale: Optional[str] = None
 
     def __post_init__(self):
         self.validate()
@@ -2231,6 +2282,12 @@ class SystemVerilogConfig:
                     f"(got {type(self.top).__name__})")
             if not self.top.strip():
                 raise ValueError("SystemVerilogConfig.top must not be empty")
+
+        if self.default_timescale is not None:
+            if not isinstance(self.default_timescale, str):
+                raise TypeError("SystemVerilogConfig.default_timescale must be a str or None")
+            if not self.default_timescale.strip():
+                raise ValueError("SystemVerilogConfig.default_timescale must not be empty")
 
         self._validate_string_list("defines", allow_whitespace=False)
         self._validate_string_list("suppress_warnings", allow_whitespace=False)
@@ -2305,10 +2362,16 @@ def _normalize_input_files(
     return normalized
 
 
-def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
-    """Load verilog files into the top design.
+def load_gate_level_verilog(
+        files: Union[str, List[str]],
+        config: GateLevelVerilogConfig = None) -> Instance:
+    """Load gate-level (structural) Verilog netlists into the top design.
 
-    :param files: a list of verilog files to load or a single file.
+    This loader handles structural connectivity, not general behavioral RTL.
+    Use :func:`load_system_verilog` for Verilog or SystemVerilog RTL, including
+    ``.v`` files, within that frontend's supported subset.
+
+    :param files: a list of gate-level Verilog files to load or a single file.
     :param config: the configuration to use when loading the files.
     :return: the top Instance.
     :rtype: Instance
@@ -2317,17 +2380,17 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     :raises FileNotFoundError: if an input file does not exist.
     """
     if config is None:
-        config = VerilogConfig()  # Use default settings
-    elif not isinstance(config, VerilogConfig):
+        config = GateLevelVerilogConfig()  # Use default settings
+    elif not isinstance(config, GateLevelVerilogConfig):
         raise TypeError(
-            "load_verilog config must be a VerilogConfig or None "
+            "load_gate_level_verilog config must be a GateLevelVerilogConfig or None "
             f"(got {type(config).__name__})")
     # Revalidate in case callers mutated a config after constructing it.
     config.validate()
     files = _normalize_input_files(files, "Verilog")
     start_time = time.time()
     logger.info(f"Starting structural Verilog loading for files: {', '.join(files)}")
-    __get_top_db().loadVerilog(
+    __get_top_db().loadGateLevelVerilog(
         files,
         keep_assigns=config.keep_assigns,
         blackbox_unknown_modules=config.blackbox_unknown_modules,
@@ -2343,6 +2406,23 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     return top
 
 
+def load_verilog(
+        files: Union[str, List[str]],
+        config: GateLevelVerilogConfig = None) -> Instance:
+    """Compatibility alias for :func:`load_gate_level_verilog`.
+
+    This name will be deprecated soon and emits :class:`FutureWarning`.
+    """
+    warnings.warn(
+        "load_verilog will be deprecated soon; use load_gate_level_verilog instead.",
+        FutureWarning, stacklevel=2)
+    if config is not None and not isinstance(config, GateLevelVerilogConfig):
+        raise TypeError(
+            "load_verilog config must be a VerilogConfig or None "
+            f"(got {type(config).__name__})")
+    return load_gate_level_verilog(files, config)
+
+
 def _validate_hdl_library(library):
     if not isinstance(library, str):
         raise TypeError("library must be a str")
@@ -2353,7 +2433,10 @@ def _validate_hdl_library(library):
 def load_system_verilog(
         files: Union[str, List[str]],
         config: SystemVerilogConfig = None, *, library: str = "DESIGN") -> Instance:
-    """Load SystemVerilog files into the top design.
+    """Elaborate Verilog or SystemVerilog RTL into the top design using slang.
+
+    Accepts ``.v`` and ``.sv`` sources within the frontend's supported RTL
+    subset. This is not a full language implementation or a simulator.
 
     :param files: a list of SystemVerilog files to load or a single file.
     :param config: the configuration to use when loading the files. Set
@@ -2437,6 +2520,7 @@ def load_system_verilog(
             blackbox_multi_writer_memories=config.blackbox_multi_writer_memories,
             library=library,
             suppress_warnings=config.suppress_warnings,
+            default_timescale=config.default_timescale,
             keep_ast_link=config.keep_ast_link,
         )
     finally:

@@ -65,6 +65,8 @@ class NajaObject {
 
   private:
     friend class NajaPrivateProperty;
+    friend class NajaSharedProperty;
+    friend class NajaRelationProperty;
 
     void addProperty(NajaProperty* property);
     void removeProperty(NajaProperty* property);

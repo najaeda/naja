@@ -10,6 +10,7 @@
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLInstParameter.h"
 #include "SNLScalarTerm.h"
 
 #include <stdexcept>
@@ -45,7 +46,8 @@ using MemoryState = std::unordered_map<SNLInstance*, std::vector<uint64_t>>;
 
 inline MemoryState zeroMemoryState(SNLDesign* design) {
   MemoryState state;
-  for (auto* instance : design->getInstances()) if (NLDB0::isMemory(instance->getModel())) {
+  for (auto* instance : design->getInstances()) if (NLDB0::isMemory(instance->getModel()) &&
+      NLDB0::getMemorySignature(instance).writePorts) {
     const auto signature = NLDB0::getMemorySignature(instance);
     if (signature.width > 64) throw std::runtime_error("test memory word exceeds 64 bits");
     state[instance].resize(signature.depth, 0);
@@ -83,6 +85,31 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     const auto carry = read(NLDB0::getFAInputCI());
     value = output == NLDB0::getFAOutputS() ? (a ^ b ^ carry)
         : ((a && b) || (a && carry) || (b && carry));
+  } else if (NLDB0::isAddSub(model) || NLDB0::isMultiply(model)) {
+    const bool multiply = NLDB0::isMultiply(model);
+    const auto width = multiply ? NLDB0::getMultiplyWidth(driver) : NLDB0::getAddSubWidth(driver);
+    if (width > 64) throw std::runtime_error("test arithmetic word exceeds 64 bits");
+    const auto readWord = [&](SNLBusTerm* term) {
+      uint64_t word = 0;
+      for (size_t bit = 0; bit < width; ++bit)
+        if (read(term->getBit(bit))) word |= uint64_t(1) << bit;
+      return word;
+    };
+    const auto a = readWord(multiply ? NLDB0::getMultiplyInputA(model) : NLDB0::getAddSubInputA(model));
+    const auto b = readWord(multiply ? NLDB0::getMultiplyInputB(model) : NLDB0::getAddSubInputB(model));
+    const auto result = multiply ? a * b : NLDB0::isSubtract(model) ? a - b : a + b;
+    value = (result >> static_cast<SNLBusTermBit*>(output)->getBit()) & 1;
+  } else if (NLDB0::isShift(model)) {
+    const auto signature = NLDB0::getShiftSignature(driver);
+    size_t count = 0;
+    // Saturate instead of truncating high bits or overflowing the host count.
+    for (size_t i = signature.countWidth; i; --i)
+      count = count >= signature.width ? signature.width :
+          std::min(signature.width, count * 2 + read(NLDB0::getShiftCount(model)->getBit(i-1)));
+    const auto bit = size_t(static_cast<SNLBusTermBit*>(output)->getBit());
+    const bool valid = signature.right ? count < signature.width-bit : count <= bit;
+    if (valid) value = read(NLDB0::getShiftData(model)->getBit(signature.right ? bit+count : bit-count));
+    else value = signature.arithmetic && read(NLDB0::getShiftData(model)->getBit(signature.width-1));
   } else if (NLDB0::isTableSelect(model)) {
     const auto signature = NLDB0::getTableSelectSignature(driver);
     size_t address = 0;
@@ -92,7 +119,6 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
     value = read(NLDB0::getTableSelectData(model)->getBit(address * signature.width + bit));
   } else if (NLDB0::isMemory(model)) {
-    if (!memories) throw std::runtime_error("missing memory state");
     const auto signature = NLDB0::getMemorySignature(driver);
     const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
     const auto port = bit / signature.width;
@@ -100,8 +126,28 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     for (size_t i = 0; i < signature.abits; ++i)
       if (read(NLDB0::getMemoryReadAddress(model)->getBit(port * signature.abits + i)))
         address |= size_t(1) << i;
-    value = address < signature.depth &&
-        ((memories->at(driver).at(address) >> (bit % signature.width)) & 1);
+    if (!signature.writePorts) {
+      if (address >= signature.depth) throw std::runtime_error("unknown ROM read result");
+      value = false;
+      if (address < signature.depth) {
+        const auto init = driver->getInstParameter(NLName("INIT"))->getValue();
+        const auto offset = address * signature.width + bit % signature.width;
+        const auto base = init.find('\'') + 1;
+        if (init[base] == 'h') {
+          const auto digit = init.at(init.size() - 1 - offset/4);
+          const auto number = digit <= '9' ? digit-'0' : digit-'a'+10;
+          value = (number >> (offset%4)) & 1;
+        } else {
+          const auto digit = init.at(init.size() - 1 - offset);
+          if (digit != '0' && digit != '1') throw std::runtime_error("nonbinary ROM output");
+          value = digit == '1';
+        }
+      }
+    } else {
+      if (!memories) throw std::runtime_error("missing memory state");
+      value = address < signature.depth &&
+          ((memories->at(driver).at(address) >> (bit % signature.width)) & 1);
+    }
   } else if (NLDB0::isMux2(model)) {
     const auto bit = static_cast<SNLBusTermBit*>(output)->getBit();
     value = read(NLDB0::getMux2Select(model))
@@ -144,8 +190,13 @@ inline MemoryState nextMemoryState(const MemoryState& current,
     for (size_t port = 0; port < signature.writePorts; ++port) {
       if (!read(NLDB0::getMemoryWriteEnable(model), signature.writePorts - 1 - port, 1)) continue;
       const auto address = read(NLDB0::getMemoryWriteAddress(model), port * signature.abits, signature.abits);
-      if (address < signature.depth)
-        next.at(instance)[address] = read(NLDB0::getMemoryWriteData(model), port * signature.width, signature.width);
+      if (address < signature.depth) {
+        const auto data = read(NLDB0::getMemoryWriteData(model), port * signature.width, signature.width);
+        if (signature.independentWriteClocks) {
+          const auto mask = read(model->getBusTerm(NLName("WMASK")), port * signature.width, signature.width);
+          next.at(instance)[address] = (next.at(instance)[address] & ~mask) | (data & mask);
+        } else next.at(instance)[address] = data;
+      }
     }
   }
   return next;

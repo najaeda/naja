@@ -14,6 +14,7 @@
 #include "SNLScalarNet.h"
 #include "SNLParameter.h"
 #include "SNLInstance.h"
+#include "SNLInstParameter.h"
 #include "SNLDesignModeling.h"
 
 #include <cstdint>
@@ -25,36 +26,48 @@
   #include <intrin.h>
 #endif
 namespace {
-  constexpr naja::NL::NLID::LibraryID RootLibraryID = 0;
-  constexpr naja::NL::NLID::LibraryID AssignLibraryID = 1;
-  constexpr naja::NL::NLID::LibraryID Mux2LibraryID = 2;
-  //All DFF primitive families share one contiguous canonical ID range [3, 10].
-  constexpr naja::NL::NLID::LibraryID DFFLibraryID = 3;
-  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 4;
-  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 5;
-  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 6;
-  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 7;
-  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 8;
-  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 9;
-  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 10;
-  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 11;
-  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 12;
-  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 13;
-  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 14;
-  constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 15;
-  constexpr naja::NL::NLID::LibraryID MemoryLibraryID = 16;
-  constexpr naja::NL::NLID::LibraryID DFFSRLibraryID = 17;
-  constexpr naja::NL::NLID::LibraryID DFFSRNLibraryID = 18;
-  constexpr naja::NL::NLID::LibraryID DFFSSLibraryID = 19;
-  constexpr naja::NL::NLID::LibraryID DFFSSNLibraryID = 20;
-  constexpr naja::NL::NLID::LibraryID DFFSRELibraryID = 21;
-  constexpr naja::NL::NLID::LibraryID DFFSRNELibraryID = 22;
-  constexpr naja::NL::NLID::LibraryID DFFSSELibraryID = 23;
-  constexpr naja::NL::NLID::LibraryID DFFSSNELibraryID = 24;
-  //Gate libraries get one reserved canonical ID per GateType so that a model
-  //reference into DB0 is self-describing: libraryID = GateLibraryIDBase + GateType,
-  //designID = gate fan-in (N-input) or fan-out (N-output).
-  constexpr naja::NL::NLID::LibraryID GateLibraryIDBase = 25;
+  // Canonical snapshot identities. Advance NLDB0::LibraryIDVersion when
+  // changing an existing family ID. Keep the variable gate range last.
+  enum : naja::NL::NLID::LibraryID {
+    // Root and connectivity.
+    RootLibraryID = 0,
+    AssignLibraryID,
+    Mux2LibraryID,
+    TableSelectLibraryID,
+
+    // Word-level arithmetic.
+    AddLibraryID,
+    SubtractLibraryID,
+    MultiplyLibraryID,
+    DivModLibraryID,
+    DivModUnsignedLibraryID,
+    DivModSignedLibraryID,
+    ShiftLibraryID,
+
+    // Storage and sequential primitives.
+    MemoryLibraryID,
+    DLatchLibraryID,
+    DFFLibraryID,
+    DFFNLibraryID,
+    DFFRNLibraryID,
+    DFFRLibraryID,
+    DFFSLibraryID,
+    DFFELibraryID,
+    DFFRELibraryID,
+    DFFSELibraryID,
+    DFFSRLibraryID,
+    DFFSRNLibraryID,
+    DFFSSLibraryID,
+    DFFSSNLibraryID,
+    DFFSRELibraryID,
+    DFFSRNELibraryID,
+    DFFSSELibraryID,
+    DFFSSNELibraryID,
+
+    // One ID per GateType; designID carries fan-in or fan-out.
+    // Add fixed families above this final enumerator.
+    GateLibraryIDBase
+  };
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -434,12 +447,12 @@ namespace {
     SNLParameter::create(
       memory,
       NLName("RST_ENABLE"),
-      SNLParameter::Type::Decimal,
+      SNLParameter::Type::Boolean,
       signature.resetMode == NLDB0::MemoryResetMode::None ? "0" : "1");
     SNLParameter::create(
       memory,
       NLName("RST_ASYNC"),
-      SNLParameter::Type::Decimal,
+      SNLParameter::Type::Boolean,
       (signature.resetMode == NLDB0::MemoryResetMode::AsyncLow ||
        signature.resetMode == NLDB0::MemoryResetMode::AsyncHigh)
         ? "1"
@@ -447,29 +460,33 @@ namespace {
     SNLParameter::create(
       memory,
       NLName("RST_ACTIVE_LOW"),
-      SNLParameter::Type::Decimal,
+      SNLParameter::Type::Boolean,
       (signature.resetMode == NLDB0::MemoryResetMode::AsyncLow ||
        signature.resetMode == NLDB0::MemoryResetMode::SyncLow)
         ? "1"
         : "0");
     SNLParameter::create(
-      memory, NLName("INIT_ENABLE"), SNLParameter::Type::Decimal, "0");
+      memory, NLName("INIT_ENABLE"), SNLParameter::Type::Boolean, "0");
     SNLParameter::create(memory, NLName("INIT"), SNLParameter::Type::Binary, "1'b0");
 
     if (signature.independentWriteClocks) {
-      SNLParameter::create(memory, NLName("MULTI_CLOCK"), SNLParameter::Type::Decimal, "1");
+      SNLParameter::create(memory, NLName("MULTI_CLOCK"), SNLParameter::Type::Boolean, "1");
       SNLBusTerm::create(memory, SNLTerm::Direction::Input,
         static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WCLK"));
       SNLBusTerm::create(memory, SNLTerm::Direction::Input,
         static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WMASK"));
     }
-    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
-    SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+    if (signature.writePorts) {
+      SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("CLK"));
+      SNLScalarTerm::create(memory, SNLTerm::Direction::Input, NLName("RST"));
+    }
     SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.readPorts * signature.abits - 1), 0, NLName("RADDR"));
     SNLBusTerm::create(memory, SNLTerm::Direction::Output, static_cast<NLID::Bit>(signature.readPorts * signature.width - 1), 0, NLName("RDATA"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1), 0, NLName("WADDR"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WDATA"));
-    SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WE"));
+    if (signature.writePorts) {
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.abits - 1), 0, NLName("WADDR"));
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts * signature.width - 1), 0, NLName("WDATA"));
+      SNLBusTerm::create(memory, SNLTerm::Direction::Input, static_cast<NLID::Bit>(signature.writePorts - 1), 0, NLName("WE"));
+    }
 
     auto* clk = memory->getScalarTerm(NLName("CLK"));
     auto* rst = memory->getScalarTerm(NLName("RST"));
@@ -479,38 +496,40 @@ namespace {
     auto* wdata = memory->getBusTerm(NLName("WDATA"));
     auto* we = memory->getBusTerm(NLName("WE"));
     auto rdataBits = collectBitTerms(*rdata);
-    if (!signature.independentWriteClocks) {
-      SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
-    }
-
-    SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
-    auto wdataBits = collectBitTerms(*wdata);
-    writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
-    auto weBits = collectBitTerms(*we);
-    writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
-    writeInputs.push_back(rst);
-    if (signature.independentWriteClocks) {
-      auto* clocks = memory->getBusTerm(NLName("WCLK"));
-      auto* masks = memory->getBusTerm(NLName("WMASK"));
-      for (size_t port = 0; port < signature.writePorts; ++port) {
-        SNLDesignModeling::BitTerms inputs;
-        for (size_t bit = 0; bit < signature.abits; ++bit)
-          inputs.push_back(waddr->getBit(static_cast<NLID::Bit>(port * signature.abits + bit)));
-        for (size_t bit = 0; bit < signature.width; ++bit) {
-          inputs.push_back(wdata->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
-          inputs.push_back(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
-        }
-        inputs.push_back(we->getBitAtPosition(port));
-        auto* clock = clocks->getBit(static_cast<NLID::Bit>(port));
-        SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
-        for (size_t bit = 0; bit < signature.width; ++bit)
-          SNLDesignModeling::setTermRole(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)),
-            SNLDesignModeling::SNLTermRole::MemoryWriteEnable);
-        SNLDesignModeling::addInputsToClockArcs(inputs, clock);
-        SNLDesignModeling::addClockToOutputsArcs(clock, rdataBits);
+    if (signature.writePorts) {
+      if (!signature.independentWriteClocks) {
+        SNLDesignModeling::addClockToOutputsArcs(clk, rdataBits);
       }
-    } else {
-      SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+
+      SNLDesignModeling::BitTerms writeInputs = collectBitTerms(*waddr);
+      auto wdataBits = collectBitTerms(*wdata);
+      writeInputs.insert(writeInputs.end(), wdataBits.begin(), wdataBits.end());
+      auto weBits = collectBitTerms(*we);
+      writeInputs.insert(writeInputs.end(), weBits.begin(), weBits.end());
+      writeInputs.push_back(rst);
+      if (signature.independentWriteClocks) {
+        auto* clocks = memory->getBusTerm(NLName("WCLK"));
+        auto* masks = memory->getBusTerm(NLName("WMASK"));
+        for (size_t port = 0; port < signature.writePorts; ++port) {
+          SNLDesignModeling::BitTerms inputs;
+          for (size_t bit = 0; bit < signature.abits; ++bit)
+            inputs.push_back(waddr->getBit(static_cast<NLID::Bit>(port * signature.abits + bit)));
+          for (size_t bit = 0; bit < signature.width; ++bit) {
+            inputs.push_back(wdata->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+            inputs.push_back(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)));
+          }
+          inputs.push_back(we->getBitAtPosition(port));
+          auto* clock = clocks->getBit(static_cast<NLID::Bit>(port));
+          SNLDesignModeling::setTermRole(clock, SNLDesignModeling::SNLTermRole::Clock);
+          for (size_t bit = 0; bit < signature.width; ++bit)
+            SNLDesignModeling::setTermRole(masks->getBit(static_cast<NLID::Bit>(port * signature.width + bit)),
+              SNLDesignModeling::SNLTermRole::MemoryWriteEnable);
+          SNLDesignModeling::addInputsToClockArcs(inputs, clock);
+          SNLDesignModeling::addClockToOutputsArcs(clock, rdataBits);
+        }
+      } else {
+        SNLDesignModeling::addInputsToClockArcs(writeInputs, clk);
+      }
     }
 
     for (size_t readPort = 0; readPort < signature.readPorts; ++readPort) {
@@ -543,7 +562,7 @@ namespace {
     SNLParameter::create(
       divmod,
       NLName("SIGNED"),
-      SNLParameter::Type::Decimal,
+      SNLParameter::Type::Boolean,
       signature.isSigned ? "1" : "0");
 
     auto dividend = SNLBusTerm::create(
@@ -1122,9 +1141,9 @@ namespace {
     return getDivModDecimalParameter(instance->getModel(), name);
   }
 
-  naja::NL::NLDB0::MemoryResetMode getMemoryResetMode(size_t resetEnable,
-                                                      size_t resetAsync,
-                                                      size_t resetActiveLow) {
+  naja::NL::NLDB0::MemoryResetMode getMemoryResetMode(bool resetEnable,
+                                                      bool resetAsync,
+                                                      bool resetActiveLow) {
     if (resetEnable == 0) {
       return naja::NL::NLDB0::MemoryResetMode::None;
     }
@@ -1180,6 +1199,40 @@ namespace {
     return static_cast<size_t>(std::stoull(it->second));
   }
 
+  bool parseBooleanParameter(const std::string& value, const char* name) {
+    if (value == "0") return false;
+    if (value == "1") return true;
+    throw naja::NL::NLException(
+        std::string("NLDB0: invalid boolean parameter ") + name);
+  }
+
+  bool getBooleanParameter(
+      const naja::NL::NLDB0::PrimitiveParameters& parameters, const char* name) {
+    auto it = parameters.find(name);
+    if (it == parameters.end()) {
+      throw naja::NL::NLException(
+          std::string("NLDB0::getOrCreatePrimitive: missing parameter ") + name);
+    }
+    return parseBooleanParameter(it->second, name);
+  }
+
+  bool getBooleanParameter(const naja::NL::SNLDesign* design, const char* name) {
+    auto* parameter = design ? design->getParameter(naja::NL::NLName(name)) : nullptr;
+    if (!parameter) {
+      throw naja::NL::NLException(std::string("NLDB0: missing boolean parameter ") + name);
+    }
+    return parseBooleanParameter(parameter->getValue(), name);
+  }
+
+  bool getBooleanParameter(const naja::NL::SNLInstance* instance, const char* name) {
+    if (instance) {
+      if (auto* parameter = instance->getInstParameter(naja::NL::NLName(name))) {
+        return parseBooleanParameter(parameter->getValue(), name);
+      }
+    }
+    return getBooleanParameter(instance ? instance->getModel() : nullptr, name);
+  }
+
   naja::NL::NLDB0::MemorySignature memorySignatureFromParameters(
       const naja::NL::NLDB0::PrimitiveParameters& parameters) {
     naja::NL::NLDB0::MemorySignature signature;
@@ -1189,11 +1242,11 @@ namespace {
     signature.readPorts = getDecimalParameter(parameters, "RD_PORTS");
     signature.writePorts = getDecimalParameter(parameters, "WR_PORTS");
     signature.independentWriteClocks = parameters.contains("MULTI_CLOCK") &&
-      getDecimalParameter(parameters, "MULTI_CLOCK") != 0;
+      getBooleanParameter(parameters, "MULTI_CLOCK");
     signature.resetMode = getMemoryResetMode(
-        getDecimalParameter(parameters, "RST_ENABLE"),
-        getDecimalParameter(parameters, "RST_ASYNC"),
-        getDecimalParameter(parameters, "RST_ACTIVE_LOW"));
+        getBooleanParameter(parameters, "RST_ENABLE"),
+        getBooleanParameter(parameters, "RST_ASYNC"),
+        getBooleanParameter(parameters, "RST_ACTIVE_LOW"));
     return signature;
   }
 
@@ -1315,10 +1368,18 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, AssignLibraryID, NLLibrary::Type::Primitives, NLName(AssignName));
   auto mux2Library =
     NLLibrary::create(rootLibrary, Mux2LibraryID, NLLibrary::Type::Primitives, NLName(Mux2Name));
-  auto dffLibrary =
-    NLLibrary::create(rootLibrary, DFFLibraryID, NLLibrary::Type::Primitives, NLName(DFFName));
+  NLLibrary::create(
+    rootLibrary, TableSelectLibraryID, NLLibrary::Type::Primitives, NLName(TableSelectName));
+  auto divModLibrary =
+    NLLibrary::create(rootLibrary, DivModLibraryID, NLLibrary::Type::Primitives, NLName(DivModLibraryName));
+  NLLibrary::create(
+    divModLibrary, DivModUnsignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModUnsignedLibraryName));
+  NLLibrary::create(
+    divModLibrary, DivModSignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModSignedLibraryName));
   auto dlatchLibrary =
     NLLibrary::create(rootLibrary, DLatchLibraryID, NLLibrary::Type::Primitives, NLName(DLatchName));
+  auto dffLibrary =
+    NLLibrary::create(rootLibrary, DFFLibraryID, NLLibrary::Type::Primitives, NLName(DFFName));
   auto dffnLibrary =
     NLLibrary::create(rootLibrary, DFFNLibraryID, NLLibrary::Type::Primitives, NLName(DFFNName));
   auto dffrnLibrary =
@@ -1349,14 +1410,6 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, DFFSSELibraryID, NLLibrary::Type::Primitives, NLName(DFFSSEName));
   auto dffssneLibrary =
     NLLibrary::create(rootLibrary, DFFSSNELibraryID, NLLibrary::Type::Primitives, NLName(DFFSSNEName));
-  auto divModLibrary =
-    NLLibrary::create(rootLibrary, DivModLibraryID, NLLibrary::Type::Primitives, NLName(DivModLibraryName));
-  NLLibrary::create(
-    rootLibrary, TableSelectLibraryID, NLLibrary::Type::Primitives, NLName(TableSelectName));
-  NLLibrary::create(
-    divModLibrary, DivModUnsignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModUnsignedLibraryName));
-  NLLibrary::create(
-    divModLibrary, DivModSignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModSignedLibraryName));
 
   createAssignPrimitive(assignLibrary);
   createFAPrimitive(rootLibrary);
@@ -1451,11 +1504,11 @@ NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLDesign* design) {
   signature.readPorts = getMemoryDecimalParameter(design, "RD_PORTS");
   signature.writePorts = getMemoryDecimalParameter(design, "WR_PORTS");
   signature.independentWriteClocks = design->getParameter(NLName("MULTI_CLOCK")) &&
-    getMemoryDecimalParameter(design, "MULTI_CLOCK") != 0;
+    getBooleanParameter(design, "MULTI_CLOCK");
   signature.resetMode = getMemoryResetMode(
-      getMemoryDecimalParameter(design, "RST_ENABLE"),
-      getMemoryDecimalParameter(design, "RST_ASYNC"),
-      getMemoryDecimalParameter(design, "RST_ACTIVE_LOW"));
+      getBooleanParameter(design, "RST_ENABLE"),
+      getBooleanParameter(design, "RST_ASYNC"),
+      getBooleanParameter(design, "RST_ACTIVE_LOW"));
   return signature;
 }
 
@@ -1470,11 +1523,11 @@ NLDB0::MemorySignature NLDB0::getMemorySignature(const SNLInstance* instance) {
   signature.readPorts = getMemoryDecimalParameter(instance, "RD_PORTS");
   signature.writePorts = getMemoryDecimalParameter(instance, "WR_PORTS");
   signature.independentWriteClocks = instance->getModel()->getParameter(NLName("MULTI_CLOCK")) &&
-    getMemoryDecimalParameter(instance, "MULTI_CLOCK") != 0;
+    getBooleanParameter(instance, "MULTI_CLOCK");
   signature.resetMode = getMemoryResetMode(
-      getMemoryDecimalParameter(instance, "RST_ENABLE"),
-      getMemoryDecimalParameter(instance, "RST_ASYNC"),
-      getMemoryDecimalParameter(instance, "RST_ACTIVE_LOW"));
+      getBooleanParameter(instance, "RST_ENABLE"),
+      getBooleanParameter(instance, "RST_ASYNC"),
+      getBooleanParameter(instance, "RST_ACTIVE_LOW"));
   return signature;
 }
 
@@ -1525,6 +1578,230 @@ SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
     throw NLException("NLDB0::getMemoryWriteEnable: design is not a memory primitive");
   }
   return design->getBusTerm(NLName("WE"));
+}
+
+bool NLDB0::isMultiply(const SNLDesign* design) {
+  return design && design->isPrimitive() &&
+      design->getLibrary() == getPrimitiveLibrary(MultiplyLibraryID);
+}
+
+size_t NLDB0::getMultiplyWidth(const SNLDesign* design) {
+  if (!isMultiply(design)) {
+    throw NLException("NLDB0::getMultiplyWidth: design is not a multiply primitive");
+  }
+  return getMemoryDecimalParameter(design, "WIDTH");
+}
+
+size_t NLDB0::getMultiplyWidth(const SNLInstance* instance) {
+  if (!instance || !isMultiply(instance->getModel())) {
+    throw NLException("NLDB0::getMultiplyWidth: instance is not a multiply primitive");
+  }
+  const auto width = getMultiplyWidth(instance->getModel());
+  if (auto* parameter = instance->getInstParameter(NLName("WIDTH"));
+      parameter && parameter->getValue() != std::to_string(width)) {
+    throw NLException("NLDB0::getMultiplyWidth: instance width differs from its model");
+  }
+  return width;
+}
+
+SNLBusTerm* NLDB0::getMultiplyInputA(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term0ID);
+}
+
+SNLBusTerm* NLDB0::getMultiplyInputB(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term1ID);
+}
+
+SNLBusTerm* NLDB0::getMultiplyOutput(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term2ID);
+}
+
+SNLDesign* NLDB0::getOrCreateMultiply(size_t width) {
+  if (!width || width - 1 > static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) ||
+      width > static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max())) {
+    throw NLException("NLDB0::getOrCreateMultiply: invalid multiply width");
+  }
+  auto* library = getOrCreatePrimitiveLibrary(MultiplyLibraryID, "naja_mul");
+  if (!library) return nullptr;
+  const auto id = static_cast<NLID::DesignID>(width);
+  if (auto* existing = library->getSNLDesign(id)) return existing;
+  auto* model = SNLDesign::create(library, id, SNLDesign::Type::Primitive,
+      NLName("naja_mul__w" + std::to_string(width)));
+  SNLParameter::create(model, NLName("WIDTH"), SNLParameter::Type::Decimal,
+      std::to_string(width));
+  auto* a = SNLBusTerm::create(model, Term0ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("A"));
+  auto* b = SNLBusTerm::create(model, Term1ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("B"));
+  auto* y = SNLBusTerm::create(model, Term2ID, SNLTerm::Direction::Output,
+      width - 1, 0, NLName("Y"));
+  auto inputs = collectBitTerms(*a);
+  const auto bBits = collectBitTerms(*b);
+  inputs.insert(inputs.end(), bBits.begin(), bBits.end());
+  SNLDesignModeling::addCombinatorialArcs(inputs, collectBitTerms(*y));
+  return model;
+}
+
+bool NLDB0::isAddSub(const SNLDesign* design) {
+  return design && design->isPrimitive() &&
+      (design->getLibrary() == getPrimitiveLibrary(AddLibraryID) ||
+       design->getLibrary() == getPrimitiveLibrary(SubtractLibraryID));
+}
+
+bool NLDB0::isSubtract(const SNLDesign* design) {
+  return isAddSub(design) && design->getLibrary()->getID() == SubtractLibraryID;
+}
+
+size_t NLDB0::getAddSubWidth(const SNLDesign* design) {
+  if (!isAddSub(design)) {
+    throw NLException("NLDB0::getAddSubWidth: design is not an add/subtract primitive");
+  }
+  return getMemoryDecimalParameter(design, "WIDTH");
+}
+
+size_t NLDB0::getAddSubWidth(const SNLInstance* instance) {
+  if (!instance || !isAddSub(instance->getModel())) {
+    throw NLException("NLDB0::getAddSubWidth: instance is not an add/subtract primitive");
+  }
+  const auto width = getAddSubWidth(instance->getModel());
+  if (auto* parameter = instance->getInstParameter(NLName("WIDTH"));
+      parameter && parameter->getValue() != std::to_string(width)) {
+    throw NLException("NLDB0::getAddSubWidth: instance width differs from its model");
+  }
+  return width;
+}
+
+SNLBusTerm* NLDB0::getAddSubInputA(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term0ID);
+}
+
+SNLBusTerm* NLDB0::getAddSubInputB(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term1ID);
+}
+
+SNLBusTerm* NLDB0::getAddSubOutput(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term2ID);
+}
+
+SNLDesign* NLDB0::getOrCreateAddSub(size_t width, bool subtract) {
+  if (!width || width - 1 > static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) ||
+      width > static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max())) {
+    throw NLException("NLDB0::getOrCreateAddSub: invalid add/subtract width");
+  }
+  const auto name = subtract ? "naja_sub" : "naja_add";
+  auto* library = getOrCreatePrimitiveLibrary(
+      subtract ? SubtractLibraryID : AddLibraryID, name);
+  if (!library) return nullptr;
+  const auto id = static_cast<NLID::DesignID>(width);
+  if (auto* existing = library->getSNLDesign(id)) return existing;
+  auto* model = SNLDesign::create(library, id, SNLDesign::Type::Primitive,
+      NLName(std::string(name) + "__w" + std::to_string(width)));
+  SNLParameter::create(model, NLName("WIDTH"), SNLParameter::Type::Decimal,
+      std::to_string(width));
+  auto* a = SNLBusTerm::create(model, Term0ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("A"));
+  auto* b = SNLBusTerm::create(model, Term1ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("B"));
+  auto* y = SNLBusTerm::create(model, Term2ID, SNLTerm::Direction::Output,
+      width - 1, 0, NLName("Y"));
+  auto inputs = collectBitTerms(*a);
+  const auto bBits = collectBitTerms(*b);
+  inputs.insert(inputs.end(), bBits.begin(), bBits.end());
+  SNLDesignModeling::addCombinatorialArcs(inputs, collectBitTerms(*y));
+  return model;
+}
+
+bool NLDB0::isShift(const SNLDesign* design) {
+  return design && design->isPrimitive() &&
+      design->getLibrary() == getPrimitiveLibrary(ShiftLibraryID);
+}
+
+NLDB0::ShiftSignature NLDB0::getShiftSignature(const SNLDesign* design) {
+  if (!isShift(design)) {
+    throw NLException("NLDB0::getShiftSignature: design is not a shift primitive");
+  }
+  return {getMemoryDecimalParameter(design, "WIDTH"),
+          getMemoryDecimalParameter(design, "COUNT_WIDTH"),
+          getBooleanParameter(design, "RIGHT"),
+          getBooleanParameter(design, "ARITHMETIC")};
+}
+
+NLDB0::ShiftSignature NLDB0::getShiftSignature(const SNLInstance* instance) {
+  if (!instance || !isShift(instance->getModel())) {
+    throw NLException("NLDB0::getShiftSignature: instance is not a shift primitive");
+  }
+  auto signature = getShiftSignature(instance->getModel());
+  // Dimensions and operation are part of the canonical model identity.
+  for (const auto& [name, value] : PrimitiveParameters{
+      {"WIDTH", std::to_string(signature.width)},
+      {"COUNT_WIDTH", std::to_string(signature.countWidth)},
+      {"RIGHT", std::to_string(signature.right)},
+      {"ARITHMETIC", std::to_string(signature.arithmetic)}}) {
+    if (auto* parameter = instance->getInstParameter(NLName(name));
+        parameter && parameter->getValue() != value) {
+      throw NLException("NLDB0::getShiftSignature: instance signature differs from its model");
+    }
+  }
+  return signature;
+}
+
+SNLBusTerm* NLDB0::getShiftData(const SNLDesign* design) {
+  getShiftSignature(design);
+  return design->getBusTerm(Term0ID);
+}
+
+SNLBusTerm* NLDB0::getShiftCount(const SNLDesign* design) {
+  getShiftSignature(design);
+  return design->getBusTerm(Term1ID);
+}
+
+SNLBusTerm* NLDB0::getShiftOutput(const SNLDesign* design) {
+  getShiftSignature(design);
+  return design->getBusTerm(Term2ID);
+}
+
+SNLDesign* NLDB0::getOrCreateShift(const ShiftSignature& signature) {
+  const auto maxBit = static_cast<size_t>(std::numeric_limits<NLID::Bit>::max());
+  if (!signature.width || !signature.countWidth || signature.width - 1 > maxBit ||
+      signature.countWidth - 1 > maxBit || (signature.arithmetic && !signature.right)) {
+    throw NLException("NLDB0::getOrCreateShift: invalid shift signature");
+  }
+  auto* library = getOrCreatePrimitiveLibrary(ShiftLibraryID, "naja_shift");
+  if (!library) return nullptr;
+  const auto name = NLName("naja_shift__w" + std::to_string(signature.width) +
+      "_c" + std::to_string(signature.countWidth) + "_r" + std::to_string(signature.right) +
+      "_a" + std::to_string(signature.arithmetic));
+  if (auto* existing = library->getSNLDesign(name)) return existing;
+  auto* model = SNLDesign::create(library, SNLDesign::Type::Primitive, name);
+  for (const auto& [parameter, value] : PrimitiveParameters{
+      {"WIDTH", std::to_string(signature.width)},
+      {"COUNT_WIDTH", std::to_string(signature.countWidth)}}) {
+    SNLParameter::create(model, NLName(parameter), SNLParameter::Type::Decimal, value);
+  }
+  for (const auto& [parameter, value] : PrimitiveParameters{
+      {"RIGHT", std::to_string(signature.right)},
+      {"ARITHMETIC", std::to_string(signature.arithmetic)}}) {
+    SNLParameter::create(model, NLName(parameter), SNLParameter::Type::Boolean, value);
+  }
+  auto* data = SNLBusTerm::create(model, Term0ID, SNLTerm::Direction::Input,
+      signature.width - 1, 0, NLName("DATA"));
+  auto* count = SNLBusTerm::create(model, Term1ID, SNLTerm::Direction::Input,
+      signature.countWidth - 1, 0, NLName("COUNT"));
+  auto* output = SNLBusTerm::create(model, Term2ID, SNLTerm::Direction::Output,
+      signature.width - 1, 0, NLName("Y"));
+  // Conservative combinational dependencies retain all count bits, including
+  // high bits which select the oversized-count fill value.
+  auto inputs = collectBitTerms(*data);
+  const auto countBits = collectBitTerms(*count);
+  inputs.insert(inputs.end(), countBits.begin(), countBits.end());
+  SNLDesignModeling::addCombinatorialArcs(inputs, collectBitTerms(*output));
+  return model;
 }
 
 bool NLDB0::isTableSelect(const SNLDesign* design) {
@@ -1654,7 +1931,7 @@ NLDB0::DivModSignature NLDB0::getDivModSignature(const SNLDesign* design) {
   }
   DivModSignature signature;
   signature.width = getDivModDecimalParameter(design, "WIDTH");
-  signature.isSigned = getDivModDecimalParameter(design, "SIGNED") != 0;
+  signature.isSigned = getBooleanParameter(design, "SIGNED");
   return signature;
 }
 
@@ -1664,7 +1941,7 @@ NLDB0::DivModSignature NLDB0::getDivModSignature(const SNLInstance* instance) {
   }
   DivModSignature signature;
   signature.width = getDivModDecimalParameter(instance, "WIDTH");
-  signature.isSigned = getDivModDecimalParameter(instance, "SIGNED") != 0;
+  signature.isSigned = getBooleanParameter(instance, "SIGNED");
   return signature;
 }
 
@@ -1758,6 +2035,15 @@ SNLTruthTable NLDB0::getDivModTruthTable(
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isAddSub(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: add/subtract primitive has no truth table");
+  }
+  if (isMultiply(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: multiply primitive has no truth table");
+  }
+  if (isShift(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: shift primitive has no truth table");
+  }
   if (isMemory(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: memory primitive has no truth table");
   }
@@ -1861,7 +2147,9 @@ SNLDesign* NLDB0::getOrCreateMemory(const MemorySignature& signature) {
     return nullptr;
   }
   if (signature.width == 0 || signature.depth == 0 || signature.abits == 0 ||
-      signature.readPorts == 0 || signature.writePorts == 0 ||
+      signature.readPorts == 0 ||
+      (signature.writePorts == 0 &&
+       (signature.resetMode != MemoryResetMode::None || signature.independentWriteClocks)) ||
       (signature.independentWriteClocks && signature.resetMode != MemoryResetMode::None)) {
     throw NLException("NLDB0::getOrCreateMemory: invalid memory signature");
   }
@@ -2818,7 +3106,7 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
     NLID::LibraryID libraryID,
     NLID::DesignID designID,
     const PrimitiveParameters& parameters) {
-  //Single-parameter families: designID carries the width / fan-in / fan-out.
+  // Width-based families use designID; compound signatures use parameters.
   switch (libraryID) {
     case RootLibraryID:
       return (designID == FADesignID) ? getFA() : nullptr;
@@ -2826,10 +3114,29 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
       return getAssign();
     case Mux2LibraryID:
       return getOrCreateMux2(designID);
-    case DFFLibraryID:
-      return getOrCreateDFF(designID);
+    case TableSelectLibraryID:
+      return getOrCreateTableSelect(tableSelectSignatureFromParameters(parameters));
+    case AddLibraryID:
+      return getOrCreateAddSub(size_t(designID), false);
+    case SubtractLibraryID:
+      return getOrCreateAddSub(size_t(designID), true);
+    case MultiplyLibraryID:
+      return getOrCreateMultiply(size_t(designID));
+    case DivModUnsignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), false});
+    case DivModSignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), true});
+    case ShiftLibraryID:
+      return getOrCreateShift({getDecimalParameter(parameters, "WIDTH"),
+          getDecimalParameter(parameters, "COUNT_WIDTH"),
+          getBooleanParameter(parameters, "RIGHT"),
+          getBooleanParameter(parameters, "ARITHMETIC")});
+    case MemoryLibraryID:
+      return getOrCreateMemory(memorySignatureFromParameters(parameters));
     case DLatchLibraryID:
       return getOrCreateDLatch(designID);
+    case DFFLibraryID:
+      return getOrCreateDFF(designID);
     case DFFNLibraryID:
       return getOrCreateDFFN(designID);
     case DFFRNLibraryID:
@@ -2860,21 +3167,12 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
       return getOrCreateDFFSSE(designID);
     case DFFSSNELibraryID:
       return getOrCreateDFFSSNE(designID);
-    case DivModUnsignedLibraryID:
-      return getOrCreateDivMod(DivModSignature{size_t(designID), false});
-    case DivModSignedLibraryID:
-      return getOrCreateDivMod(DivModSignature{size_t(designID), true});
-    //Multi-parameter families: the full signature comes from the instance params.
-    case MemoryLibraryID:
-      return getOrCreateMemory(memorySignatureFromParameters(parameters));
-    case TableSelectLibraryID:
-      return getOrCreateTableSelect(tableSelectSignatureFromParameters(parameters));
     default:
       break;
   }
   //Gate libraries: one reserved ID per GateType, designID = fan-in/out.
   if (libraryID >= GateLibraryIDBase &&
-      libraryID < GateLibraryIDBase + GateType::Unknown) {
+      libraryID < GateLibraryIDBase + static_cast<int>(GateType::Unknown)) {
     GateType type(GateType::GateTypeEnum(libraryID - GateLibraryIDBase));
     if (type.isNInput()) {
       return getOrCreateNInputGate(type, designID);

@@ -20,6 +20,7 @@ regress/sv/
 │   ├── cv32e40p/
 │   ├── cva6/
 │   ├── ibex/
+│   ├── ibex_cheriot/
 │   └── zcore/
 ├── common/             # shared analysis helpers
 └── tests/              # runner and adapter unit tests
@@ -300,6 +301,50 @@ The main smoke log is:
 build/sv-regress/ibex/artifacts/logs/github-sim.log
 ```
 
+## Ibex CHERIoT Co-simulation
+
+The `ibex_cheriot` case pins the CHERIoT Ibex (`lowRISC/ibex`, commit
+`7a4697f5`) and its `ibex_cosim` stage checks Naja's elaboration against the RTL
+itself, in six parameter configurations: `default`, `pmp` (16 regions), `icache`
+(ECC and scrambling), `cheriot`, `rv32b` (full bit-manipulation) and `opentitan`
+(the `ibex_configs.yaml` opentitan set, with CHERIoT).
+
+For each configuration, `cases/ibex_cheriot/ibex_cosim.py`:
+
+1. loads `ibex_top` twice, in separate processes, and requires the two Verilog
+   dumps to be identical (determinism);
+2. builds the original RTL and the Naja dump as two Verilator models. The RTL
+   model only depends on the Ibex commit, the file list and the Verilator
+   version, so it is cached under `--rtl-cache`;
+3. drives both models in lockstep with the same random stimulus (fixed seeds)
+   and compares every `ibex_top` output after both clock edges;
+4. on a mismatch, rebuilds both models with VCD tracing, re-runs the failing
+   seed up to the first mismatch, and prints the first diverging internal
+   signals.
+
+Requirements: a built Naja, Verilator 5 (CI uses 5.052) and a C++20 compiler.
+Sources are listed in `cases/ibex_cheriot/ibex_top.f`, relative to the Ibex
+checkout; configuration parameters are added with `-G`.
+
+```sh
+python3 regress/sv/sv_regress.py run --case ibex_cheriot --stage ibex_cosim
+```
+
+Seeds and length default to `1 2 3` and 20000 cycles; set `IBEX_COSIM_SEEDS`
+and `IBEX_COSIM_CYCLES` to change them. The script can also run on its own,
+for example on one configuration:
+
+```sh
+python3 regress/sv/cases/ibex_cheriot/ibex_cosim.py --repo <ibex checkout> \
+  --artifacts build/ibex-cosim --config icache --seeds 1 --cycles 5000
+```
+
+The expected pass marker is `IBEX_COSIM_PASS`. Results are in
+`build/sv-regress/ibex_cheriot/artifacts/ibex-cosim/summary.json` and the log in
+`build/sv-regress/ibex_cheriot/artifacts/logs/ibex-cosim.log`. The
+`Ibex CHERIoT Co-simulation` workflow runs this stage on pull requests (3 seeds
+x 20000 cycles, a few minutes) and nightly with 8 seeds x 200000 cycles.
+
 ## CV32E40P Smoke Simulation
 
 Run lint and the CV32E40P smoke simulation:
@@ -556,7 +601,7 @@ release's `targets.mk` top and its variant-local `filelist.f`, including the
 supplied wrappers, include directories, defines, and memory stubs.
 
 ```sh
-# Small PR tier: CV32E40P, FP32 FMA, minimal Ibex, and SPI host.
+# PR tier: CV32E40P, FP32 FMA, minimal Ibex, SPI host, and NVDLA.
 # Downloads the pinned release unless --archive supplies a local copy.
 python3 regress/sv/pulp_benchmarks.py --lint-runner local
 
@@ -614,17 +659,21 @@ Every consumer checks the restored native runtime before running a benchmark.
 There is no workflow `max-parallel` cap; GitHub schedules jobs according to the
 account's available runner concurrency.
 
-Regular runs fan out into **10 independent verification jobs**: four complete
+Regular runs fan out into **11 independent verification jobs**: five complete
 smoke checks, four larger-design elaboration checks, C910 strict lint, and ITA
 functional validation. A nightly run at 02:23 UTC or manual `survey=true` adds
-18 further complete-check jobs, covering **all 23 release variants** together
-with the five regular full checks. That produces **28 independent verification
+17 further complete-check jobs, covering **all 23 release variants** together
+with the six regular full checks. That produces **28 independent verification
 jobs**, including the four elaboration checks and ITA. Each additional survey
 variant has its own 600-second limit per load/dump and per lint, matching C910.
 Frontend matrix jobs have a 30-minute overall limit to allow both stages,
 setup, container cleanup, and artifact publication. Known failures fail only their own jobs.
 Matrix fail-fast is disabled, so other variants finish and retain reports.
 No complete-check case is duplicated between regular and survey jobs.
+The regular smoke set includes `nvdla.top` alongside CV32E40P, FP32 FMA,
+minimal Ibex, and SPI host. NVDLA uses `default_timescale="1ns/1ps"` for
+modules without an explicit time scale; source time scales still take precedence.
+The runner records this fallback in each case's `summary.json`.
 
 The survey and frontend checks do not establish functional correctness. The
 separate ITA job adds functional simulation, not formal equivalence. No

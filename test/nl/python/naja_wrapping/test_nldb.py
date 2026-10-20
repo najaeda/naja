@@ -56,6 +56,27 @@ endmodule
 """
 
 class SNLDBTest(unittest.TestCase):
+  def test_default_timescale(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    for value in (1, False, []):
+      with self.assertRaisesRegex(TypeError, "default_timescale must be a str or None"):
+        db.loadSystemVerilog([], default_timescale=value)
+    with self.assertRaisesRegex(ValueError, "default_timescale must not be empty"):
+      db.loadSystemVerilog([], default_timescale="")
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "source.sv")
+      with open(path, "w", encoding="utf-8") as source:
+        source.write("module leaf(output wire y); assign y = 1'b1; endmodule\n"
+                     "module top(output wire y); timeunit 1ns/1ps; leaf u(y); endmodule\n")
+      with self.assertRaisesRegex(naja.SystemVerilogSyntaxError, "time scale"):
+        db.loadSystemVerilog([path], default_timescale=None)
+      for value in ("invalid", "1ns/1us"):
+        with self.assertRaises(naja.SystemVerilogSyntaxError):
+          db.loadSystemVerilog([path], default_timescale=value)
+      top = db.loadSystemVerilog([path], default_timescale="1ns/1ps")
+      self.assertEqual("top", top.getName())
+
   def setUp(self):
     naja.NLUniverse.create()
 
@@ -74,6 +95,47 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().setTopDB("Error")
     del db    
   
+  def testGateLevelVerilogNamesAndAliases(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, "input.v")
+      with open(source, "w") as stream:
+        stream.write("module top(input a, output y); assign y = a; endmodule\n")
+      with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        top = db.loadGateLevelVerilog(files=[source], keep_assigns=False)
+        self.assertEqual(top.getName(), "top")
+        db.dumpGateLevelVerilog(os.path.join(directory, "new_db.v"))
+        top.dumpGateLevelVerilog(directory, "new_design.v", dumpAssignsAsInstances=True)
+      with self.assertWarnsRegex(FutureWarning, "NLDB.dumpVerilog will be deprecated soon"):
+        db.dumpVerilog(os.path.join(directory, "old_db.v"))
+      with self.assertWarnsRegex(FutureWarning, "SNLDesign.dumpVerilog will be deprecated soon"):
+        top.dumpVerilog(directory, "old_design.v", dumpAssignsAsInstances=True)
+      def body(name):
+        with open(os.path.join(directory, name)) as stream:
+          text = stream.read()
+        return text[text.index("module "):]
+      self.assertEqual(body("new_db.v"), body("old_db.v"))
+      self.assertEqual(body("new_design.v"), body("old_design.v"))
+      # Recreate the universe so the legacy loader sees identical initial state.
+      naja.NLUniverse.get().destroy()
+      naja.NLUniverse.create()
+      db = naja.NLDB.create(naja.NLUniverse.get())
+      with self.assertWarnsRegex(FutureWarning, "NLDB.loadVerilog will be deprecated soon"):
+        top = db.loadVerilog(files=[source], keep_assigns=False)
+      self.assertEqual(top.getName(), "top")
+      with self.assertRaisesRegex(TypeError, "NLDB.loadGateLevelVerilog: files"):
+        db.loadGateLevelVerilog("invalid")
+      with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        with self.assertRaises(FutureWarning):
+          db.loadVerilog([source])
+        with self.assertRaises(FutureWarning):
+          db.dumpVerilog(os.path.join(directory, "blocked.v"))
+        with self.assertRaises(FutureWarning):
+          top.dumpVerilog(directory, "blocked.v")
+      self.assertFalse(os.path.exists(os.path.join(directory, "blocked.v")))
+
   def testVerilog(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 
@@ -105,6 +167,33 @@ architecture rtl of inverter is begin y <= not a; end;
     self.assertEqual(design.getName(), "inverter")
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
+
+  def testVHDLReadOnlyMemory(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity lookup is port(a : in unsigned(1 downto 0); y : out std_logic_vector(3 downto 0)); end;
+architecture rtl of lookup is
+  type rows is array(0 to 2) of std_logic_vector(3 downto 0);
+  constant data : rows := (x"1", x"A", x"3");
+begin y <= data(to_integer(a)); end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        design = db.loadVHDL(vhdl.name, diagnostics_report_path=None)
+    roms = [i for i in design.getInstances() if i.getInstParameter("WR_PORTS") is not None]
+    self.assertEqual(len(roms), 1)
+    rom = roms[0]
+    self.assertEqual(rom.getInstParameter("WR_PORTS").getValue(), "0")
+    self.assertEqual(rom.getInstParameter("INIT_ENABLE").getValue(), "1")
+    self.assertEqual(rom.getInstParameter("INIT").getValue(), "12'h3a1")
+    self.assertFalse(rom.getModel().isSequential())
+    self.assertEqual({t.getName() for t in rom.getModel().getTerms()}, {"RADDR", "RDATA"})
+    self.assertEqual(next(iter(rom.getModel().getBusTerm("RADDR").getBits())).getRole(), naja.SNLTermRole.MemoryReadAddress)
+    self.assertEqual(next(iter(rom.getModel().getBusTerm("RDATA").getBits())).getRole(), naja.SNLTermRole.MemoryReadData)
 
   def testVHDLBatchFiles(self):
     # Deliberately put package declarations and entities after their users in
@@ -245,7 +334,7 @@ architecture rtl of inverter is begin y <= not a; end;
         db.loadVHDL("input.vhd")
     self.assertEqual(len(list(db.getLibraries())), 0)
 
-  def testVHDLAndSystemVerilogFullAdders(self):
+  def testVHDLAndSystemVerilogAdditionPrimitives(self):
     sources = {
       ".vhd": """library ieee; use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -267,7 +356,8 @@ architecture rtl of add4 is begin s <= a + b; end;
           else:
             top = db.loadSystemVerilog([hdl.name], diagnostics_report_path=None)
         arithmetic = [i for i in top.getInstances() if not i.getModel().isAssign()]
-        self.assertEqual([i.getModel().getName() for i in arithmetic], ["naja_fa"] * 4)
+        expected = ["naja_add__w4"] if suffix == ".v" else ["naja_fa"] * 4
+        self.assertEqual([i.getModel().getName() for i in arithmetic], expected)
         db.destroy()
 
   def testVHDLTruncatedArithmetic(self):
@@ -770,6 +860,32 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertEqual(1, a.getMSB())
     self.assertEqual(0, a.getLSB())
     self.assertEqual(2, a.getWidth())
+
+  def testSystemVerilogCompactArithmeticDependencies(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    with tempfile.TemporaryDirectory() as directory:
+      source = os.path.join(directory, "arithmetic.sv")
+      with open(source, "w") as stream:
+        stream.write("""// SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-License-Identifier: Apache-2.0
+module arithmetic(input logic [4:0] a, b, input logic [79:0] count,
+                  output logic [10:0] y, sum, difference, output logic [4:0] z);
+  assign y = a * b;
+  assign sum = a + b;
+  assign difference = a - b;
+  assign z = a >> count;
+endmodule
+""")
+      top = db.loadSystemVerilog([source],
+          diagnostics_report_path=os.path.join(directory, "diagnostics.log"))
+      models = {instance.getModel().getName(): instance.getModel()
+                for instance in top.getInstances()
+                if instance.getModel().getName().startswith(("naja_mul__", "naja_shift__", "naja_add__", "naja_sub__"))}
+      self.assertEqual(4, len(models))
+      for name, model in models.items():
+        expected = 85 if name.startswith("naja_shift__") else 22
+        for output in model.getBusTerm("Y").getBits():
+          self.assertEqual(expected, sum(1 for _ in naja.SNLDesign.getCombinatorialInputs(output)))
 
   def testSystemVerilog(self):
     u = naja.NLUniverse.get()

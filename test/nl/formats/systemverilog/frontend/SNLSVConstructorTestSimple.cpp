@@ -623,6 +623,30 @@ size_t countFAInstances(const SNLDesign* design) {
   return count;
 }
 
+size_t countAddSubInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isAddSub(instance->getModel())) ++count;
+  }
+  return count;
+}
+
+size_t countMultiplyInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isMultiply(instance->getModel())) ++count;
+  }
+  return count;
+}
+
+size_t countShiftInstances(const SNLDesign* design) {
+  size_t count = 0;
+  for (auto* instance : design->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++count;
+  }
+  return count;
+}
+
 size_t countDivModInstances(const SNLDesign* design, size_t width = 0, bool isSigned = false) {
   size_t count = 0;
   for (auto inst : design->getInstances()) {
@@ -1100,6 +1124,38 @@ TEST(SNLSVConstructorStandaloneTest, constructRequiresValidLibrary) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("SNLSVConstructor requires a valid NLLibrary"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple, defaultTimeScale) {
+  const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / "default_timescale";
+  std::filesystem::create_directories(outPath);
+  const auto sourcePath = outPath / "source.sv";
+  std::ofstream source(sourcePath);
+  source << "module leaf(output wire y);\n"
+         << "  localparam integer UNIT = 1ns; assign y = (UNIT == 1000);\n"
+         << "endmodule\n"
+         << "module top(output wire a, b);\n"
+         << "  timeunit 1ns/1ps;\n"
+         << "  localparam integer UNIT = 1ns; assign a = (UNIT == 1);\n"
+         << "  leaf u(b);\nendmodule\n";
+  source.close();
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath.reset();
+  EXPECT_THROW(constructor.construct(sourcePath, options), SNLSVSyntaxError);
+  for (const auto& value : {"", "invalid", "1ns/1us"}) {
+    options.defaultTimeScale = value;
+    EXPECT_THROW(constructor.construct(sourcePath, options), SNLSVSyntaxError);
+  }
+  options.defaultTimeScale = "1ps/1ps";
+  ASSERT_NO_THROW(constructor.construct(sourcePath, options));
+  library_->getDB()->mergeAssigns();
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto leaf = library_->getSNLDesign(NLName("leaf"));
+  ASSERT_NE(leaf, nullptr);
+  EXPECT_TRUE(top->getScalarTerm(NLName("a"))->getNet()->isConstant1());
+  EXPECT_TRUE(leaf->getScalarTerm(NLName("y"))->getNet()->isConstant1());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
@@ -3798,19 +3854,10 @@ endmodule
   for (NLID::Bit bit = 0; bit < 4; ++bit) {
     EXPECT_TRUE(haveEquivalentFanIn(wide->getBit(bit), sliced->getBit(bit + 2)));
   }
-  EXPECT_EQ(1u, countMux2Instances(top, 2));
-  for (const auto* mux : top->getInstances()) {
-    if (!NLDB0::isMux2(mux->getModel()) || getPrimitiveWidth(mux) != 2) {
-      continue;
-    }
-    for (NLID::Bit bit = 0; bit < 2; ++bit) {
-      EXPECT_EQ(top->getBusNet(NLName("b"))->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2InputA(mux->getModel())->getBit(bit))->getNet());
-      EXPECT_EQ(top->getBusNet(NLName("a"))->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2InputB(mux->getModel())->getBit(bit))->getNet());
-      EXPECT_EQ(narrow->getBit(bit),
-        mux->getInstTerm(NLDB0::getMux2Output(mux->getModel())->getBit(bit))->getNet());
-    }
+  // The cast now truncates the evaluated mux result. Check the retained
+  // bits rather than requiring a mux constructed at the destination width.
+  for (NLID::Bit bit = 0; bit < 2; ++bit) {
+    EXPECT_TRUE(haveEquivalentFanIn(narrow->getBit(bit), sliced->getBit(bit + 2)));
   }
 }
 
@@ -3829,7 +3876,7 @@ endmodule
   constructor.construct(svPath);
   auto* top = library_->getSNLDesign(NLName("table_select_direct_bits"));
   ASSERT_NE(nullptr, top);
-  auto* table = findOnlyPrimitiveInstance(top, NLDB0::isTableSelect);
+  auto* table = findOnlyPrimitiveInstance(top, NLDB0::isMemory);
   ASSERT_NE(nullptr, table);
   EXPECT_EQ(0u, countPrimitiveInstances(top, NLDB0::isAssign));
   auto* model = table->getModel();
@@ -3837,22 +3884,19 @@ endmodule
   auto* y = top->getBusNet(NLName("y"));
   ASSERT_NE(nullptr, sel);
   ASSERT_NE(nullptr, y);
-  for (NLID::Bit bit = 0; bit < 16; ++bit) {
-    auto* net = table->getInstTerm(NLDB0::getTableSelectData(model)->getBit(bit))->getNet();
-    ASSERT_NE(nullptr, net);
-    EXPECT_TRUE((0xC5A3 >> bit) & 1 ? net->isAssign1() : net->isAssign0());
-  }
+  EXPECT_EQ(0u, NLDB0::getMemorySignature(table).writePorts);
+  EXPECT_EQ("16'hc5a3", table->getInstParameter(NLName("INIT"))->getValue());
   for (NLID::Bit bit = 0; bit < 2; ++bit) {
     EXPECT_EQ(sel->getBit(1 - bit),
-      table->getInstTerm(NLDB0::getTableSelectAddress(model)->getBit(bit))->getNet());
+      table->getInstTerm(NLDB0::getMemoryReadAddress(model)->getBit(bit))->getNet());
   }
   for (NLID::Bit bit = 0; bit < 4; ++bit) {
     EXPECT_EQ(y->getBit(bit),
-      table->getInstTerm(NLDB0::getTableSelectOutput(model)->getBit(bit))->getNet());
+      table->getInstTerm(NLDB0::getMemoryReadData(model)->getBit(bit))->getNet());
   }
   const auto text = readTextFile(dumpTopAndGetVerilogPath(top, "table_select_direct_bits_dump"));
   EXPECT_EQ(std::string::npos, text.find("net_"));
-  EXPECT_NE(std::string::npos, text.find(".Y(y)"));
+  EXPECT_NE(std::string::npos, text.find(".RDATA(y)"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseVectorFlopDirectMixedDataBits) {
@@ -6222,50 +6266,6 @@ endmodule
   EXPECT_NE(top->getNet(NLName("sum_o")), nullptr);
 }
 
-TEST_F(
-  SNLSVConstructorTestSimple,
-  parseContinuousAssignProceduralReturnFunctionElementSelectMemberBaseUnsupported) {
-  SNLSVConstructor constructor(library_);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath =
-    outPath /
-    "continuous_assign_procedural_return_function_element_select_member_base_unsupported";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
-
-  const auto svPath =
-    outPath /
-    "continuous_assign_procedural_return_function_element_select_member_base_unsupported.sv";
-  std::ofstream svFile(svPath);
-  ASSERT_TRUE(svFile.good());
-  svFile
-    << R"(module continuous_assign_procedural_return_function_element_select_member_base_unsupported(
-  input  logic [1:0] p_bits,
-  output logic y
-);
-  typedef struct packed {
-    logic [1:0] bits;
-  } pair_t;
-
-  function automatic logic pick(input pair_t p);
-    logic tmp;
-    tmp = p.bits[1];
-    return p.bits[0];
-  endfunction
-
-  assign y = pick(pair_t'(p_bits));
-endmodule
-)";
-  svFile.close();
-
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign in module "
-     "'continuous_assign_procedural_return_function_element_select_member_base_unsupported'"});
-}
 
 TEST_F(
   SNLSVConstructorTestSimple,
@@ -6856,10 +6856,78 @@ static bool evaluateFunctionResultBit(
       return name == "nand" || name == "nor" || name == "xnor" || name == "not"
         ? !result : result;
     }
+    if (NLDB0::isAddSub(model) || NLDB0::isMultiply(model) || NLDB0::isShift(model)) {
+      const auto readBus = [&](SNLBusTerm* bus) {
+        uint64_t value = 0;
+        for (auto* bit : bus->getBusBits()) {
+          const bool one = read(bit);
+          if (one && bit->getBit() < 64) value |= uint64_t{1} << bit->getBit();
+        }
+        return value;
+      };
+      uint64_t value = 0;
+      if (NLDB0::isAddSub(model)) {
+        const auto a = readBus(NLDB0::getAddSubInputA(model));
+        const auto b = readBus(NLDB0::getAddSubInputB(model));
+        value = NLDB0::isSubtract(model) ? a - b : a + b;
+      } else if (NLDB0::isMultiply(model)) {
+        value = readBus(NLDB0::getMultiplyInputA(model)) *
+                readBus(NLDB0::getMultiplyInputB(model));
+      } else {
+        const auto signature = NLDB0::getShiftSignature(instance);
+        const auto data = readBus(NLDB0::getShiftData(model));
+        const auto count = readBus(NLDB0::getShiftCount(model));
+        bool oversized = count >= signature.width;
+        for (auto* bit : NLDB0::getShiftCount(model)->getBusBits())
+          if (bit->getBit() >= 64 && read(bit)) oversized = true;
+        const bool negative = signature.arithmetic &&
+            read(NLDB0::getShiftData(model)->getBit(signature.width - 1));
+        if (oversized) value = negative ? ~uint64_t{0} : 0;
+        else if (!signature.right) value = data << count;
+        else {
+          const auto extended = negative && signature.width < 64
+            ? data | (~uint64_t{0} << signature.width) : data;
+          value = signature.arithmetic ? uint64_t(int64_t(extended) >> count) : data >> count;
+        }
+      }
+      return (value >> driver->getBitTerm()->getBit()) & 1u;
+    }
+    if (NLDB0::isDivMod(model)) {
+      const auto readBus = [&](SNLBusTerm* bus) {
+        uint64_t value = 0;
+        for (auto* bit : bus->getBusBits())
+          value |= uint64_t(read(bit)) << bit->getBit();
+        return value;
+      };
+      const auto dividend = readBus(NLDB0::getDivModDividend(model));
+      const auto divisor = readBus(NLDB0::getDivModDivisor(model));
+      if (!divisor) { ADD_FAILURE() << "Zero divisor in test"; return false; }
+      const auto* output = driver->getBitTerm();
+      const bool quotient = output->getID() == NLDB0::getDivModQuotient(model)->getID();
+      const uint64_t value = quotient ? dividend / divisor : dividend % divisor;
+      return (value >> output->getBit()) & 1u;
+    }
     if (NLDB0::isFA(model)) {
       const unsigned sum = unsigned(read(NLDB0::getFAInputA())) +
         unsigned(read(NLDB0::getFAInputB())) + unsigned(read(NLDB0::getFAInputCI()));
       return driver->getBitTerm() == NLDB0::getFAOutputS() ? (sum & 1u) : (sum > 1);
+    }
+    if (NLDB0::isMemory(model) && !NLDB0::getMemorySignature(instance).writePorts) {
+      size_t address = 0;
+      for (auto* bit : NLDB0::getMemoryReadAddress(model)->getBusBits())
+        address |= size_t(read(bit)) << bit->getBit();
+      const auto signature = NLDB0::getMemorySignature(instance);
+      if (address >= signature.depth) { ADD_FAILURE() << "Out of range ROM address"; return false; }
+      const auto init = instance->getInstParameter(NLName("INIT"))->getValue();
+      const auto offset = address * signature.width + driver->getBitTerm()->getBit();
+      const auto base = init.find('\'') + 1;
+      if (init[base] == 'h') {
+        const auto digit = init.at(init.size() - 1 - offset/4);
+        return bool(((digit <= '9' ? digit-'0' : digit-'a'+10) >> (offset%4)) & 1);
+      }
+      const auto digit = init.at(init.size() - 1 - offset);
+      EXPECT_TRUE(digit == '0' || digit == '1');
+      return digit == '1';
     }
     if (NLDB0::isTableSelect(model)) {
       unsigned address = 0;
@@ -6880,6 +6948,389 @@ static bool evaluateFunctionResultBit(
   }();
   (*memo)[net] = result;
   return result;
+}
+
+TEST_F(SNLSVConstructorTestSimple, compactMultiplyAndShiftsPreserveSizing) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("compact_arithmetic", R"(
+module top(input logic [11:0] a, output wire [8:0] product,
+           output wire [6:0] signed_product, mixed_product, output wire [2:0] narrow,
+           output wire scalar, output wire [6:0] shifted,
+           output wire [6:0] signed_shift,
+           output logic [6:0] compound_product,
+           output logic signed [6:0] compound_shift);
+  assign product = a[3:0] * (a[7:4] + 1);
+  assign signed_product = $signed(a[3:0]) * $signed(a[7:4]);
+  assign mixed_product = $signed(a[3:0]) * a[7:4];
+  always_comb begin
+    compound_product = a[3:0];
+    compound_product *= a[7:4];
+    compound_shift = $signed(a[3:0]);
+    compound_shift >>>= a[11:8];
+  end
+  assign narrow = a[3:0] * a[7:4];
+  assign scalar = a[0] * a[4];
+  assign shifted = (a[3:0] * a[7:4]) << a[11:8];
+  assign signed_shift = ($signed(a[3:0]) * $signed(a[7:4])) >>> a[11:8];
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 80u);
+  std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+  const auto check = [&](const char* name, unsigned input, uint64_t expected) {
+    SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+    auto* output = top->getBusTerm(NLName(name));
+    ASSERT_NE(output, nullptr);
+    for (auto* bit : output->getBusBits())
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+                evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+  };
+  for (unsigned input = 0; input < 4096; ++input) {
+    memo.clear();
+    const unsigned a = input & 15u, b = (input >> 4) & 15u, count = input >> 8;
+    const int sa = a < 8 ? int(a) : int(a) - 16;
+    const int sb = b < 8 ? int(b) : int(b) - 16;
+    check("product", input, a * (b + 1));
+    check("signed_product", input, uint64_t(sa * sb));
+    check("mixed_product", input, a * b);
+    check("compound_product", input, a * b);
+    check("compound_shift", input, uint64_t(sa >> count));
+    check("narrow", input, a * b);
+    check("shifted", input, uint64_t(a * b) << count);
+    const unsigned bits = unsigned(sa * sb) & 127u;
+    const int signedBits = bits < 64 ? int(bits) : int(bits) - 128;
+    check("signed_shift", input, uint64_t(signedBits >> count));
+    EXPECT_EQ(bool((a & 1u) && (b & 1u)),
+      evaluateFunctionResultBit(top, top->getScalarTerm(NLName("scalar"))->getNet(), input, 0, &memo));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, compactAddSubPreservesSizingAndCompoundUpdates) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("compact_add_sub", R"(
+module top(input logic [11:0] a, output wire [8:0] sum, difference,
+           signed_sum, signed_difference, mixed_sum, mixed_difference,
+           output wire [2:0] narrow_sum, narrow_difference,
+           output wire scalar_sum, scalar_difference,
+           output logic [6:0] compound);
+  assign sum = a[3:0] + a[7:4];
+  assign difference = a[3:0] - a[7:4];
+  assign signed_sum = $signed(a[3:0]) + $signed(a[7:4]);
+  assign signed_difference = $signed(a[3:0]) - $signed(a[7:4]);
+  assign mixed_sum = $signed(a[3:0]) + a[7:4];
+  assign mixed_difference = $signed(a[3:0]) - a[7:4];
+  assign narrow_sum = a[3:0] + a[7:4];
+  assign narrow_difference = a[3:0] - a[7:4];
+  assign scalar_sum = a[0] + a[4];
+  assign scalar_difference = a[0] - a[4];
+  always_comb begin
+    compound = a[3:0];
+    compound += a[7:4];
+    compound -= a[11:8];
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 30u);
+  EXPECT_EQ(0u, countFAInstances(top));
+  for (unsigned input = 0; input < 4096; ++input) {
+    const unsigned a = input & 15u, b = (input >> 4) & 15u, c = input >> 8;
+    const int sa = a < 8 ? int(a) : int(a) - 16;
+    const int sb = b < 8 ? int(b) : int(b) - 16;
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](const char* name, uint64_t expected) {
+      SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+      auto* output = top->getBusTerm(NLName(name));
+      ASSERT_NE(output, nullptr);
+      for (auto* bit : output->getBusBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+      }
+    };
+    check("sum", a + b);
+    check("difference", uint64_t(int(a) - int(b)));
+    check("signed_sum", uint64_t(sa + sb));
+    check("signed_difference", uint64_t(sa - sb));
+    check("mixed_sum", a + b);
+    check("mixed_difference", uint64_t(int(a) - int(b)));
+    check("narrow_sum", a + b);
+    check("narrow_difference", uint64_t(int(a) - int(b)));
+    check("compound", uint64_t(int(a) + int(b) - int(c)));
+    for (const auto* name : {"scalar_sum", "scalar_difference"}) {
+      EXPECT_EQ(bool((a ^ b) & 1u), evaluateFunctionResultBit(
+        top, top->getScalarTerm(NLName(name))->getNet(), input, 0, &memo));
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, relationalExpressionsShareOnlyRequiredLogic) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_relations", R"(
+module top(input logic [11:0] a, output wire [7:0] y);
+  wire [5:0] first = a[5:0], second = a[11:6];
+  assign y = {first < second, first <= second, first > second, first >= second,
+              $signed(first) < $signed(second), $signed(first) <= $signed(second),
+              $signed(first) > $signed(second), $signed(first) >= $signed(second)};
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_LT(top->getInstances().size(), 140u);
+  auto* output = top->getBusTerm(NLName("y"));
+  ASSERT_NE(output, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto first = input & 63u, second = input >> 6;
+    const int signedFirst = first < 32 ? int(first) : int(first) - 64;
+    const int signedSecond = second < 32 ? int(second) : int(second) - 64;
+    const unsigned expected = ((first < second) << 7) | ((first <= second) << 6) |
+      ((first > second) << 5) | ((first >= second) << 4) |
+      ((signedFirst < signedSecond) << 3) | ((signedFirst <= signedSecond) << 2) |
+      ((signedFirst > signedSecond) << 1) | (signedFirst >= signedSecond);
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << input;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, dynamicElementWriteSharesRhsAndDecoderPrefixes) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_element_write", R"(
+module top(input logic [11:0] a, output logic [2:0][2:0] y);
+  wire [23:0] index = {20'b0, a[11:8]};
+  always_comb begin
+    y = '0;
+    y[index] = a[2:0] + a[5:3];
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  size_t adders = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isAddSub(instance->getModel())) ++adders;
+    EXPECT_FALSE(NLDB0::isFA(instance->getModel()));
+  }
+  EXPECT_EQ(adders, 1u);
+  EXPECT_LT(top->getInstances().size(), 100u);
+  auto* output = top->getBusTerm(NLName("y"));
+  ASSERT_NE(output, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto index = input >> 8;
+    const auto sum = ((input & 7u) + ((input >> 3) & 7u)) & 7u;
+    const auto expected = index < 3 ? sum << (3 * index) : 0;
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : output->getBusBits()) {
+      EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+        evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << input;
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, sharedElementWritePreservesReplayAndCompoundUpdates) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("shared_element_write_replay", R"(
+module top(input logic [11:0] a, output logic [8:0] nested, ascending,
+           compound, incremented, self_read, unpacked_value);
+  typedef struct packed { logic flag; logic [2:0] value; } entry_t;
+  entry_t [2:0] entries;
+  logic [0:2][2:0] forward;
+  logic [2:0][2:0] updates, steps, replay;
+  logic [2:0] values [0:2];
+  wire [79:0] index = {15'b0, a[7], 60'b0, a[11:8]};
+  always_comb begin
+    entries = '0;
+    entries[index].value = a[2:0] + a[5:3];
+    nested = {entries[2].value, entries[1].value, entries[0].value};
+    forward = '0;
+    forward[index] = a[2:0] + a[5:3];
+    ascending = forward;
+    updates = a[8:0];
+    updates[index] += a[2:0];
+    compound = updates;
+    steps = a[8:0];
+    steps[index]++;
+    incremented = steps;
+    replay = a[8:0];
+    replay[index] = replay[index] + a[2:0];
+    self_read = replay;
+    for (int k=0; k<3; k++) values[k] = '0;
+    values[index] = a[2:0] + a[5:3];
+    unpacked_value = {values[2], values[1], values[0]};
+  end
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  for (unsigned input = 0; input < 4096; ++input) {
+    const auto index = input & 128u ? 16u : input >> 8;
+    const auto sum = ((input & 7u) + ((input >> 3) & 7u)) & 7u;
+    const unsigned selected = index < 3 ? sum << (3 * index) : 0;
+    const unsigned reversed = index < 3 ? sum << (3 * (2 - index)) : 0;
+    const unsigned original = input & 511u;
+    const auto updated = [&](unsigned delta) {
+      if (index >= 3) return original;
+      const auto shift = 3 * index;
+      const auto value = ((original >> shift) + delta) & 7u;
+      return (original & ~(7u << shift)) | (value << shift);
+    };
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](const char* name, unsigned expected) {
+      SCOPED_TRACE(std::string(name) + " input=" + std::to_string(input));
+      auto* output = top->getBusTerm(NLName(name));
+      ASSERT_NE(output, nullptr);
+      for (auto* bit : output->getBusBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo));
+      }
+    };
+    check("nested", selected);
+    check("ascending", reversed);
+    check("compound", updated(input & 7u));
+    check("incremented", updated(1));
+    check("self_read", updated(input & 7u));
+    check("unpacked_value", selected);
+  }
+}
+
+// Each expression is evaluated independently of destination truncation. The
+// packed input keeps the existing primitive evaluator usable for all contexts.
+TEST_F(SNLSVConstructorTestSimple, narrowedExpressionsPreserveEvaluationWidth) {
+  const std::vector<std::string> expressions {
+    "x >> sh", "x >>> sh", "$signed(x) >>> sh", "x / d", "x % d",
+    "(x >> sh) + 12'd0", "sh[0] ? (x >> sh) : (x >> (sh + 1'b1))",
+    "x[11:0] >> sh", "x >> 5'd12", "$signed(x) >>> 5'd15",
+    "x / (12'd1 << sh)", "small_t'(x) >> sh"
+  };
+  std::ostringstream source;
+  source << "module sink(input logic [4:0] p, output logic [4:0] q);"
+         << "assign q = p; endmodule\n"
+         << "module top(input logic [23:0] a";
+  for (size_t e = 0; e < expressions.size(); ++e)
+    for (unsigned cast = 0; cast < 3; ++cast)
+      for (unsigned context = 0; context < 6; ++context)
+        source << ", output wire [4:0] y" << e << "_" << cast << "_" << context;
+  source << ", output logic [8:0] carry_assign, carry_net, carry_comb, carry_port);\n"
+         << "typedef logic [4:0] small_t; wire [11:0] x = a[11:0];"
+         << "wire [11:0] d = a[23:12]; wire [3:0] sh = a[15:12];\n"
+         << "function automatic [4:0] identity(input logic [4:0] v); return v; endfunction\n";
+  for (size_t e = 0; e < expressions.size(); ++e) {
+    for (unsigned cast = 0; cast < 3; ++cast) {
+      const auto expr = cast == 0 ? expressions[e] :
+        (cast == 1 ? "small_t'(" : "5'(") + expressions[e] + ")";
+      for (unsigned context = 0; context < 6; ++context) {
+        const auto name = "y" + std::to_string(e) + "_" + std::to_string(cast) +
+          "_" + std::to_string(context);
+        if (context == 0) source << "assign " << name << " = " << expr << ";\n";
+        if (context == 1) source << "wire [4:0] n" << name << " = " << expr
+          << "; assign " << name << " = n" << name << ";\n";
+        if (context == 2) source << "sink u" << name << "(.p(" << expr
+          << "), .q(" << name << "));\n";
+        if (context == 3) source << "logic [4:0] r" << name << "; always_comb r"
+          << name << " = " << expr << "; assign " << name << " = r" << name << ";\n";
+        if (context == 4) source << "assign " << name << " = identity(" << expr << ");\n";
+        if (context == 5) source << "function automatic [4:0] f" << name
+          << "(input logic [11:0] x, d, input logic [3:0] sh); return " << expr
+          << "; endfunction assign " << name << " = f" << name << "(x,d,sh);\n";
+      }
+    }
+  }
+  source << "assign carry_assign = a[7:0] + a[15:8];\n"
+         << "wire [8:0] sum = a[7:0] + a[15:8]; assign carry_net = sum;\n"
+         << "always_comb carry_comb = a[7:0] + a[15:8];\n"
+         << "wide_sink wide(.p(a[7:0] + a[15:8]), .q(carry_port)); endmodule\n"
+         << "module wide_sink(input logic [8:0] p, output logic [8:0] q);"
+         << "assign q=p; endmodule\n";
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("narrowed_expression_width", source.str()));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  // Include both signs, all shift amounts (also beyond the operand width),
+  // non-power-of-two divisors, and deterministic pseudo-random operands.
+  uint32_t state = 0x42b7u;
+  for (unsigned sample = 0; sample < 256; ++sample) {
+    state = state * 1664525u + 1013904223u;
+    const unsigned x = sample < 16 ? (1u << (sample % 12)) : state & 4095u;
+    const unsigned d = ((state >> 12) & 4080u) | (sample % 16);
+    if (!d) continue;
+    const unsigned sh = d & 15u;
+    const unsigned input = x | (d << 12);
+    const int signedX = x & 2048u ? int(x) - 4096 : int(x);
+    const std::vector<unsigned> expected {
+      x >> sh, x >> sh, unsigned(signedX >> sh), x / d, x % d,
+      x >> sh, sh & 1u ? x >> sh : x >> ((sh + 1) & 15u),
+      x >> sh, 0, unsigned(signedX >> 15), sh < 12 ? x / (1u << sh) : 0,
+      (x & 31u) >> sh
+    };
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const auto check = [&](SNLBusTerm* term, SNLInstance* instance, unsigned value) {
+      ASSERT_NE(term, nullptr);
+      for (auto* bit : term->getBusBits()) {
+        auto* net = instance ? instance->getInstTerm(bit)->getNet() : bit->getNet();
+        EXPECT_EQ(bool((value >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, net, input, 0, &memo))
+          << term->getName().getString() << " sample=" << sample << " input=" << input;
+      }
+    };
+    for (size_t e = 0; e < expressions.size(); ++e)
+      for (unsigned cast = 0; cast < 3; ++cast)
+        for (unsigned context = 0; context < 6; ++context) {
+          // Avoid zero divisors for the power-of-two expression.
+          if (e == 10 && sh >= 12) continue;
+          const auto name = "y" + std::to_string(e) + "_" + std::to_string(cast) +
+            "_" + std::to_string(context);
+          SCOPED_TRACE(name);
+          auto* instance = context == 2 ? top->getInstance(NLName("u" + name)) : nullptr;
+          check(instance ? instance->getModel()->getBusTerm(NLName("p")) :
+            top->getBusTerm(NLName(name)), instance, expected[e]);
+        }
+    const unsigned carry = (input & 255u) + ((input >> 8) & 255u);
+    for (const auto* name : {"carry_assign", "carry_net", "carry_comb"})
+      check(top->getBusTerm(NLName(name)), nullptr, carry);
+    auto* wide = top->getInstance(NLName("wide"));
+    ASSERT_NE(wide, nullptr);
+    check(wide->getModel()->getBusTerm(NLName("p")), wide, carry);
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, expressionWidthConstantAndConversionBoundaries) {
+  SNLSVConstructor constructor(library_);
+  constructor.construct(writeSVTestFile("expression_width_boundaries", R"(
+module top(input logic [23:0] a, output logic [11:0] y, z,
+            output logic [4:0] p, q, r, s, c);
+  parameter logic [4:0] P = 12'hb60 >> 4;
+  localparam logic [4:0] Q = 12'hb60 / 12'd13;
+  localparam logic [4:0] R = 12'hb60 % 12'd47;
+  function automatic [4:0] f(input logic [11:0] v); return v >> 4; endfunction
+  localparam logic [4:0] S = f(12'hb60);
+  localparam logic [8:0] C = 8'd217 + 8'd153;
+  assign p = P; assign q = Q; assign r = R; assign s = S; assign c = C[4:0];
+  // Truncate inside the expression, then extend the converted value.
+  assign y = 5'(a[11:0] >> a[15:12]);
+  assign z = 5'(a[11:0]) >> a[15:12];
+endmodule
+)"));
+  auto* top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  for (unsigned input : {0x12b60u, 0x37a95u, 0x5ffffu, 0x81234u, 0xfaf01u}) {
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    const std::vector<std::pair<const char*, unsigned>> expected {
+      {"p", 0xb60u >> 4}, {"q", 0xb60u / 13}, {"r", 0xb60u % 47},
+      {"s", 0xb60u >> 4}, {"c", 217 + 153},
+      {"y", ((input & 4095u) >> ((input >> 12) & 15u)) & 31u},
+      {"z", (input & 31u) >> ((input >> 12) & 15u)}
+    };
+    for (const auto& [name, value] : expected) {
+      auto* term = top->getBusTerm(NLName(name));
+      ASSERT_NE(term, nullptr);
+      for (auto* bit : term->getBusBits())
+        EXPECT_EQ(bool((value >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo)) << name;
+    }
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, dynamicProceduralWritesDriveStorage) {
@@ -7125,6 +7576,211 @@ endmodule
       }
     }
   }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousAssignProceduralReturnFunctionElementSelectMemberBaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath /
+    "continuous_assign_procedural_return_function_element_select_member_base_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "continuous_assign_procedural_return_function_element_select_member_base_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_procedural_return_function_element_select_member_base_supported(
+  input  logic [1:0] p_bits,
+  output logic y
+);
+  typedef struct packed {
+    logic [1:0] bits;
+  } pair_t;
+
+  function automatic logic pick(input pair_t p);
+    logic tmp;
+    tmp = p.bits[1];
+    return p.bits[0];
+  endfunction
+
+  assign y = pick(pair_t'(p_bits));
+endmodule
+)";
+  svFile.close();
+
+  ASSERT_NO_THROW(constructor.construct(svPath));
+  auto* top = library_->getSNLDesign(NLName(
+    "continuous_assign_procedural_return_function_element_select_member_base_supported"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 4; ++input) {
+    std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+    for (auto* bit : top->getTerm(NLName("p_bits"))->getBits()) {
+      memo[bit->getNet()] = bool((input >> bit->getBit()) & 1u);
+    }
+    EXPECT_EQ(bool(input & 1u), evaluateFunctionResultBit(
+      top, top->getScalarTerm(NLName("y"))->getNet(), input, 0, &memo));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, automaticLocalInitializersExecutePerCall) {
+  const auto path = writeSVTestFile("local_initializers", R"(module local_initializers(
+  input logic [2:0] a,
+  output logic scalar_result, constant_result, member_result, task_scalar,
+  output logic [2:0] dependent, reassigned, direct, second, nested, packed_result, task_result, task_second, task_packed);
+  typedef struct packed { logic flag; logic [1:0] value; } record_t;
+  function automatic logic scalar_f(logic [2:0] p);
+    logic v = ^p;
+    return v;
+  endfunction
+  function automatic logic constant_f(logic [2:0] p);
+    logic v = 1'b0;
+    if (p[0]) v = 1'b1;
+    return v;
+  endfunction
+  function automatic logic [2:0] dependent_f(logic [2:0] p);
+    logic [2:0] first = ~p;
+    logic [2:0] next_value = first ^ 3'b010;
+    return next_value;
+  endfunction
+  function automatic logic [2:0] reassigned_f(logic [2:0] p);
+    logic [2:0] v = ~p;
+    v[0] = p[0];
+    return v;
+  endfunction
+  function automatic logic [2:0] direct_f(logic [2:0] p);
+    logic [2:0] v = ~p;
+    v[0] = p[0];
+    return {v[0], v[2:1]};
+  endfunction
+  function automatic logic [2:0] nested_f(logic [2:0] p);
+    logic [2:0] result;
+    begin : inner
+      logic [2:0] v = ~p;
+      result = v;
+    end
+    return result;
+  endfunction
+  function automatic record_t packed_f(logic [2:0] p);
+    record_t v = {p[0], ~p[2:1]};
+    return v;
+  endfunction
+  function automatic logic member_f(logic [2:0] p);
+    record_t v = {p[0], ~p[2:1]};
+    return v.flag;
+  endfunction
+  task automatic task_f(input logic [2:0] p, output logic [2:0] result);
+    logic [2:0] v = ~p;
+    logic [2:0] next_value = v ^ 3'b010;
+    result = next_value;
+  endtask
+  task automatic scalar_task(input logic [2:0] p, output logic result);
+    logic v = ^p;
+    result = v;
+  endtask
+  task automatic packed_task(input logic [2:0] p, output record_t result);
+    begin : inner
+      record_t v = {p[0], ~p[2:1]};
+      result = v;
+    end
+  endtask
+  assign member_result = member_f(a);
+  assign scalar_result = scalar_f(a);
+  assign constant_result = constant_f(a);
+  assign dependent = dependent_f(a);
+  assign reassigned = reassigned_f(a);
+  assign direct = direct_f(a);
+  assign second = dependent_f(~a);
+  assign nested = nested_f(a);
+  assign packed_result = packed_f(a);
+  always_comb begin
+    task_f(a, task_result);
+    task_f(~a, task_second);
+    scalar_task(a, task_scalar);
+    packed_task(a, task_packed);
+  end
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  const auto reportPath = path.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  ASSERT_NO_THROW(constructor.construct(path, options));
+  EXPECT_EQ(std::string::npos, readTextFile(reportPath).find("undriven_inlined_local"));
+  auto* top = library_->getSNLDesign(NLName("local_initializers"));
+  ASSERT_NE(nullptr, top);
+  for (unsigned input = 0; input < 8; ++input) {
+    const unsigned updated = input ^ 6u;
+    for (const auto& [name, expected] : {
+           std::pair{"scalar_result", ((input >> 2) ^ (input >> 1) ^ input) & 1u},
+           {"constant_result", input & 1u}, {"member_result", input & 1u},
+           {"dependent", input ^ 5u},
+           {"reassigned", updated}, {"direct", ((updated & 1u) << 2) | (updated >> 1)},
+           {"second", input ^ 2u}, {"nested", input ^ 7u},
+           {"packed_result", ((input & 1u) << 2) | ((input >> 1) ^ 3u)},
+           {"task_result", input ^ 5u}, {"task_second", input ^ 2u},
+           {"task_scalar", ((input >> 2) ^ (input >> 1) ^ input) & 1u},
+           {"task_packed", ((input & 1u) << 2) | ((input >> 1) ^ 3u)}}) {
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName(name))->getBits()) {
+        const auto index = top->getTerm(NLName(name))->getWidth() == 1 ? 0 : bit->getBit();
+        EXPECT_EQ(bool((expected >> index) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << name << " input=" << input;
+      }
+    }
+    ASSERT_FALSE(HasFailure());
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, taskInliningRejectsStaticStorageAndTiming) {
+  for (const bool timed : {false, true}) {
+    const std::string name = timed ? "timed_task" : "static_task";
+    const auto path = writeSVTestFile(name, "module " + name + R"((
+  input logic a, output logic y);
+  task )" + (timed ? "automatic" : "static") + R"( f(input logic p, output logic result);
+    logic v = p;
+    )" + (timed ? "#1;" : "") + R"(
+    result = v;
+  endtask
+  always_comb f(a, y);
+endmodule
+)");
+    SNLSVConstructor constructor(library_);
+    expectUnsupportedConstruct(constructor, path, {"Unsupported combinational block"});
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, undrivenInlinedLocalsWarnWithSourceLocations) {
+  const auto path = writeSVTestFile("undriven_local", R"(module undriven_local(
+  input logic [2:0] a, output logic [2:0] y, z);
+  function automatic logic [2:0] f(logic [2:0] p);
+    logic [2:0] v;
+    return v ^ p;
+  endfunction
+  assign y = f(a);
+  assign z = f(~a);
+endmodule
+)");
+  const auto reportPath = path.parent_path() / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  SNLSVConstructor constructor(library_);
+  testing::internal::CaptureStdout();
+  EXPECT_NO_THROW(constructor.construct(path, options));
+  const auto console = testing::internal::GetCapturedStdout();
+  EXPECT_EQ(1u, countSubstring(console, "Undriven net '"));
+  const auto report = readTextFile(reportPath);
+  EXPECT_EQ(6u, countSubstring(report, "code=\"undriven_inlined_local\""));
+  EXPECT_NE(std::string::npos, report.find("undriven_local.sv\" line=4 column=17"));
+  EXPECT_NE(std::string::npos, report.find("count.naja_unsupported_error.occurrences=0"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, functionInputFormalWritesDoNotModifyActual) {
@@ -10938,6 +11594,163 @@ endmodule
   EXPECT_NE(child->getTerm(NLName("bus__data")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, interfaceModportConnectivityAndSimulation) {
+  const std::string name = "interface_modport_connectivity";
+  const auto path = writeSVTestFile(name, R"(
+interface lane_if #(parameter W = 3);
+  logic [W-1:0] payload;
+  logic [0:W-1] result;
+  logic request, ack;
+  modport endpoint(input payload, request, output result, ack);
+endinterface
+module endpoint(lane_if.endpoint bus);
+  assign bus.result = ~bus.payload;
+  assign bus.ack = bus.request;
+endmodule
+module relay(lane_if.endpoint bus);
+  endpoint worker(bus);
+endmodule
+module array_relay(lane_if.endpoint lanes[2:1]);
+  for (genvar g = 1; g <= 2; g++) begin: generated
+    endpoint worker(lanes[g]);
+  end
+endmodule
+module interface_modport_connectivity(input logic [16:0] a,
+  input logic [4:0] request, output wire [16:0] y, output wire [4:0] ack);
+  lane_if left(), right(), lanes[4:3]();
+  lane_if #(.W(5)) wide();
+  // A user net can collide with a sanitized hierarchical member name.
+  wire interface_modport_connectivity_left_payload = a[16];
+  assign left.payload = a[2:0];
+  assign right.payload = a[5:3];
+  assign lanes[4].payload = a[8:6];
+  assign lanes[3].payload = a[11:9];
+  assign wide.payload = a[16:12];
+  assign {wide.request, lanes[3].request, lanes[4].request,
+          right.request, left.request} = request;
+  assign y = {wide.result, lanes[3].result, lanes[4].result,
+              right.result, left.result};
+  assign ack = {wide.ack, lanes[3].ack, lanes[4].ack, right.ack, left.ack};
+  relay first(left);
+  relay second(right);
+  relay wider(wide);
+  array_relay grouped(lanes);
+endmodule
+)");
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName(name));
+  ASSERT_NE(nullptr, top);
+  auto* first = top->getInstance(NLName("first"));
+  auto* second = top->getInstance(NLName("second"));
+  auto* wider = top->getInstance(NLName("wider"));
+  ASSERT_NE(nullptr, first);
+  ASSERT_NE(nullptr, second);
+  ASSERT_NE(nullptr, wider);
+  for (const auto* member : {"payload", "result", "request", "ack"}) {
+    const auto termName = NLName(std::string("bus__") + member);
+    auto* firstTerm = first->getModel()->getTerm(termName);
+    auto* secondTerm = second->getModel()->getTerm(termName);
+    ASSERT_NE(nullptr, firstTerm);
+    ASSERT_NE(nullptr, secondTerm);
+    EXPECT_NE(first->getInstTerm(*firstTerm->getBits().begin())->getNet(),
+              second->getInstTerm(*secondTerm->getBits().begin())->getNet());
+  }
+  EXPECT_EQ(3, first->getModel()->getTerm(NLName("bus__payload"))->getWidth());
+  EXPECT_EQ(5, wider->getModel()->getTerm(NLName("bus__payload"))->getWidth());
+  for (auto* model : library_->getSNLDesigns()) {
+    for (auto* term : model->getBitTerms()) {
+      EXPECT_NE(nullptr, term->getNet()) << model->getName().getString();
+    }
+    for (auto* instance : model->getInstances()) {
+      if (NLDB0::isAssign(instance->getModel())) {
+        EXPECT_NE(instance->getInstTerm(NLDB0::getAssignInput())->getNet(),
+                  instance->getInstTerm(NLDB0::getAssignOutput())->getNet());
+      }
+    }
+  }
+  const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for the interface behavior check";
+  }
+  const auto tbPath = path.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg [16:0] a;
+  reg [4:0] request;
+  wire [16:0] y;
+  wire [4:0] ack;
+  interface_modport_connectivity dut(a, request, y, ack);
+  initial begin
+    for (integer i = 0; i < 514; i = i + 1) begin
+      a = 17'(i * 131 + 17);
+      request = 5'(i);
+      if (i == 512) begin a = 'x; request = 'x; end
+      if (i == 513) begin a = 'z; request = 'z; end
+      #1;
+      if (y !== ~a || ack !== request)
+        $fatal(1, "interface connectivity: a=%b y=%b request=%b ack=%b", a, y, request, ack);
+    end
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto quote = [](const std::filesystem::path& file) {
+    return "'" + file.string() + "'";
+  };
+  const auto executable = path.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(dumped);
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  EXPECT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
+TEST_F(SNLSVConstructorTestSimple, interfaceMemberAssignmentsPreserveDistinctNets) {
+  const auto path = writeSVTestFile("interface_member_assignments", R"(
+interface lane_if;
+  wire [4:0] payload;
+endinterface
+module interface_member_assignments(input [4:0] a, output [4:0] y);
+  lane_if source_lane(), destination_lane();
+  assign source_lane.payload = a;
+  assign destination_lane.payload = source_lane.payload;
+  assign y = destination_lane.payload;
+endmodule
+)");
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName("interface_member_assignments"));
+  ASSERT_NE(nullptr, top);
+  size_t assigns = 0;
+  for (auto* instance : top->getInstances()) {
+    if (!NLDB0::isAssign(instance->getModel())) continue;
+    ++assigns;
+    EXPECT_NE(instance->getInstTerm(NLDB0::getAssignInput())->getNet(),
+              instance->getInstTerm(NLDB0::getAssignOutput())->getNet());
+  }
+  EXPECT_EQ(15u, assigns);
+}
+
+TEST_F(SNLSVConstructorTestSimple, interfaceModportExpressionReportedUnsupported) {
+  const auto path = writeSVTestFile("interface_modport_expression", R"(
+interface lane_if;
+  logic [4:0] payload;
+  modport endpoint(input .value(payload[2:0]));
+endinterface
+module endpoint(lane_if.endpoint bus, output wire [2:0] y);
+  assign y = bus.value;
+endmodule
+module interface_modport_expression(input [4:0] a, output [2:0] y);
+  lane_if lane();
+  assign lane.payload = a;
+  endpoint worker(lane, y);
+endmodule
+)");
+  SNLSVConstructor constructor(library_);
+  expectUnsupportedConstruct(constructor, path,
+    {"Unsupported interface modport member connection"});
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -11560,6 +12373,29 @@ endmodule
 )",
       4);
   EXPECT_EQ(std::nullopt, patternFailure);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  resolveExpressionBitsPropagatesFullWidthFailureBeforeNarrowing) {
+  for (const std::string op : {">>", ">>>", "/", "%"}) {
+    SCOPED_TRACE(op);
+    const std::string source =
+      "module detail_test(input logic [1:0] a, output logic [7:0] y);\n"
+      "function automatic logic [7:0] unsupported_value(input logic [1:0] v);\n"
+      "  case (v) inside\n"
+      "    [2'bxx : 2'd2]: unsupported_value = 8'hff;\n"
+      "    default: unsupported_value = 8'h00;\n"
+      "  endcase\n"
+      "endfunction\n"
+      "assign y = unsupported_value(a) " + op + " 8'd2;\n"
+      "endmodule\n";
+    // The unknown case-inside range cannot be lowered at either width.
+    EXPECT_EQ(std::nullopt,
+      detail::testSVConstructorResolveExpressionBitsFromAssignRhs(source, 8));
+    EXPECT_EQ(std::nullopt,
+      detail::testSVConstructorResolveExpressionBitsFromAssignRhs(source, 1));
+  }
 }
 
 TEST_F(
@@ -12471,13 +13307,13 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAddSupported) {
   ASSERT_NE(yCount, nullptr);
   EXPECT_EQ(2, yCount->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_EQ(10u, faCount);
+  EXPECT_EQ(3u, addSubCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_add_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12500,23 +13336,15 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplySupported) {
   ASSERT_NE(ySignedMul, nullptr);
   EXPECT_EQ(8, ySignedMul->getWidth());
 
-  size_t faCount = 0;
-  size_t andGateCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
-      continue;
+  size_t multiplyCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isMultiply(instance->getModel())) {
+      ++multiplyCount;
+      EXPECT_EQ(8u, NLDB0::getMultiplyWidth(instance));
     }
-    if (!NLDB0::isGate(inst->getModel())) {
-      continue;
-    }
-    const auto gateName = NLDB0::getGateName(inst->getModel());
-    if (gateName == "and") {
-      ++andGateCount;
-    }
+    EXPECT_FALSE(NLDB0::isFA(instance->getModel()));
   }
-  EXPECT_GT(faCount, 0u);
-  EXPECT_GT(andGateCount, 0u);
+  EXPECT_EQ(2u, multiplyCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_mul_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12561,13 +13389,7 @@ endmodule
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(18, y->getWidth());
 
-  size_t faCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
-    }
-  }
-  EXPECT_GT(faCount, 0u);
+  EXPECT_EQ(1u, countMultiplyInstances(top));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(
     top,
@@ -12618,7 +13440,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyRightConstOneBitShortc
   input logic [1:0] s,
   output logic [3:0] y
 );
-  // Exercises rowEnableBit == const1 shortcut in createMultiplyAssign.
   assign y = a * $signed({1'b1, s});
 endmodule
 )";
@@ -12651,7 +13472,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyLeftConstOneBitShortcu
   input logic [3:0] b,
   output logic [3:0] y
 );
-  // Exercises multiplicandBit == const1 shortcut in createMultiplyAssign.
   assign y = $signed({1'b1, s}) * b;
 endmodule
 )";
@@ -12682,7 +13502,6 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyZeroPartialRowShortcut
     << R"(module continuous_mul_zero_partial_row_shortcut_supported_top(
   output logic [3:0] y
 );
-  // Exercises the rowHasSignal == false shortcut in createMultiplyAssign.
   assign y = 4'b1000 * 4'b1111;
 endmodule
 )";
@@ -12906,11 +13725,11 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   ASSERT_NE(yConcatSub, nullptr);
   EXPECT_EQ(6, yConcatSub->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -12921,8 +13740,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
       ++notGateCount;
     }
   }
-  EXPECT_EQ(16u, faCount);
-  EXPECT_EQ(16u, notGateCount);
+  EXPECT_EQ(4u, addSubCount);
+  EXPECT_EQ(0u, notGateCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_sub_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -12943,11 +13762,11 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandSupported) {
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -12957,8 +13776,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousSubUnknownOperandSupported) {
       ++notGateCount;
     }
   }
-  EXPECT_EQ(4u, faCount);
-  EXPECT_EQ(4u, notGateCount);
+  EXPECT_EQ(1u, addSubCount);
+  EXPECT_EQ(0u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubBitSliceLHSSupported) {
@@ -13018,20 +13837,12 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
   ASSERT_NE(yLogical, nullptr);
   EXPECT_EQ(8, yLogical->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-
-  size_t mux2Count = 0;
-  size_t assignCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    } else if (NLDB0::isAssign(inst->getModel())) {
-      ++assignCount;
-    }
+  size_t shiftCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++shiftCount;
+    EXPECT_FALSE(NLDB0::isMux2(instance->getModel()));
   }
-  EXPECT_EQ(48u, mux2Count);
-  EXPECT_EQ(8u, assignCount);
+  EXPECT_EQ(2u, shiftCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_left_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13089,20 +13900,12 @@ endmodule
   ASSERT_NE(yVar, nullptr);
   EXPECT_EQ(32, yVar->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-
-  size_t mux2Count = 0;
-  size_t assignCount = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    } else if (NLDB0::isAssign(inst->getModel())) {
-      ++assignCount;
-    }
+  size_t shiftCount = 0;
+  for (auto* instance : top->getInstances()) {
+    if (NLDB0::isShift(instance->getModel())) ++shiftCount;
+    EXPECT_FALSE(NLDB0::isMux2(instance->getModel()));
   }
-  EXPECT_EQ(128u, mux2Count);
-  EXPECT_EQ(32u, assignCount);
+  EXPECT_EQ(1u, shiftCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_right_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -13232,15 +14035,8 @@ endmodule
   ASSERT_NE(icacheData, nullptr);
   EXPECT_EQ(32, icacheData->getWidth());
 
-  auto mux2Model = NLDB0::getMux2();
-  ASSERT_NE(mux2Model, nullptr);
-  size_t mux2Count = 0;
-  for (auto inst : top->getInstances()) {
-    if (inst->getModel() == mux2Model) {
-      ++mux2Count;
-    }
-  }
-  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(1u, countShiftInstances(top));
+
 }
 
 TEST_F(
@@ -15430,13 +16226,13 @@ endmodule
   EXPECT_NE(top->getNet(NLName("carry_o")), nullptr);
   EXPECT_NE(top->getNet(NLName("sum_o")), nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_EQ(12u, faCount);
+  EXPECT_EQ(2u, addSubCount);
 }
 
 TEST_F(
@@ -17421,7 +18217,7 @@ endmodule
     NLName("always_comb_compound_add_assignment_unknown_rhs_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -17452,7 +18248,7 @@ endmodule
     NLName("coverage3_always_comb_compound_recovered_operand_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getBusNet(NLName("sum_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -21660,13 +22456,13 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractVariableRHSSupported) {
@@ -21703,11 +22499,11 @@ endmodule
   auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_variable_rhs_supported"));
   ASSERT_NE(top, nullptr);
 
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t notGateCount = 0;
   for (auto inst : top->getInstances()) {
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
       continue;
     }
     if (!NLDB0::isGate(inst->getModel())) {
@@ -21717,8 +22513,8 @@ endmodule
       ++notGateCount;
     }
   }
-  EXPECT_GT(faCount, 0u);
-  EXPECT_GT(notGateCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
+  EXPECT_EQ(0u, notGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionUnaryNotLogicalAndSupported) {
@@ -21952,7 +22748,8 @@ endmodule
     assignedLocalTempLHS.insert(line.substr(assignPos + 7, equalsPos - assignPos - 7));
     ++localTempAssigns;
   }
-  EXPECT_GT(localTempAssigns, 0u);
+  // Local replay values need no physical assign; any emitted ones must still
+  // have distinct destinations across nested and repeated calls.
   EXPECT_EQ(localTempAssigns, assignedLocalTempLHS.size());
 }
 
@@ -25590,7 +26387,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSuppor
   auto yBit = dynamic_cast<SNLBitNet*>(yNet);
   ASSERT_NE(yBit, nullptr);
   EXPECT_FALSE(yBit->getInstTerms().empty());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "unary_not_arithmetic_binary_supported");
@@ -25620,7 +26417,7 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
     EXPECT_FALSE(bitNet->getInstTerms().empty()) << output;
   }
 
-  EXPECT_GE(countFAInstances(top), 1u);
+  EXPECT_GE(countAddSubInstances(top), 1u);
   EXPECT_GE(countDivModInstances(top, 1), 2u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_extended_supported");
@@ -26336,8 +27133,8 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksSuppo
   EXPECT_EQ(4, ySub->getWidth());
   EXPECT_EQ(2, yEqBus->getWidth());
   EXPECT_EQ(2, yNeBus->getWidth());
-  EXPECT_GT(countMux2Instances(top), 0u);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countShiftInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(
@@ -26370,7 +27167,7 @@ TEST_F(
   ASSERT_NE(top, nullptr);
   ASSERT_NE(top->getBusNet(NLName("y_known")), nullptr);
   ASSERT_NE(top->getBusNet(NLName("y_unknown")), nullptr);
-  EXPECT_EQ(8u, countFAInstances(top));
+  EXPECT_EQ(2u, countAddSubInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectPackedScalarUnderAdd) {
@@ -26474,7 +27271,7 @@ endmodule
   EXPECT_FALSE(top->isBlackBox());
   EXPECT_NE(top->getNet(NLName("o_r")), nullptr);
   EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseMultiplyRightIntegralCastOfRealSupported) {
@@ -26535,7 +27332,7 @@ endmodule
   auto y = top->getBusNet(NLName("y"));
   ASSERT_NE(y, nullptr);
   EXPECT_EQ(4, y->getWidth());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_EQ(1u, countMultiplyInstances(top));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddSupported) {
@@ -26942,18 +27739,18 @@ endmodule
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(16u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(
@@ -27000,17 +27797,17 @@ endmodule
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(2u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
@@ -33176,7 +33973,7 @@ endmodule
   ASSERT_NE(valid, nullptr);
 
   EXPECT_EQ(2u, countMux2Instances(top, 4));
-  EXPECT_EQ(4u, countFAInstances(top));
+  EXPECT_EQ(1u, countAddSubInstances(top));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_star_combinational_snippet_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -33239,7 +34036,7 @@ endmodule
   ASSERT_NE(valid, nullptr);
 
   EXPECT_EQ(2u, countMux2Instances(top, 4));
-  EXPECT_EQ(4u, countFAInstances(top));
+  EXPECT_EQ(1u, countAddSubInstances(top));
 
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "always_explicit_sensitivity_combinational_snippet_supported");
@@ -33697,18 +34494,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableActionSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionSupported) {
@@ -33722,18 +34519,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (NLDB0::isDFF(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
@@ -33749,18 +34546,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoSupported) {
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialAlignDownMultiplySupported) {
@@ -33829,18 +34626,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralSupported) {
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownSupported) {
@@ -33913,18 +34710,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralSupporte
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialSubtractWithUnbasedXLiteralSupported) {
@@ -33965,18 +34762,18 @@ endmodule
   auto dffreModel = NLDB0::getDFFRE();
   ASSERT_NE(dffModel, nullptr);
   ASSERT_NE(dffreModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t flopCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel()) || NLDB0::isDFFRE(inst->getModel())) {
       flopCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, flopCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(
@@ -34117,18 +34914,18 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementSupported) {
 
   auto dffModel = NLDB0::getDFF();
   ASSERT_NE(dffModel, nullptr);
-  size_t faCount = 0;
+  size_t addSubCount = 0;
   size_t dffCount = 0;
   for (auto inst : top->getInstances()) {
     if (isSequentialDFFPrimitive(inst->getModel())) {
       dffCount += getPrimitiveWidth(inst);
     }
-    if (NLDB0::isFA(inst->getModel())) {
-      ++faCount;
+    if (NLDB0::isAddSub(inst->getModel())) {
+      ++addSubCount;
     }
   }
   EXPECT_EQ(8u, dffCount);
-  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(addSubCount, 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnaryNotSupported) {
@@ -35006,6 +35803,55 @@ endmodule
     " " + quotePath(tbPath) + " " + quotePath(dumpedPath) + " " + quotePath(primitivesPath);
   ASSERT_EQ(0, std::system(compile.c_str()));
   ASSERT_EQ(0, std::system(("vvp " + quotePath(executablePath)).c_str()));
+}
+
+TEST_P(SNLSVTableSelectTest, constantPackedIndexFourStateSimulation) {
+  const auto [width, depth, ascending] = GetParam();
+  const size_t abits = depth <= 4 ? 2 : 3;
+  const auto name = "constant_lookup_w" + std::to_string(width) + "_d" + std::to_string(depth) + (ascending ? "_asc" : "_desc");
+  std::string image;
+  for (size_t bit = 0; bit < width*depth; ++bit) image += "10xz"[bit%4];
+  std::ostringstream source;
+  source << "module " << name << "(input logic [" << abits-1 << ":0] A, output logic [" << width-1 << ":0] Y);\n"
+    << "localparam logic [" << (ascending ? 0 : depth-1) << ":" << (ascending ? depth-1 : 0) << "]";
+  if (width > 1) source << "[" << width-1 << ":0]";
+  source << " DATA = " << width*depth << "'b" << image << ";\nassign Y = DATA[A]; endmodule\n";
+  const auto path = writeSVTestFile(name, source.str());
+  SNLSVConstructor(library_).construct(path);
+  auto* top = library_->getSNLDesign(NLName(name));
+  ASSERT_NE(top, nullptr);
+  auto* rom = findOnlyPrimitiveInstance(top, NLDB0::isMemory);
+  ASSERT_NE(rom, nullptr);
+  EXPECT_EQ(0u, NLDB0::getMemorySignature(rom).writePorts);
+  EXPECT_EQ(2u, rom->getModel()->getTerms().size());
+  const auto dumped = dumpTopAndGetVerilogPath(top, name + "_dump");
+  if (std::system("command -v iverilog >/dev/null 2>&1") || std::system("command -v vvp >/dev/null 2>&1"))
+    GTEST_SKIP() << "Icarus Verilog is required for the ROM comparison";
+  auto reference = source.str();
+  reference.replace(reference.find(name), name.size(), "reference_lookup");
+  // Icarus does not accept multidimensional packed localparams; a constant
+  // wire preserves the reference array's layout and indexing semantics.
+  reference.replace(reference.find("localparam logic"), 16, "wire");
+  const auto tbPath = path.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << reference << "module tb; reg [" << abits-1 << ":0] a; wire [" << width-1 << ":0] actual, expected;\n"
+    << name << " dut(a,actual); reference_lookup ref_index(a,expected); integer code, bit_index; initial begin\n"
+    << "for(code=0;code<" << (1u << (2*abits)) << ";code=code+1) begin\n"
+    << "for(bit_index=0;bit_index<" << abits << ";bit_index=bit_index+1)\n"
+    << "case((code >> (2*bit_index)) & 3) 0:a[bit_index]=0; 1:a[bit_index]=1; 2:a[bit_index]=1'bx; 3:a[bit_index]=1'bz; endcase\n"
+    << "#1; if(actual !== expected) $fatal(1,\"ROM mismatch: address=%b actual=%b expected=%b\",a,actual,expected);\n"
+    << "end $finish; end endmodule\n";
+  tb.close();
+  const auto quote = [](const std::filesystem::path& value) {
+    std::string result = "'";
+    for (char c : value.string()) result += c == '\'' ? "'\\''" : std::string(1,c);
+    return result + "'";
+  };
+  const auto executable = path.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) + " " + quote(tbPath) + " " +
+      quote(dumped) + " " + quote(dumped.parent_path() / "naja_primitives.v");
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -37447,7 +38293,7 @@ endmodule
     }
   }
   EXPECT_EQ(1u, dlatchCount);
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysLatchDefaultMultiplyUnsupported) {
@@ -38562,7 +39408,7 @@ endmodule
   ASSERT_NE(x, nullptr);
   ASSERT_NE(o, nullptr);
   EXPECT_EQ(5, o->getWidth());
-  EXPECT_GT(countFAInstances(top), 0u);
+  EXPECT_GT(countAddSubInstances(top), 0u);
 
   for (size_t outBit = 0; outBit < 3; ++outBit) {
     auto* oBit = dynamic_cast<SNLBitNet*>(o->getBit(outBit));
@@ -38659,6 +39505,47 @@ endmodule
   }
   EXPECT_TRUE(q->getBit(1)->getInstTerms().empty());
   EXPECT_TRUE(q->getBit(3)->getInstTerms().empty());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialSelectedArithmetic) {
+  for (const auto& selection : {std::pair{4, 0}, std::pair{3, 1}, std::pair{2, 2}}) {
+    for (const auto& rhs : {"a + 1'b1", "1'b1 + a", "a - 1'b1"}) {
+      SCOPED_TRACE(std::to_string(selection.first) + ":" +
+                   std::to_string(selection.second) + " <= " + rhs);
+      const auto name = "selected_arithmetic_" + std::to_string(library_->getSNLDesigns().size());
+      const auto selected = "a[" + std::to_string(selection.first) +
+        (selection.first == selection.second ? "" : ":" + std::to_string(selection.second)) + "]";
+      const auto source = "module " + name + "(input logic clk, output logic [4:0] a);\n"
+        "always_ff @(posedge clk) begin\n"
+        "  if (a[4]) a <= '0;\n"
+        "  else if (a[3]) " + selected + " <= " + rhs + ";\n"
+        "  else a <= 5'd2;\nend\nendmodule\n";
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(writeSVTestFile(name, source)));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      EXPECT_EQ(5u, countDFFBits(top));
+      auto* state = top->getBusTerm(NLName("a"));
+      ASSERT_NE(nullptr, state);
+      const unsigned width = selection.first - selection.second + 1;
+      const unsigned mask = ((1u << width) - 1) << selection.second;
+      for (unsigned value = 0; value < 32; ++value) {
+        unsigned expected = 2;
+        if (value & 16) expected = 0;
+        else if (value & 8) {
+          const unsigned updated = std::string(rhs).find('-') == std::string::npos
+            ? value + 1 : value - 1;
+          expected = (value & ~mask) | ((updated << selection.second) & mask);
+        }
+        for (auto* bit : state->getBusBits()) {
+          auto* data = dynamic_cast<SNLBitNet*>(getDFFDataForOutputBit(top, bit->getNet()));
+          ASSERT_NE(nullptr, data);
+          EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, data, value)) << "state=" << value;
+        }
+      }
+    }
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialDirectConditionalIncrementer) {
@@ -39168,6 +40055,238 @@ TEST_F(SNLSVConstructorTestSimple, proceduralConcatPreservesSchedulingDiagnostic
       SNLSVConstructor::Paths paths {path};
       if (singleUnit) paths.insert(paths.begin(), "--single-unit");
       EXPECT_THROW(constructor.construct(paths), SNLSVUnsupportedConstructError);
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, proceduralLoopSelectsExhaustive) {
+  const std::vector<std::pair<std::string, std::string>> variants {
+    {"bit_condition", "for (int i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"range_condition", "for (int i=0; i<2; i++) if (a[4] == i[0:0]) y |= {2'b0,a[i*2+:2]};"},
+    {"logic_condition", "for (logic [1:0] i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"generate_condition", "for (int i=0; i<2; i++) if (a[4] == i[0]) y |= {2'b0,a[i*2+:2]};"},
+    {"rhs_bit", "for (int i=0; i<4; i++) y[i] = a[i] ^ i[0];"},
+    {"rhs_dynamic_bit", "for (int i=0; i<4; i++) y[i] = a[i] ^ i[a[5]];"},
+    {"vector_index", "for (int i=0; i<4; i++) y[i[1:0]] = a[i[1:0]];"},
+    {"array_index", "for (int i=0; i<4; i++) y[i] = entries[i[1:0]];"},
+    {"ascending_logic", "for (logic [0:1] i=0; i<3; i++) y[i] = a[i] ^ i[0]; y[3] = a[3] ^ 1'b1;"},
+    {"indexed_range", "for (int i=0; i<4; i++) y[i[0+:2]] = a[i[1-:2]];"},
+    {"nested", "for (int i=0; i<2; i++) for (int j=0; j<2; j++) y[2*i+j] = a[2*i+j] ^ i[0];"},
+    {"function", "for (int i=0; i<4; i++) y[i] = a[i] ^ pick(i);"},
+    {"member", "for (int i=0; i<4; i++) begin automatic pair_t p = pair_t'(i); y[i] = a[i] ^ p.low; end"},
+    {"sign_bit", "for (int i=-2; i<2; i++) y[i+2] = a[i+2] ^ i[31];"},
+  };
+  for (const auto& [variant, body] : variants) {
+    SCOPED_TRACE(variant);
+    const auto name = "loop_select_" + variant;
+    const auto path = writeSVTestFile(name,
+      "module " + name + "(input logic [5:0] a, output logic [3:0] y);\n"
+      "wire entries [0:3] = '{a[0], a[1], a[2], a[3]};\n"
+      "typedef struct packed {logic high; logic low;} pair_t;\n"
+      "function automatic logic pick(input int v); return v[0]; endfunction\n" +
+      (variant == "generate_condition" ? "if (1) begin : g\n" : "") +
+      "always_comb begin y = '0; " + body + " end\n" +
+      (variant == "generate_condition" ? "end\n" : "") + "endmodule\n");
+    SNLSVConstructor constructor(library_);
+    ASSERT_NO_THROW(constructor.construct(path));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input=0; input<64; ++input) {
+      unsigned expected = input & 15u;
+      if (variant.find("condition") != std::string::npos)
+        expected = (input >> (((input >> 4) & 1u) * 2)) & 3u;
+      else if (variant == "rhs_bit" || variant == "function" || variant == "member")
+        expected ^= 10u;
+      else if (variant == "rhs_dynamic_bit")
+        expected ^= (input & 32u) ? 12u : 10u;
+      else if (variant == "nested" || variant == "ascending_logic") expected ^= 12u;
+      else if (variant == "sign_bit") expected ^= 3u;
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << "input=" << input << " bit=" << bit->getBit();
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, proceduralUnpackedReadModifyWriteExhaustive) {
+  const std::vector<std::pair<std::string, std::string>> variants {
+    {"scalar", "v=a[7:4]; v=a[3:0]+v; y=v;"},
+    {"packed", "r[0]=a[3:0]; r[1]=a[7:4]; r[1]=r[0]+r[1]; y=r[1];"},
+    {"constant", "p[0]=a[3:0]; p[1]=a[7:4]; p[1]=p[0]+p[1]; y=p[1];"},
+    {"compound", "p[0]=a[3:0]; p[1]=a[7:4]; p[1]+=p[0]; y=p[1];"},
+    {"loop", "p='{default:'0}; for(int i=0;i<2;i++) p[i]=a[4*i+:4]; p[1]=p[0]+p[1]; y=p[1];"},
+    {"partial", "p[1]=a[3:0]; p[1][1:0]=p[1][2:1]; y=p[1];"},
+    {"matrix", "q[1][0]=a[3:0]; q[1][0]=q[1][0]+1; y=q[1][0];"},
+    {"field", "s[1].f=a[3:0]; s[1].f=s[1].f+1; y=s[1].f;"},
+    {"variable", "p[0]=a[3:0]; p[1]=a[7:4]; p[a[0]]=p[a[0]]+1; y=p[a[0]];"},
+    {"compound_or", "p[0]=a[3:0]; p[1]=a[7:4]; for(int i=0;i<2;i++) p[i]|=4'b0010; y=p[1];"},
+    {"prefix", "for(int i=0;i<4;i++) p[i]={2'b0,a[2*i+:2]}; for(int i=1;i<4;i++) p[i]=p[i-1]+p[i]; y=p[3];"},
+    {"tree", "for(int i=0;i<8;i++) p[i]={3'b0,a[i]}; for(int i=1;i<8;i+=2) p[i]=p[i-1]+p[i]; for(int i=3;i<8;i+=4) p[i]=p[i-2]+p[i]; p[7]=p[3]+p[7]; y=p[7];"},
+    {"tree_continuous", "for(int i=0;i<8;i++) p[i]={3'b0,a[i]}; for(int i=1;i<8;i+=2) p[i]+=p[i-1]; for(int i=3;i<8;i+=4) p[i]+=p[i-2]; p[7]+=p[3];"}
+  };
+  for (unsigned process=0; process<2; ++process) {
+    for (const auto& [variant, body] : variants) {
+      SCOPED_TRACE(variant);
+      const auto name = "array_rmw_" + variant + (process ? "_star" : "_comb");
+      const auto path = writeSVTestFile(name,
+        "module " + name + "(input logic [7:0] a, output logic [3:0] y);\n"
+        "logic [3:0] p[8]; logic [3:0] q[2][2]; logic [3:0] v; logic [1:0][3:0] r;\n"
+        "typedef struct packed {logic tag; logic [3:0] f;} item_t; item_t s[2];\n" +
+        (process ? "always @* begin " : "always_comb begin ") + body + " end\n" +
+        (variant == "tree_continuous" ? "assign y=p[7];\n" : "") + "endmodule\n");
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(path));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      for (unsigned input=0; input<256; ++input) {
+        unsigned expected = ((input & 15u) + (input >> 4)) & 15u;
+        if (variant == "partial") expected = (input & 12u) | ((input >> 1) & 3u);
+        else if (variant == "matrix" || variant == "field") expected = (input + 1) & 15u;
+        else if (variant == "variable") expected = (((input & 1u) ? input >> 4 : input & 15u) + 1) & 15u;
+        else if (variant == "compound_or") expected = (input >> 4) | 2u;
+        else if (variant == "prefix") expected = (input & 3u) + ((input >> 2) & 3u) + ((input >> 4) & 3u) + (input >> 6);
+        else if (variant == "tree" || variant == "tree_continuous") {
+          expected = 0;
+          for (unsigned bit=0; bit<8; ++bit) expected += (input >> bit) & 1u;
+        }
+        std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+        for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+          EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+            evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+            << "input=" << input << " bit=" << bit->getBit();
+          if (::testing::Test::HasFailure()) return;
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, proceduralCombinationalCycleCheck) {
+  auto* top = SNLDesign::create(library_, NLName("cycle_check"));
+  auto* a = SNLScalarNet::create(top);
+  auto* b = SNLScalarNet::create(top);
+  auto* c = SNLScalarNet::create(top);
+  auto* adder = SNLInstance::create(top, NLDB0::getFA());
+  adder->setTermNet(NLDB0::getFAInputA(), a);
+  adder->setTermNet(NLDB0::getFAInputB(), b);
+  adder->setTermNet(NLDB0::getFAInputCI(), c);
+  adder->setTermNet(NLDB0::getFAOutputS(), b);
+  std::string reason;
+  EXPECT_FALSE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  EXPECT_NE(std::string::npos, reason.find("combinational cycle"));
+  // Earlier processes are outside the scope of this block's check.
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, adder->getID()+1, reason));
+  adder->setTermNet(NLDB0::getFAOutputS(), SNLScalarNet::create(top));
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  // A longer cycle through assign glue must also be rejected.
+  auto* alias = SNLInstance::create(top, NLDB0::getAssign());
+  alias->setTermNet(NLDB0::getAssignInput(), adder->getInstTerm(NLDB0::getFAOutputS())->getNet());
+  alias->setTermNet(NLDB0::getAssignOutput(), a);
+  EXPECT_FALSE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  alias->destroy();
+  // Feedback through a register is not a combinational cycle.
+  auto* flop = SNLInstance::create(top, NLDB0::getDFF());
+  flop->setTermNet(NLDB0::getDFFData(), adder->getInstTerm(NLDB0::getFAOutputS())->getNet());
+  flop->setTermNet(NLDB0::getDFFOutput(), a);
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+  // Cross-lane wiring of a vector mux is acyclic, despite sharing an instance.
+  auto* muxModel = NLDB0::getOrCreateMux2(2);
+  auto* mux = SNLInstance::create(top, muxModel);
+  auto* lane = SNLScalarNet::create(top);
+  mux->setTermNet(NLDB0::getMux2InputA(muxModel)->getBit(0), b);
+  mux->setTermNet(NLDB0::getMux2InputB(muxModel)->getBit(0), c);
+  mux->setTermNet(NLDB0::getMux2Output(muxModel)->getBit(0), lane);
+  mux->setTermNet(NLDB0::getMux2InputA(muxModel)->getBit(1), lane);
+  mux->setTermNet(NLDB0::getMux2InputB(muxModel)->getBit(1), c);
+  mux->setTermNet(NLDB0::getMux2Select(muxModel), b);
+  mux->setTermNet(NLDB0::getMux2Output(muxModel)->getBit(1), SNLScalarNet::create(top));
+  EXPECT_TRUE(detail::testSVConstructorCheckCombinationalBlockCycles(top, 0, reason));
+}
+
+TEST_F(SNLSVConstructorTestSimple, functionLoopCastReturnExhaustive) {
+  for (const std::string cast : {"value_t", "code_t", "4", "2", "6"}) {
+    for (bool package : {false, true}) {
+      for (bool procedural : {false, true}) {
+        for (bool nested : {false, true}) {
+          const auto name = "loop_cast_" + cast + (package ? "_pkg" : "_local") +
+            (procedural ? "_comb" : "_assign") + (nested ? "_nested" : "_direct");
+          SCOPED_TRACE(name);
+          const std::string resultType = cast == "code_t" ? "code_t" : "value_t";
+          const std::string declarations =
+            "typedef logic [3:0] value_t;\n"
+            "typedef enum logic [3:0] {Low=4'b0011, High=4'b1100} code_t;\n"
+            "function automatic " + resultType + " combine(value_t x, value_t z, value_t mask);\n"
+            "logic [3:0] out;\n"
+            "for (int k=0; k<4; k++) out[k] = mask[k] ? (x[k] & z[k]) : (x[k] | z[k]);\n"
+            "return " + cast + "'(out);\nendfunction\n"
+            "function automatic " + resultType + " combine_hi(value_t x, value_t z);\n"
+            "return combine(x,z,4'b1001);\nendfunction\n";
+          const auto call = (package ? "values_pkg::" : "") +
+            std::string(nested ? "combine_hi(a[3:0],a[7:4])" :
+              "combine(a[3:0],a[7:4],4'b1001)");
+          const auto path = writeSVTestFile(name,
+            (package ? "package values_pkg;\n" + declarations + "endpackage\n" : "") +
+            "module " + name + "(input logic [7:0] a, output logic [3:0] y);\n" +
+            (package ? "" : declarations) +
+            (procedural ? "always_comb y = " : "assign y = ") + call + ";\nendmodule\n");
+          SNLSVConstructor constructor(library_);
+          ASSERT_NO_THROW(constructor.construct(path));
+          auto* top = library_->getSNLDesign(NLName(name));
+          ASSERT_NE(nullptr, top);
+          for (unsigned input=0; input<256; ++input) {
+            const unsigned x = input & 15u, z = input >> 4;
+            unsigned expected = ((x & z) & 9u) | ((x | z) & 6u);
+            if (cast == "2") expected &= 3u;
+            std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+            for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+              EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+                evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+                << "input=" << input << " bit=" << bit->getBit();
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, primMubiPackageFunctionsExhaustive) {
+  for (bool procedural : {false, true}) {
+    SCOPED_TRACE(procedural);
+    const std::string name = procedural ? "mubi_comb" : "mubi_assign";
+    const auto path = writeSVTestFile(name,
+      "module " + name + "(input logic [7:0] a, output logic [8:0] y);\n"
+      "import prim_mubi_pkg::*;\n" +
+      (procedural ? "always_comb begin\n" : "") +
+      (procedural ? "" : "assign ") +
+      "y[3:0] = mubi4_and_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4]));\n" +
+      (procedural ? "" : "assign ") +
+      "y[7:4] = mubi4_or_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4]));\n" +
+      (procedural ? "" : "assign ") +
+      "y[8] = mubi4_test_true_loose(mubi4_and_hi(mubi4_t'(a[3:0]), mubi4_t'(a[7:4])));\n" +
+      (procedural ? "end\n" : "") + "endmodule\n");
+    const auto fixture = std::filesystem::path(SNL_SV_BENCHMARKS_PATH) / "prim_mubi";
+    SNLSVConstructor constructor(library_);
+    SNLSVConstructor::Paths paths {
+      "-DSYNTHESIS", "+incdir+" + fixture.string(), fixture / "prim_mubi_pkg.sv", path};
+    ASSERT_NO_THROW(constructor.construct(paths));
+    auto* top = library_->getSNLDesign(NLName(name));
+    ASSERT_NE(nullptr, top);
+    for (unsigned input=0; input<256; ++input) {
+      const unsigned x = input & 15u, z = input >> 4;
+      const unsigned conjunction = ((x & z) & 6u) | ((x | z) & 9u);
+      const unsigned disjunction = ((x | z) & 6u) | ((x & z) & 9u);
+      const unsigned expected = conjunction | (disjunction << 4) |
+        (unsigned(conjunction != 9u) << 8);
+      std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+      for (auto* bit : top->getTerm(NLName("y"))->getBits()) {
+        EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
+          evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
+          << "input=" << input << " bit=" << bit->getBit();
+      }
     }
   }
 }

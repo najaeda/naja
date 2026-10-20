@@ -249,7 +249,7 @@ TEST(VHDLParserTest, RejectsIncompleteOrCompoundClockGuards) {
 TEST(VHDLParserTest, RejectsMalformedRisingEdgeCalls) {
     for (const auto* condition : {
         "rising_edge()", "rising_edge(clk, d)", "rising_edge('1')",
-        "rising_edge(clk) and d = '1'"}) {
+        "rising_edge(clk) and"}) {
         SCOPED_TRACE(condition);
         const std::string source = std::string(
             "entity reg is port(clk, d : in bit; q : out bit); end; "
@@ -469,9 +469,8 @@ end if; end process; end;
     EXPECT_LT(process.assignments[2].span.end.offset, process.assignments[3].span.start.offset);
 }
 
-TEST(VHDLParserTest, RejectsVariableInitializationAndUnsupportedDeclarations) {
-    for (const auto* declaration : {"variable v : bit := '0';",
-         "shared variable v : bit;", "constant v : bit := '1';"}) {
+TEST(VHDLParserTest, RejectsUnsupportedProcessDeclarations) {
+    for (const auto* declaration : {"shared variable v : bit;", "file v : text;"}) {
         const std::string source = std::string("entity p is end; architecture rtl of p is begin "
             "process(clk) ") + declaration +
             " begin if clk'event and clk = '1' then v := d; end if; end process; end;";
@@ -641,6 +640,23 @@ end;
     EXPECT_EQ(loop.range.attribute->canonical, "range");
 }
 
+TEST(VHDLParserTest, PreservesDimensionedArrayRangeAttributes) {
+    const auto parsed = vhdl::Parser::parse(R"(
+entity attributes is port(a : in bit_vector(2 downto 0)); end;
+architecture rtl of attributes is begin
+  process(a) begin
+    for i in a'reverse_range(1) loop null; end loop;
+  end process;
+end;
+)");
+    ASSERT_FALSE(parsed.hasErrors());
+    const auto& loop = parsed.syntax.architectures.front().processes.front().statements.front();
+    ASSERT_NE(loop.range.attribute, nullptr);
+    EXPECT_EQ(loop.range.attribute->kind, vhdl::Expression::Kind::Indexed);
+    EXPECT_EQ(loop.range.attribute->left->canonical, "reverse_range");
+    EXPECT_EQ(loop.range.attribute->right->text, "1");
+}
+
 TEST(VHDLParserTest, RejectsMalformedFunctionsAndProcessReturns) {
     for (const auto* function : {
         "function f return integer is begin return; end;",
@@ -780,7 +796,7 @@ end process; end;
 }
 
 TEST(VHDLParserTest, RejectsMalformedCaseAlternatives) {
-    for (const auto* body : {"case a is end case;", "case a is when '0' => end case;",
+    for (const auto* body : {"case a is end case;",
         "case a is when others | '0' => null; end case;",
         "case a is when others => null; when '0' => null; end case;",
         "case a is when '0' null; end case;"}) {
@@ -933,4 +949,73 @@ begin end;
     EXPECT_TRUE(arrays[1].indexSubtype.has_value());
     EXPECT_FALSE(arrays[1].indexType.has_value());
     EXPECT_FALSE(arrays[2].indexRange.ascending);
+}
+
+
+TEST(VHDLParserTest, ExtendedBitStringsPreserveLengthAndPadding) {
+    const std::vector<std::pair<std::string, std::string>> cases{
+        {"5x\"0d\"", "01101"}, {"9X\"3e\"", "000111110"},
+        {"5sx\"d\"", "11101"}, {"3sx\"7\"", "111"},
+        {"8ub\"X\"", "0000000X"}, {"8sx\"Z\"", "ZZZZZZZZ"},
+        {"8d\"37\"", "00100101"}, {"D\"37\"", "100101"},
+        {"1_0b\"1_0\"", "0000000010"}, {"0x\"0\"", ""},
+        {"8x\"\"", "00000000"},
+        {"70d\"1180591620717411303423\"", std::string(70, '1')}
+    };
+    for (const auto& [literal, expected] : cases) {
+        SCOPED_TRACE(literal);
+        const auto parsed = vhdl::Parser::parse("entity sample is end; architecture rtl of sample is "
+            "constant data : bit_vector := " + literal + "; begin end;");
+        ASSERT_FALSE(parsed.hasErrors());
+        const auto& value = *parsed.syntax.architectures.front().constants.front().value;
+        EXPECT_EQ(value.kind, vhdl::Expression::Kind::BitStringLiteral);
+        EXPECT_EQ(value.canonical, "b");
+        EXPECT_EQ(value.text, "\"" + expected + "\"");
+        EXPECT_EQ(value.span.end.offset - value.span.start.offset, literal.size());
+    }
+}
+
+TEST(VHDLParserTest, RejectsMalformedOrOverflowingExtendedBitStrings) {
+    for (const auto* literal : {"3x\"f\"", "4d\"37\"", "3sx\"5f\"", "8sx\"\"",
+         "4x\"g\"", "4b\"2\"", "8d\"X\"", "4x\":\"", "4 x\"0\"",
+         "4x \"0\"", "4x\"_f\"", "4d\"1_\"", "8x\"1__1\"", "65537x\"0\"", "999999999999999999999999999b\"0\""}) {
+        SCOPED_TRACE(literal);
+        EXPECT_TRUE(vhdl::Parser::parse(std::string("entity sample is end; architecture rtl of sample is ") +
+            "constant data : bit_vector := " + literal + "; begin end;").hasErrors());
+    }
+}
+
+
+TEST(VHDLParserTest, SynthesisAttributesWarnAndForeignAttributesReject) {
+    const auto source = R"(
+entity hinted is end;
+architecture rtl of hinted is
+  signal data : bit;
+  attribute keep : boolean;
+  attribute keep of data : signal is true;
+begin data <= '0'; end;
+)";
+    auto parsed = vhdl::Parser::parse(source, true);
+    ASSERT_FALSE(parsed.hasErrors());
+    ASSERT_EQ(parsed.warnings.size(), 1u);
+    EXPECT_EQ(parsed.warnings.front().code, "ignored-attribute");
+    EXPECT_TRUE(vhdl::Parser::parse(source).hasErrors());
+    EXPECT_TRUE(vhdl::Parser::parse("entity sample is end; architecture rtl of sample is "
+        "attribute foreign of f : function is \"external\"; begin end;", true).hasErrors());
+}
+
+TEST(VHDLParserTest, RejectsForeignArchitecturesAndConstantOutputProcedureParameters) {
+    EXPECT_TRUE(vhdl::Parser::parse(R"(
+entity sample is end;
+architecture rtl of sample is
+  attribute foreign : string;
+  attribute foreign of rtl : architecture is "external";
+begin end;
+)", true).hasErrors());
+    EXPECT_TRUE(vhdl::Parser::parse(R"(
+entity sample is end;
+architecture rtl of sample is
+  procedure set_value(constant value : out bit) is begin null; end;
+begin end;
+)", true).hasErrors());
 }

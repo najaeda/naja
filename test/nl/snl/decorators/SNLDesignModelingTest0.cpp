@@ -282,6 +282,24 @@ TEST_F(SNLDesignModelingTest0, testExplicitTermRolesAndSafeDefaults) {
   EXPECT_TRUE(SNLDesignModeling::getOutputTerms(gate).empty());
 }
 
+TEST_F(SNLDesignModelingTest0, testReadOnlyMemoryInterfaceIsCombinatorial) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* library = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto* model = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("lookup"));
+  auto* address = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("A"));
+  auto* data = SNLScalarTerm::create(model, SNLTerm::Direction::Output, NLName("Y"));
+  SNLDesignModeling::MemoryInterface memory;
+  memory.width = 1; memory.depth = 2; memory.abits = 1;
+  memory.readPorts.push_back({{address}, {data}, {}});
+  ASSERT_TRUE(memory.isValid());
+  SNLDesignModeling::setMemoryInterface(model, memory);
+  EXPECT_TRUE(SNLDesignModeling::hasMemoryInterface(model));
+  EXPECT_FALSE(SNLDesignModeling::isSequential(model));
+  EXPECT_EQ(SNLDesignModeling::SNLTermRole::MemoryReadAddress, SNLDesignModeling::getTermRole(address));
+  EXPECT_EQ(SNLDesignModeling::SNLTermRole::MemoryReadData, SNLDesignModeling::getTermRole(data));
+}
+
 TEST_F(SNLDesignModelingTest0, testManualMemoryInterfaceSurvivesOnInstances) {
   NLUniverse::create();
   auto db = NLDB::create(NLUniverse::get());
