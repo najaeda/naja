@@ -85,6 +85,20 @@ inline bool evaluateRTL(SNLBitNet* net, std::unordered_map<SNLBitNet*, bool>& va
     const auto carry = read(NLDB0::getFAInputCI());
     value = output == NLDB0::getFAOutputS() ? (a ^ b ^ carry)
         : ((a && b) || (a && carry) || (b && carry));
+  } else if (NLDB0::isAddSub(model) || NLDB0::isMultiply(model)) {
+    const bool multiply = NLDB0::isMultiply(model);
+    const auto width = multiply ? NLDB0::getMultiplyWidth(driver) : NLDB0::getAddSubWidth(driver);
+    if (width > 64) throw std::runtime_error("test arithmetic word exceeds 64 bits");
+    const auto readWord = [&](SNLBusTerm* term) {
+      uint64_t word = 0;
+      for (size_t bit = 0; bit < width; ++bit)
+        if (read(term->getBit(bit))) word |= uint64_t(1) << bit;
+      return word;
+    };
+    const auto a = readWord(multiply ? NLDB0::getMultiplyInputA(model) : NLDB0::getAddSubInputA(model));
+    const auto b = readWord(multiply ? NLDB0::getMultiplyInputB(model) : NLDB0::getAddSubInputB(model));
+    const auto result = multiply ? a * b : NLDB0::isSubtract(model) ? a - b : a + b;
+    value = (result >> static_cast<SNLBusTermBit*>(output)->getBit()) & 1;
   } else if (NLDB0::isShift(model)) {
     const auto signature = NLDB0::getShiftSignature(driver);
     size_t count = 0;

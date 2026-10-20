@@ -2016,7 +2016,7 @@ TEST_F(VHDLConstructorTest, ResolvedAndUnresolvedVectorConversionsPreserveBitOrd
   }
 }
 
-TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameArithmeticModels) {
+TEST_F(VHDLConstructorTest, EquivalentSystemVerilogPreservesArithmeticResults) {
   auto* svLibrary = NLLibrary::create(library_->getDB(), NLLibrary::Type::Standard);
   SNLSVConstructor(svLibrary).construct(std::filesystem::path(SNL_VHDL_EQUIVALENT_ARITHMETIC_SV));
   for (const auto& [name, expression, width, count] :
@@ -2032,20 +2032,31 @@ TEST_F(VHDLConstructorTest, EquivalentSystemVerilogUsesSameArithmeticModels) {
     auto* sv = svLibrary->getSNLDesign(NLName(name));
     ASSERT_NE(sv, nullptr);
     for (auto* design : {vhdl, sv}) {
-      unsigned fullAdders = 0;
+      unsigned fullAdders = 0, wordArithmetic = 0;
       for (auto* instance : design->getInstances()) {
         auto* model = instance->getModel();
-        if (NLDB0::isFA(model)) ++fullAdders;
+        if (design == sv && (NLDB0::isAddSub(model) || NLDB0::isMultiply(model))) {
+          ++wordArithmetic;
+          if (name == "add4" || name == "sub4") {
+            ASSERT_TRUE(NLDB0::isAddSub(model));
+            EXPECT_EQ(name == "sub4", NLDB0::isSubtract(model));
+            EXPECT_EQ(width, NLDB0::getAddSubWidth(model));
+          } else {
+            ASSERT_TRUE(NLDB0::isMultiply(model));
+            EXPECT_EQ(width, NLDB0::getMultiplyWidth(model));
+          }
+        } else if (NLDB0::isFA(model)) ++fullAdders;
         else if (!NLDB0::isAssign(model)) {
           ASSERT_TRUE(NLDB0::isGate(model));
           EXPECT_NE(model, NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 2));
           EXPECT_NE(model, NLDB0::getOrCreateNInputGate(NLDB0::GateType::Or, 2));
         }
       }
-      EXPECT_EQ(fullAdders, count);
-      if (name == "add4") {
+      EXPECT_EQ(fullAdders, design == vhdl ? count : 0u);
+      EXPECT_EQ(wordArithmetic, design == sv ? 1u : 0u);
+      if (design == vhdl && name == "add4") {
         // Follow each sum through optional VHDL wiring Assigns and verify
-        // the same LSB-first carry chain and operand connections in both HDLs.
+        // the LSB-first carry chain and operand connections.
         SNLBitNet* carry = nullptr;
         for (unsigned bit = 0; bit < 4; ++bit) {
           SNLEquipotential output(design->getBusTerm(NLName("s"))->getBit(bit),

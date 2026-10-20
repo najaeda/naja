@@ -3172,7 +3172,7 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
   }
   //Gate libraries: one reserved ID per GateType, designID = fan-in/out.
   if (libraryID >= GateLibraryIDBase &&
-      libraryID < GateLibraryIDBase + GateType::Unknown) {
+      libraryID < GateLibraryIDBase + static_cast<int>(GateType::Unknown)) {
     GateType type(GateType::GateTypeEnum(libraryID - GateLibraryIDBase));
     if (type.isNInput()) {
       return getOrCreateNInputGate(type, designID);
