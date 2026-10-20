@@ -2439,7 +2439,7 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLBitTerm* term) {
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) || NLDB0::isShift(design)) {
       return 0;
     }
     if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design) ||
@@ -2507,7 +2507,7 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) || NLDB0::isShift(design) ||
         NLDB0::isDivMod(design)) {
       return SNLTruthTable();
     }
@@ -2636,7 +2636,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
     return found; };
 
   if (NLDB0::isDB0Primitive(design) &&
-      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design))) {
+      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) || NLDB0::isShift(design))) {
     return SNLTruthTable();
   }
   auto property = getTruthTableProperty(design);
@@ -2846,7 +2846,8 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
     return true;
   }
   if (hasMemoryInterface(design)) {
-    return true;
+    const auto memory = getMemoryInterface(design);
+    if (!memory.writePorts.empty() || memory.clock || memory.reset) return true;
   }
   auto property = getProperty(design);
   if (property) {

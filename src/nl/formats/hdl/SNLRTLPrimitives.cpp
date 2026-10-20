@@ -13,6 +13,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
+#include "SNLInstParameter.h"
 #include "SNLScalarTerm.h"
 
 namespace naja::NL {
@@ -59,6 +60,46 @@ SNLBitNet* bitAtHardwarePosition(SNLNet* net, size_t position) {
 }
 
 }  // namespace
+
+SNLInstance* SNLRTLPrimitives::createROM(
+  SNLDesign* design, const Bits& data, const Bits& address, SNLNet* output) {
+  const auto width = output ? static_cast<size_t>(output->getWidth()) : 0;
+  const auto validBits = [design](const Bits& bits) {
+    return std::all_of(bits.begin(), bits.end(), [design](auto* bit) { return validNet(design, bit, 1); });
+  };
+  if (!width || !validNet(design, output, width) || data.empty() || address.empty() ||
+      data.size() % width || !validBits(data) || !validBits(address) ||
+      !std::all_of(data.begin(), data.end(), [](auto* bit) { return bit->isConstant(); }))
+    throw NLException("SNLRTLPrimitives::createROM: invalid nets, contents or widths");
+  std::string contents;
+  contents.reserve(data.size());
+  for (auto it = data.rbegin(); it != data.rend(); ++it)
+    contents.push_back((*it)->isConstant0() ? '0' : (*it)->isConstant1() ? '1' : (*it)->isConstantX() ? 'x' : 'z');
+  // Hex is compact for binary images; retain exact X/Z bits in binary images.
+  const bool binary = contents.find_first_of("xz") == std::string::npos;
+  if (binary) {
+    contents.insert(0, (4 - contents.size() % 4) % 4, '0');
+    std::string hex;
+    for (size_t i = 0; i < contents.size(); i += 4) {
+      unsigned digit = 0;
+      for (size_t j = 0; j < 4; ++j) digit = 2 * digit + (contents[i+j] == '1');
+      hex.push_back("0123456789abcdef"[digit]);
+    }
+    contents = std::move(hex);
+  }
+  auto* model = NLDB0::getOrCreateMemory({width, data.size()/width, address.size(), 1, 0});
+  auto* instance = SNLInstance::create(design, model);
+  for (const auto& name : {"WIDTH", "DEPTH", "ABITS", "RD_PORTS", "WR_PORTS", "RST_ENABLE", "RST_ASYNC", "RST_ACTIVE_LOW"}) {
+    auto* parameter = model->getParameter(NLName(name));
+    SNLInstParameter::create(instance, parameter, parameter->getValue());
+  }
+  SNLInstParameter::create(instance, model->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(instance, model->getParameter(NLName("INIT")),
+      std::to_string(data.size()) + (binary ? "'h" : "'b") + contents);
+  connectBits(instance, NLDB0::getMemoryReadAddress(model), address);
+  instance->setTermNet(NLDB0::getMemoryReadData(model), output);
+  return instance;
+}
 
 SNLInstance* SNLRTLPrimitives::createMux(
   SNLDesign* design, SNLBitNet* select,

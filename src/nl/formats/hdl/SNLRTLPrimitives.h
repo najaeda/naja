@@ -20,6 +20,12 @@ class SNLRTLPrimitives {
     using Bits = std::vector<SNLBitNet*>;
     enum class GateKind { And, Nand, Or, Nor, Xor, Xnor, Buf, Not };
 
+    /// Read-only memory with instance-owned INIT contents. Data is word-major,
+    /// address zero first, with each word and address least-significant-bit first.
+    /// Data bits must be constant 0/1/X/Z; output width determines word width.
+    static SNLInstance* createROM(
+      SNLDesign* design, const Bits& data, const Bits& address, SNLNet* output);
+
     /// Input vectors are least-significant-bit first. Select 0 chooses a;
     /// select 1 chooses b. Output is connected by its declared bit order.
     static SNLInstance* createMux(

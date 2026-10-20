@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM alpine:3.23.2 AS builder
+ARG ALPINE_VERSION=3.24
+
+FROM alpine:${ALPINE_VERSION} AS builder
 
 # Install required packages
 RUN apk --no-cache add ca-certificates
@@ -38,7 +40,7 @@ RUN cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/local .. && \
     cmake --install . --prefix /naja/install    
 RUN ctest -j8 --output-on-failure
 
-FROM alpine:3.23.2 AS release
+FROM alpine:${ALPINE_VERSION} AS release
 RUN apk --no-cache add ca-certificates
 RUN apk add --no-cache \
     libstdc++ capnproto python3

@@ -110,7 +110,8 @@ naja::NL::SNLTruthTable getCommonTruthTable(const naja::NL::SNLDesign* design) {
 void addDesignTruthTable(
     naja::NL::SNLDesign* design,
     naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
-  if (naja::NL::NLDB0::isMemory(design) || naja::NL::NLDB0::isDivMod(design)) {
+  if (naja::NL::NLDB0::isMemory(design) || naja::NL::NLDB0::isShift(design) ||
+      naja::NL::NLDB0::isDivMod(design)) {
     return;
   }
   if (naja::NL::NLDB0::isTableSelect(design)) {

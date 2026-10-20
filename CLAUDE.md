@@ -228,6 +228,31 @@ kepler-formal's tests (`bazel test //... --override_module=naja=<path to this
 checkout>`) are the reference consumer. Do not assume Naja's root .bazelrc
 configuration is inherited by that consumer.
 
+## Determinism is a correctness requirement
+
+For identical ordered inputs, options, build and initial universe, loading and
+transforming a design must reproduce object creation order, names, IDs and
+connectivity across processes. Verilog dumps may differ only in banner timestamps;
+DOT and NajaIF snapshots (including manifests) must match byte for byte.
+
+- Never let hash iteration or pointer-address ordering drive object creation,
+  merging, naming counters, representative selection or emission. Unordered
+  containers are fine for lookup and membership; use explicit insertion order,
+  scoped declaration order or stable NLIDs for observable traversals.
+- Sorting only a dump is insufficient: live IDs and names must already agree.
+  Sort keys must distinguish relevant objects; never break ties with pointers.
+- New creation paths and ordering fixes need a synthetic cross-process regression
+  in `test/najaeda/test_najaeda_determinism.py`. Preserve comparisons of live state,
+  all dump artifacts and snapshot round trips; do not normalize new differences
+  away. Keep private designs out of tracked fixtures and CI artifacts.
+- Run `ctest --test-dir build -L determinism --no-tests=error --output-on-failure`
+  or `bazel test //test/najaeda:najaeda_determinism_tests --test_output=errors`.
+  Build-path changes require both, under the product-equivalence policy above.
+
+See [the determinism strategy](test/najaeda/DETERMINISM.md) for coverage, stress
+runs and the review checklist. Linux/macOS CMake and Bazel CI run the contract;
+the Linux najaeda workflow also stress-tests it weekly.
+
 ## Conventions
 
 - Whenever the `najaeda` version is incremented, update the pinned `najaeda` version in all Colab tutorials under `tutorials/notebooks/` and the local installation command in `tutorials/README.md` in the same change.
@@ -237,6 +262,7 @@ configuration is inherited by that consumer.
 - Post-elaboration netlists must never silently encode an unsupported construct incorrectly. If faithful lowering is not available, reject the construct or emit a clear diagnostic rather than dropping a value, leaving a net undriven, or otherwise producing a plausible but wrong netlist.
 - Prefer general frontend support over fixes tailored to one reproducer: identify the shared language semantics and cover representative variations in syntax, type/shape, and downstream use where practical.
 - New DB0 primitives (flops, etc.) follow a canonical ID scheme resolved on capnp load; don't invent ad-hoc primitive IDs.
+- When working on HDL frontends or elaboration, always stop and discuss with the user when a needed primitive or primitive capability is missing. Explain the missing representation and the options for extending an existing NLDB0 primitive or adding a new one. Wait for agreement before implementing a substitute lowering, expanding the construct into other primitives, or changing the primitive model. This applies even when an alternative lowering could preserve behavior; do not let design-loading progress bypass this discussion.
 - `*.py~`, `*.txt~`, `build*/`, and `graphify-out/.venv*` are local artifacts — don't edit or commit them.
 
 ## VHDL and SystemVerilog loading alignment

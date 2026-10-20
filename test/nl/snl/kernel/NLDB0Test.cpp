@@ -1066,6 +1066,76 @@ TEST_F(NLDB0Test, testMemoryPrimitive) {
   EXPECT_EQ(raddr->getWidth() / 2, readInputs.size());
 }
 
+TEST_F(NLDB0Test, testReadOnlyMemoryInterfaceAndTiming) {
+  NLUniverse::create();
+  const NLDB0::MemorySignature signature{5, 7, 4, 2, 0};
+  auto* model = NLDB0::getOrCreateMemory(signature);
+  ASSERT_NE(model, nullptr);
+  EXPECT_EQ(model, NLDB0::getOrCreateMemory(signature));
+  EXPECT_EQ(signature, NLDB0::getMemorySignature(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryClock(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryReset(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteAddress(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteData(model));
+  EXPECT_EQ(nullptr, NLDB0::getMemoryWriteEnable(model));
+  EXPECT_EQ(2u, model->getTerms().size());
+  EXPECT_FALSE(SNLDesignModeling::isSequential(model));
+  const auto memory = SNLDesignModeling::getMemoryInterface(model);
+  EXPECT_EQ(nullptr, memory.clock);
+  EXPECT_EQ(nullptr, memory.reset);
+  EXPECT_TRUE(memory.writePorts.empty());
+  ASSERT_EQ(2u, memory.readPorts.size());
+  for (size_t port = 0; port < 2; ++port) {
+    auto* data = NLDB0::getMemoryReadData(model)->getBit(port*5);
+    const auto inputs = SNLDesignModeling::getCombinatorialInputs(data);
+    EXPECT_EQ(4u, inputs.size());
+    for (auto* input : inputs)
+      EXPECT_TRUE(std::find(memory.readPorts[port].address.begin(), memory.readPorts[port].address.end(), input) != memory.readPorts[port].address.end());
+  }
+  auto invalid = signature;
+  invalid.resetMode = NLDB0::MemoryResetMode::SyncHigh;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(invalid), NLException);
+  invalid = signature;
+  invalid.independentWriteClocks = true;
+  EXPECT_THROW(NLDB0::getOrCreateMemory(invalid), NLException);
+}
+
+TEST_F(NLDB0Test, BooleanPrimitiveParametersRejectInvalidValues) {
+  auto* db = NLDB::create(NLUniverse::create());
+  auto* top = SNLDesign::create(NLLibrary::create(db), NLName("top"));
+  NLDB0::MemorySignature signature{4, 8, 3, 1, 1};
+  signature.independentWriteClocks = true;
+  auto* memory = NLDB0::getOrCreateMemory(signature);
+  auto* instance = SNLInstance::create(top, memory);
+  NLDB0::PrimitiveParameters parameters;
+  for (auto* parameter : memory->getParameters()) {
+    parameters.emplace(parameter->getName().getString(), parameter->getValue());
+  }
+  for (const auto* name : {"RST_ENABLE", "RST_ASYNC", "RST_ACTIVE_LOW", "INIT_ENABLE", "MULTI_CLOCK"}) {
+    auto* parameter = memory->getParameter(NLName(name));
+    EXPECT_EQ(SNLParameter::Type::Boolean, parameter->getType());
+    if (std::string(name) == "INIT_ENABLE") continue;
+    for (const auto* value : {"2", "-1", "1junk", ""}) {
+      auto invalid = parameters;
+      invalid[name] = value;
+      EXPECT_THROW(NLDB0::getOrCreatePrimitive(
+          memory->getLibrary()->getID(), memory->getID(), invalid), NLException);
+      auto* override = SNLInstParameter::create(instance, parameter, value);
+      EXPECT_THROW(NLDB0::getMemorySignature(instance), NLException);
+      override->destroy();
+    }
+  }
+  for (bool isSigned : {false, true}) {
+    auto* model = NLDB0::getOrCreateDivMod({4, isSigned});
+    auto* parameter = model->getParameter(NLName("SIGNED"));
+    EXPECT_EQ(SNLParameter::Type::Boolean, parameter->getType());
+    auto* divmod = SNLInstance::create(top, model);
+    EXPECT_EQ(isSigned, NLDB0::getDivModSignature(divmod).isSigned);
+    SNLInstParameter::create(divmod, parameter, "2");
+    EXPECT_THROW(NLDB0::getDivModSignature(divmod), NLException);
+  }
+}
+
 TEST_F(NLDB0Test, testMemoryInstanceOverridesAreVisibleInSignature) {
   NLUniverse::create();
   ASSERT_NE(nullptr, NLUniverse::get());
@@ -2130,4 +2200,88 @@ TEST_F(NLDB0Test, testIndependentWriteClockMemoryPrimitive) {
   signature.independentWriteClocks = true;
   signature.resetMode = NLDB0::MemoryResetMode::SyncHigh;
   EXPECT_THROW(NLDB0::getOrCreateMemory(signature), NLException);
+}
+
+TEST_F(NLDB0Test, ShiftSignatureRejectsMissingBooleanParameters) {
+  NLUniverse::create();
+  const NLDB0::ShiftSignature signature{7, 3, true, true};
+  auto* model = NLDB0::getOrCreateShift(signature);
+  for (const auto* name: {"RIGHT", "ARITHMETIC"}) {
+    SCOPED_TRACE(name);
+    auto* parameter = model->getParameter(NLName(name));
+    ASSERT_NE(nullptr, parameter);
+    const auto value = parameter->getValue();
+    parameter->destroy();
+    EXPECT_THROW(NLDB0::getShiftSignature(model), NLException);
+    SNLParameter::create(model, NLName(name), SNLParameter::Type::Boolean, value);
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(model));
+  }
+}
+
+TEST_F(NLDB0Test, ShiftSignatureRejectsInstanceSignatureChanges) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* library = NLLibrary::create(db, NLName("designs"));
+  auto* top = SNLDesign::create(library, NLName("top"));
+  const NLDB0::ShiftSignature signature{7, 3, true, true};
+  auto* model = NLDB0::getOrCreateShift(signature);
+  for (const auto* name: {"WIDTH", "COUNT_WIDTH", "RIGHT", "ARITHMETIC"}) {
+    SCOPED_TRACE(name);
+    auto* instance = SNLInstance::create(top, model);
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(instance));
+    auto* parameter = model->getParameter(NLName(name));
+    ASSERT_NE(nullptr, parameter);
+    auto* overrideParameter = SNLInstParameter::create(instance, parameter, parameter->getValue());
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(instance));
+    overrideParameter->setValue(parameter->getType() == SNLParameter::Type::Boolean ? "0" :
+      std::to_string(std::stoull(parameter->getValue()) + 1));
+    EXPECT_THROW(NLDB0::getShiftSignature(instance), NLException);
+    instance->destroy();
+  }
+}
+
+TEST_F(NLDB0Test, CanonicalShiftsRetainSignatureAndCombinationalArcs) {
+  NLUniverse::create();
+  for (const auto& signature : std::vector<NLDB0::ShiftSignature>{
+      {1, 80, false, false}, {5, 7, true, false}, {5, 7, true, true}}) {
+    auto* model = NLDB0::getOrCreateShift(signature);
+    ASSERT_NE(model, nullptr);
+    EXPECT_TRUE(NLDB0::isShift(model));
+    for (const auto* name : {"WIDTH", "COUNT_WIDTH"}) {
+      EXPECT_EQ(SNLParameter::Type::Decimal, model->getParameter(NLName(name))->getType());
+    }
+    for (const auto* name : {"RIGHT", "ARITHMETIC"}) {
+      EXPECT_EQ(SNLParameter::Type::Boolean, model->getParameter(NLName(name))->getType());
+    }
+    EXPECT_EQ(signature, NLDB0::getShiftSignature(model));
+    EXPECT_EQ(model, NLDB0::getOrCreateShift(signature));
+    EXPECT_EQ(model->getLibrary()->getID(), 33u);
+    EXPECT_EQ(NLDB0::getShiftData(model)->getWidth(), signature.width);
+    EXPECT_EQ(NLDB0::getShiftCount(model)->getWidth(), signature.countWidth);
+    for (auto* output : NLDB0::getShiftOutput(model)->getBits())
+      EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(output).size(),
+          signature.width + signature.countWidth);
+    EXPECT_FALSE(SNLDesignModeling::hasMemoryInterface(model));
+    EXPECT_EQ(SNLDesignModeling::getTruthTableCount(model), 0u);
+    EXPECT_THROW(NLDB0::getPrimitiveTruthTable(model), NLException);
+    NLDB0::PrimitiveParameters parameters{
+        {"WIDTH", std::to_string(signature.width)}, {"COUNT_WIDTH", std::to_string(signature.countWidth)},
+        {"RIGHT", std::to_string(signature.right)}, {"ARITHMETIC", std::to_string(signature.arithmetic)}};
+    EXPECT_EQ(model, NLDB0::getOrCreatePrimitive(33, model->getID(), parameters));
+    for (const auto* name : {"RIGHT", "ARITHMETIC"}) {
+      auto invalid = parameters;
+      invalid.erase(name);
+      EXPECT_THROW(NLDB0::getOrCreatePrimitive(33, model->getID(), invalid), NLException);
+      for (const auto* value : {"2", "-1", "1junk", "", "true"}) {
+        invalid[name] = value;
+        EXPECT_THROW(NLDB0::getOrCreatePrimitive(33, model->getID(), invalid), NLException);
+      }
+    }
+  }
+  EXPECT_THROW(NLDB0::getOrCreateShift({0, 3}), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateShift({3, 0}), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateShift({3, 2, false, true}), NLException);
+  EXPECT_THROW(NLDB0::getOrCreatePrimitive(33, 0, {}), NLException);
+  EXPECT_THROW(NLDB0::getShiftSignature(static_cast<SNLDesign*>(nullptr)), NLException);
+  EXPECT_THROW(NLDB0::getShiftSignature(static_cast<SNLInstance*>(nullptr)), NLException);
 }

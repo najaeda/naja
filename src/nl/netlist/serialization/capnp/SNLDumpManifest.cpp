@@ -12,7 +12,6 @@
 #include <system_error>
 #include <vector>
 
-#include "NajaUtils.h"
 #include "NajaVersion.h"
 #include "SNLDump.h"
 #include "SNLDumpException.h"
@@ -79,7 +78,8 @@ void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
     reason << "Cannot dump manifest as " << manifestPath.string() << " is not open";
     throw SNLDumpException(reason.str());
   }
-  NajaUtils::createBanner(stream, "SNL manifest", "#");
+  // Producer identity is recorded below; omit wall-clock time for reproducible snapshots.
+  stream << "# SNL manifest\n";
   stream << "V"
     << " " << SNLDump::getVersion().getMajor()
     << " " << SNLDump::getVersion().getMinor()

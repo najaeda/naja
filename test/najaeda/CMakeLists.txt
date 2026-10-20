@@ -28,3 +28,17 @@ set_tests_properties(najaeda-python-tests PROPERTIES
   FIXTURES_REQUIRED najaeda-test-env
   ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;SYSTEMVERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/systemverilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_SOURCE_TEST_PATH=${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+# Keep reproducibility visible as a separately selectable CI contract. The same
+# module is also discovered by the ordinary Python suite above. Keep "python"
+# in the name: sanitizer jobs exclude Python tests and their setup fixture.
+add_test(NAME najaeda-python-determinism-tests
+  COMMAND "${NAJA_PYTHON_EXECUTABLE}" ${CMAKE_CURRENT_SOURCE_DIR}/test_najaeda_determinism.py -v
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+set_tests_properties(najaeda-python-determinism-tests PROPERTIES
+  FIXTURES_REQUIRED najaeda-test-env
+  LABELS determinism
+  TIMEOUT 180
+  ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+)

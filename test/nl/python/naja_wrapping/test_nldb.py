@@ -106,6 +106,33 @@ architecture rtl of inverter is begin y <= not a; end;
     self.assertEqual(db.getTopDesign(), design)
     self.assertTrue(db.isTopDB())
 
+  def testVHDLReadOnlyMemory(self):
+    db = naja.NLDB.create(naja.NLUniverse.get())
+    source = """\
+library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
+entity lookup is port(a : in unsigned(1 downto 0); y : out std_logic_vector(3 downto 0)); end;
+architecture rtl of lookup is
+  type rows is array(0 to 2) of std_logic_vector(3 downto 0);
+  constant data : rows := (x"1", x"A", x"3");
+begin y <= data(to_integer(a)); end;
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".vhd") as vhdl:
+      vhdl.write(source)
+      vhdl.flush()
+      with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        design = db.loadVHDL(vhdl.name, diagnostics_report_path=None)
+    roms = [i for i in design.getInstances() if i.getInstParameter("WR_PORTS") is not None]
+    self.assertEqual(len(roms), 1)
+    rom = roms[0]
+    self.assertEqual(rom.getInstParameter("WR_PORTS").getValue(), "0")
+    self.assertEqual(rom.getInstParameter("INIT_ENABLE").getValue(), "1")
+    self.assertEqual(rom.getInstParameter("INIT").getValue(), "12'h3a1")
+    self.assertFalse(rom.getModel().isSequential())
+    self.assertEqual({t.getName() for t in rom.getModel().getTerms()}, {"RADDR", "RDATA"})
+    self.assertEqual(next(iter(rom.getModel().getBusTerm("RADDR").getBits())).getRole(), naja.SNLTermRole.MemoryReadAddress)
+    self.assertEqual(next(iter(rom.getModel().getBusTerm("RDATA").getBits())).getRole(), naja.SNLTermRole.MemoryReadData)
+
   def testVHDLBatchFiles(self):
     # Deliberately put package declarations and entities after their users in
     # pathname order; the loader must resolve units, not merely sort files.
