@@ -56,11 +56,13 @@ PyObject* linkSource(NLObject* source) {
   if (auto* term = dynamic_cast<SNLBitTerm*>(source)) {
     return PySNLBitTerm_Link(term);
   }
+  // LCOV_EXCL_START NLClock::checkSource currently permits only SNLBitTerm sources.
   if (auto* instTerm = dynamic_cast<SNLInstTerm*>(source)) {
     return PySNLInstTerm_Link(instTerm);
   }
   setError("NLClock source is not a supported terminal");
   return nullptr;
+  // LCOV_EXCL_STOP
 }
 
 }  // namespace
@@ -181,8 +183,10 @@ static PyObject* PyNLClock_getSources(PyNLClock* self) {
   for (NLObject* source: selfObject->getSources()) {
     PyObject* linked = linkSource(source);
     if (not linked) {
+      // LCOV_EXCL_START Validated sources can fail to link only on CPython allocation failure.
       Py_DECREF(list);
       return nullptr;
+      // LCOV_EXCL_STOP
     }
     PyList_Append(list, linked);
     Py_DECREF(linked);

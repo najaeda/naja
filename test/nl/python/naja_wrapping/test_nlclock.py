@@ -70,6 +70,60 @@ class NLClockTests(unittest.TestCase):
         other = naja.NLClock.createPrimary(self.top, "other", 20.0, "ns", [self.clk2])
         self.assertFalse(sys_clock.isSynchronousWith(other))
 
+    def test_multiple_sources(self):
+        clock = naja.NLClock.createPrimary(
+            self.top, "sys", 10.0, "ns", [self.clk, self.clk2])
+        self.assertEqual([self.clk, self.clk2], clock.getSources())
+
+    def test_primary_binding_errors(self):
+        valid = (self.top, "sys", 10.0, "ns", [self.clk])
+        cases = [
+            ((), "malformed NLClock primary creation method"),
+            ((self.top, "sys", "bad", "ns", [self.clk]),
+             "malformed NLClock primary creation method"),
+            ((None, *valid[1:]), "accepts SNLDesign as first argument"),
+            ((*valid[:4], [self.clk, None]), "sources must be SNL terminals"),
+        ]
+        for args, message in cases:
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    naja.NLClock.createPrimary(*args)
+                self.assertEqual([], list(self.top.getClocks()))
+
+    def test_generated_binding_errors(self):
+        master = naja.NLClock.createPrimary(self.top, "sys", 10.0, "ns", [self.clk])
+        valid = (self.top, "derived", master, self.clk, 2, 1, False, [self.clk2])
+        cases = [
+            ((), "malformed NLClock generated creation method"),
+            ((*valid[:4], "bad", *valid[5:]),
+             "malformed NLClock generated creation method"),
+            ((None, *valid[1:]), "accepts SNLDesign as first argument"),
+            ((*valid[:2], None, *valid[3:]), "expects a master NLClock"),
+            ((*valid[:3], None, *valid[4:]), "expects an SNL terminal as master source"),
+            ((*valid[:7], (self.clk2,)), "sources must be a list of terminals"),
+            ((*valid[:7], [self.clk2, None]), "sources must be SNL terminals"),
+        ]
+        for args, message in cases:
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    naja.NLClock.createGenerated(*args)
+                self.assertEqual([master], list(self.top.getClocks()))
+
+    def test_waveform_binding_errors(self):
+        clock = naja.NLClock.createPrimary(self.top, "sys", 10.0, "ns", [self.clk])
+        for args in ((), (1.0,), (1.0, 2.0, 3.0), ("bad", 2.0)):
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(RuntimeError, "expects \\(rise_at, fall_at\\)"):
+                    clock.setWaveform(*args)
+                self.assertEqual((0.0, 5.0), (clock.getRiseAt(), clock.getFallAt()))
+
+    def test_synchronous_binding_errors(self):
+        clock = naja.NLClock.createPrimary(self.top, "sys", 10.0, "ns", [self.clk])
+        for other in (None, self.clk, "sys"):
+            with self.subTest(other=other):
+                with self.assertRaisesRegex(RuntimeError, "expects an NLClock"):
+                    clock.isSynchronousWith(other)
+
     def test_rejects_instance_terminal_source(self):
         inst_term = self.instance.getInstTerm(self.model_clk)
         with self.assertRaises(RuntimeError):

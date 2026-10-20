@@ -50,6 +50,38 @@ class TSNLGraphConstructorTests: public ::testing::Test {
       }
       return TGraph::kInvalidEdge;
     }
+    void expectFailure(TSNLGraphConstructor& constructor, const std::string& reason) {
+      try {
+        constructor.construct();
+        FAIL() << "Expected construction to fail: " << reason;
+      } catch (const NLException& error) {
+        EXPECT_NE(std::string::npos, std::string(error.what()).find(reason)) << error.what();
+      }
+      EXPECT_THROW(constructor.getGraph(), NLException);
+    }
+    SNLDesign* modeledFlop() {
+      using Model = SNLDesignModeling;
+      auto* primitives = NLLibrary::create(library_->getDB(), NLLibrary::Type::Primitives);
+      auto* model = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("flop"));
+      auto* clock = port(model, "C", SNLTerm::Direction::Input);
+      auto* data = port(model, "D", SNLTerm::Direction::Input);
+      auto* output = port(model, "Q", SNLTerm::Direction::Output);
+      Model::SequentialModel sequence;
+      sequence.clockedOn.root = sequence.clockedOn.addTerm(clock);
+      sequence.states.emplace_back();
+      auto& next = sequence.states.front().nextState;
+      next.root = next.addTerm(data);
+      sequence.outputs.push_back({output, {}});
+      auto& function = sequence.outputs.front().function;
+      function.root = function.addState(0);
+      Model::setSequentialModel(model, sequence);
+      Model::setTermRole(clock, Model::SNLTermRole::Clock);
+      Model::setTermRole(data, Model::SNLTermRole::DataInput);
+      Model::setTermRole(output, Model::SNLTermRole::DataOutput);
+      Model::addInputsToClockArcs({data}, clock);
+      Model::addClockToOutputsArcs(clock, {output});
+      return model;
+    }
     NLLibrary* library_ {nullptr};
     SNLDesign* top_ {nullptr};
 };
@@ -135,6 +167,8 @@ TEST_F(TSNLGraphConstructorTests, busFlopsAndControlRoles) {
   auto* wide = SNLInstance::create(top_, wideModel, NLName("wide"));
   auto* enabled = SNLInstance::create(top_, NLDB0::getDFFRE(), NLName("enabled"));
   auto* synchronous = SNLInstance::create(top_, NLDB0::getDFFSR(), NLName("synchronous"));
+  auto* syncSet = SNLInstance::create(top_, NLDB0::getDFFSS(), NLName("sync_set"));
+  auto* asyncSet = SNLInstance::create(top_, NLDB0::getDFFS(), NLName("async_set"));
   TSNLGraphConstructor constructor(top_);
   constructor.construct();
   auto& graph = constructor.getGraph();
@@ -151,6 +185,8 @@ TEST_F(TSNLGraphConstructorTests, busFlopsAndControlRoles) {
   check(enabled, "E", TNode::PinRole::Enable, 1);
   check(enabled, "R", TNode::PinRole::AsyncReset, 0);
   check(synchronous, "R", TNode::PinRole::SyncReset, 1);
+  check(syncSet, "S", TNode::PinRole::SyncSet, 1);
+  check(asyncSet, "S", TNode::PinRole::AsyncSet, 0);
 }
 
 TEST_F(TSNLGraphConstructorTests, parameterizedCombinationalArcsUseInstanceValues) {
@@ -242,4 +278,125 @@ TEST_F(TSNLGraphConstructorTests, mixedSequentialOutputsAreRejected) {
   TSNLGraphConstructor constructor(top_);
   EXPECT_THROW(constructor.construct(), NLException);
   EXPECT_THROW(constructor.getGraph(), NLException);
+}
+
+TEST_F(TSNLGraphConstructorTests, invertedClockAndStateOutputPreserveTimingEdges) {
+  using Model = SNLDesignModeling;
+  using Operator = Model::BooleanExpression::Operator;
+  auto* model = NLDB0::getDFF();
+  auto sequence = Model::getSequentialModel(model);
+  sequence.clockedOn.root = sequence.clockedOn.addOperation(Operator::Not, {sequence.clockedOn.root});
+  auto& output = sequence.outputs.front().function;
+  output.root = output.addOperation(Operator::Not, {output.root});
+  Model::setSequentialModel(model, sequence);
+  auto* instance = SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  const auto& constConstructor = constructor;
+  EXPECT_THROW(constConstructor.getGraph(), NLException);
+  constructor.construct();
+  const auto& graph = constConstructor.getGraph();
+  EXPECT_EQ(&constructor.getGraph(), &graph);
+  auto clock = constructor.getNode(SNLOccurrence(term(instance, "C")));
+  auto data = constructor.getNode(SNLOccurrence(term(instance, "D")));
+  auto q = constructor.getNode(SNLOccurrence(term(instance, "Q")));
+  EXPECT_NE(TGraph::kInvalidEdge, edge(graph, clock, q));
+  EXPECT_EQ(TGraph::kInvalidEdge, edge(graph, data, q));
+  EXPECT_EQ(1u, graph.getNode(data)->getCaptureInEdges().size());
+}
+
+TEST_F(TSNLGraphConstructorTests, sequentialTimingWithoutExplicitModelIsRejected) {
+  auto* primitives = NLLibrary::create(library_->getDB(), NLLibrary::Type::Primitives);
+  auto* model = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("legacy"));
+  auto* clock = port(model, "clock", SNLTerm::Direction::Input);
+  auto* data = port(model, "data", SNLTerm::Direction::Input);
+  SNLDesignModeling::addInputsToClockArcs({data}, clock);
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "sequential cell has no explicit flip-flop/latch model");
+}
+
+TEST_F(TSNLGraphConstructorTests, compositeClockExpressionIsRejected) {
+  using Model = SNLDesignModeling;
+  auto* model = NLDB0::getDFF();
+  auto sequence = Model::getSequentialModel(model);
+  auto data = sequence.clockedOn.addTerm(NLDB0::getDFFData());
+  sequence.clockedOn.root = sequence.clockedOn.addOperation(
+    Model::BooleanExpression::Operator::And, {sequence.clockedOn.root, data});
+  Model::setSequentialModel(model, sequence);
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "unsupported clock expression or missing clock role");
+}
+
+TEST_F(TSNLGraphConstructorTests, missingClockRoleIsRejected) {
+  SNLDesignModeling::setTermRole(NLDB0::getDFFClock(), SNLDesignModeling::SNLTermRole::DataInput);
+  SNLInstance::create(top_, NLDB0::getDFF(), NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "unsupported clock expression or missing clock role");
+}
+
+TEST_F(TSNLGraphConstructorTests, unknownPinRoleIsRejected) {
+  auto* model = NLDB0::getDFF();
+  port(model, "extra", SNLTerm::Direction::Input);
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "unsupported or inconsistent pin role");
+}
+
+TEST_F(TSNLGraphConstructorTests, clockArcToInputIsRejected) {
+  auto* model = modeledFlop();
+  SNLDesignModeling::addClockToOutputsArcs(
+    model->getScalarTerm(NLName("C")), {model->getScalarTerm(NLName("D"))});
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "clock-to-output arc targets a non-output role");
+}
+
+TEST_F(TSNLGraphConstructorTests, clockArcWithoutStateOutputIsRejected) {
+  auto* model = NLDB0::getDFF();
+  auto* extra = port(model, "extra", SNLTerm::Direction::Output);
+  SNLDesignModeling::setTermRole(extra, SNLDesignModeling::SNLTermRole::DataOutput);
+  SNLDesignModeling::addClockToOutputsArcs(NLDB0::getDFFClock(), {extra});
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "clock-to-output arc has no sequential state output");
+}
+
+TEST_F(TSNLGraphConstructorTests, capturePinWithoutTimingRelationshipIsRejected) {
+  auto* model = modeledFlop();
+  auto* extra = port(model, "extra", SNLTerm::Direction::Input);
+  SNLDesignModeling::setTermRole(extra, SNLDesignModeling::SNLTermRole::DataInput);
+  SNLInstance::create(top_, model, NLName("flop"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "missing sequential timing relationship");
+}
+
+TEST_F(TSNLGraphConstructorTests, outputWithoutDependencyIsRejected) {
+  auto* primitives = NLLibrary::create(library_->getDB(), NLLibrary::Type::Primitives);
+  auto* model = SNLDesign::create(primitives, SNLDesign::Type::Primitive, NLName("partial"));
+  auto* input = port(model, "input", SNLTerm::Direction::Input);
+  auto* output = port(model, "output", SNLTerm::Direction::Output);
+  SNLDesignModeling::addCombinatorialArcs({input}, {output});
+  port(model, "extra", SNLTerm::Direction::Output);
+  SNLInstance::create(top_, model, NLName("buffer"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "output has no dependency model");
+}
+
+TEST_F(TSNLGraphConstructorTests, combinationalArcFromOutputIsRejected) {
+  auto* model = NLDB0::getAssign();
+  SNLDesignModeling::addCombinatorialArcs({NLDB0::getAssignOutput()}, {NLDB0::getAssignOutput()});
+  SNLInstance::create(top_, model, NLName("buffer"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "combinational arc source is not an input");
+}
+
+TEST_F(TSNLGraphConstructorTests, recursiveHierarchyBelowTopIsRejected) {
+  auto* child = SNLDesign::create(library_, NLName("child"));
+  auto* descendant = SNLDesign::create(library_, NLName("descendant"));
+  SNLInstance::create(top_, child, NLName("child"));
+  SNLInstance::create(child, descendant, NLName("descendant"));
+  SNLInstance::create(descendant, child, NLName("recursive"));
+  TSNLGraphConstructor constructor(top_);
+  expectFailure(constructor, "recursive hierarchy");
 }

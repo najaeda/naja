@@ -181,7 +181,7 @@ std::string NLClock::getString() const {
 
 std::string NLClock::getDescription() const {
   return "NLClock " + name_.getString() + " (period " + std::to_string(period_) + " " + timeUnit_ + ")";
-}
+} // LCOV_EXCL_LINE Compiler-generated cleanup if string allocation throws.
 
 void NLClock::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   std::string pad(indent, ' ');

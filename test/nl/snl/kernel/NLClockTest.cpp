@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
+#include <sstream>
 
 #include "NLUniverse.h"
 #include "NLDB.h"
@@ -134,6 +135,50 @@ TEST_F(NLClockTest, testRejectsInstanceTerminalSource) {
 
 TEST_F(NLClockTest, testRejectsTerminalOfAnotherDesign) {
   EXPECT_THROW(NLClock::createPrimary(top_, NLName("sys"), 10.0, "ns", {otherClk_}), NLException);
+}
+
+TEST_F(NLClockTest, testRejectsNonTerminalSource) {
+  try {
+    NLClock::createPrimary(top_, NLName("sys"), 10.0, "ns", {top_});
+    FAIL() << "Expected a non-terminal source to be rejected";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string::npos, std::string(error.what()).find("is not a top-level terminal"));
+    EXPECT_NE(std::string::npos, std::string(error.what()).find(top_->getDescription()));
+  }
+  EXPECT_TRUE(top_->getClocks().empty());
+}
+
+TEST_F(NLClockTest, testPrimaryClockDescriptionAndDebugDump) {
+  const auto* clock = NLClock::createPrimary(top_, NLName("sys"), 12.0, "ns", {clk_, clk2_});
+  EXPECT_STREQ("NLClock", clock->getTypeName());
+  EXPECT_EQ("sys", clock->getString());
+  EXPECT_EQ("NLClock sys (period 12.000000 ns)", clock->getDescription());
+  std::ostringstream stream;
+  clock->debugDump(3, false, stream);
+  EXPECT_EQ("   NLClock sys (period 12.000000 ns)\n"
+            "     kind: primary\n"
+            "     waveform: 0 6\n"
+            "     source: " + clk_->getDescription() + "\n"
+            "     source: " + clk2_->getDescription() + "\n", stream.str());
+}
+
+TEST_F(NLClockTest, testGeneratedClockDebugDump) {
+  auto* master = NLClock::createPrimary(top_, NLName("sys"), 12.0, "ps", {clk_});
+  for (bool invert : {false, true}) {
+    const std::string name = invert ? "inverted" : "plain";
+    auto* clock = NLClock::createGenerated(top_, NLName(name), master, clk_, 3, 2, invert, {clk2_});
+    clock->setWaveform(1.0, 8.0);
+    EXPECT_STREQ("NLClock", clock->getTypeName());
+    EXPECT_EQ(name, clock->getString());
+    EXPECT_EQ("NLClock " + name + " (period 18.000000 ps)", clock->getDescription());
+    std::ostringstream stream;
+    clock->debugDump(0, true, stream);
+    EXPECT_EQ("NLClock " + name + " (period 18.000000 ps)\n"
+              "  kind: generated\n"
+              "  waveform: 1 8\n"
+              "  source: " + clk2_->getDescription() + "\n"
+              "  master: sys divide 3 multiply 2" + (invert ? " inverted\n" : "\n"), stream.str());
+  }
 }
 
 TEST_F(NLClockTest, testRejectsDuplicateNameInDesign) {

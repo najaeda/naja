@@ -60,6 +60,103 @@ TEST_F(TGraphTests, testNodesAndEdges) {
   EXPECT_EQ(n1, edge->getTarget());
 }
 
+TEST_F(TGraphTests, testInvalidAndRemovedHandles) {
+  TGraph graph;
+  const TGraph& view = graph;
+  auto source = graph.createNode(nullptr);
+  auto target = graph.createNode(nullptr);
+  auto edge = graph.createEdge(source, target, nullptr);
+  EXPECT_EQ(graph.getNode(source), view.getNode(source));
+  EXPECT_EQ(graph.getEdge(edge), view.getEdge(edge));
+  for (auto node : {TGraph::kInvalidNode, graph.getNodesStorage().size()}) {
+    EXPECT_EQ(nullptr, graph.getNode(node));
+    EXPECT_EQ(nullptr, view.getNode(node));
+    EXPECT_FALSE(graph.removeNode(node));
+    EXPECT_EQ(TGraph::kInvalidEdge, graph.createEdge(node, target, nullptr));
+    EXPECT_EQ(TGraph::kInvalidEdge, graph.createEdge(source, node, nullptr));
+  }
+  for (auto invalid : {TGraph::kInvalidEdge, graph.getEdgesStorage().size()}) {
+    EXPECT_EQ(nullptr, graph.getEdge(invalid));
+    EXPECT_EQ(nullptr, view.getEdge(invalid));
+    EXPECT_FALSE(graph.removeEdge(invalid));
+  }
+  EXPECT_EQ(2u, graph.getNodesCount());
+  EXPECT_EQ(1u, graph.getEdgesCount());
+  ASSERT_TRUE(graph.removeEdge(edge));
+  EXPECT_FALSE(graph.removeEdge(edge));
+  EXPECT_EQ(nullptr, graph.getEdge(edge));
+  EXPECT_EQ(nullptr, view.getEdge(edge));
+  ASSERT_TRUE(graph.removeNode(source));
+  EXPECT_FALSE(graph.removeNode(source));
+  EXPECT_EQ(nullptr, graph.getNode(source));
+  EXPECT_EQ(nullptr, view.getNode(source));
+  EXPECT_EQ(TGraph::kInvalidEdge, graph.createEdge(source, target, nullptr));
+  EXPECT_EQ(TGraph::kInvalidEdge, graph.createEdge(target, source, nullptr));
+  EXPECT_EQ(1u, graph.getNodesCount());
+  EXPECT_EQ(0u, graph.getEdgesCount());
+  EXPECT_TRUE(graph.getNode(target)->getInEdges().empty());
+  EXPECT_TRUE(graph.getNode(target)->getOutEdges().empty());
+}
+
+TEST_F(TGraphTests, testEdgeSlotReuseResetsStateAndEndpoints) {
+  TGraph graph;
+  auto a = graph.createNode(nullptr);
+  auto b = graph.createNode(nullptr);
+  auto c = graph.createNode(nullptr);
+  auto clock = graph.createClock("first", nullptr, a);
+  auto edge = graph.createEdge(a, b, nullptr);
+  graph.getEdge(edge)->addFromClock(clock);
+  graph.getEdge(edge)->addToClock(clock);
+  graph.getEdge(edge)->setDisabled(true);
+  ASSERT_TRUE(graph.removeEdge(edge));
+  EXPECT_TRUE(graph.getNode(a)->getOutEdges().empty());
+  EXPECT_TRUE(graph.getNode(b)->getInEdges().empty());
+  graph.createClock("second", nullptr, c);
+  auto reused = graph.createEdge(c, a, nullptr);
+  ASSERT_EQ(edge, reused);
+  EXPECT_EQ(1u, graph.getEdgesStorage().size());
+  EXPECT_EQ(1u, graph.getEdgesCount());
+  const TGraph& view = graph;
+  const auto* restored = view.getEdge(reused);
+  ASSERT_NE(nullptr, restored);
+  EXPECT_TRUE(restored->isAlive());
+  EXPECT_EQ(reused, restored->getIndex());
+  EXPECT_EQ(c, restored->getSource());
+  EXPECT_EQ(a, restored->getTarget());
+  EXPECT_FALSE(restored->isDisabled());
+  EXPECT_EQ(2u, restored->getFromClocks().size());
+  EXPECT_EQ(2u, restored->getToClocks().size());
+  EXPECT_TRUE(restored->getFromClocks().none());
+  EXPECT_TRUE(restored->getToClocks().none());
+  EXPECT_EQ((std::vector<TGraph::EdgeId>{reused}), view.getNode(c)->getOutEdges());
+  EXPECT_EQ((std::vector<TGraph::EdgeId>{reused}), view.getNode(a)->getInEdges());
+  EXPECT_TRUE(view.getNode(b)->getInEdges().empty());
+}
+
+TEST_F(TGraphTests, testRemoveNodeDisconnectsAllSignalEdges) {
+  TGraph graph;
+  auto source = graph.createNode(nullptr);
+  auto middle = graph.createNode(nullptr);
+  auto target = graph.createNode(nullptr);
+  auto incoming = graph.createEdge(source, middle, nullptr);
+  auto outgoing = graph.createEdge(middle, target, nullptr);
+  auto selfLoop = graph.createEdge(middle, middle, nullptr);
+  auto surviving = graph.createEdge(source, target, nullptr);
+  ASSERT_TRUE(graph.removeNode(middle));
+  EXPECT_EQ(2u, graph.getNodesCount());
+  EXPECT_EQ(1u, graph.getEdgesCount());
+  for (auto edge : {incoming, outgoing, selfLoop}) {
+    EXPECT_FALSE(graph.isEdgeValid(edge));
+    EXPECT_EQ(nullptr, graph.getEdge(edge));
+  }
+  EXPECT_TRUE(graph.isEdgeValid(surviving));
+  EXPECT_EQ((std::vector<TGraph::EdgeId>{surviving}), graph.getNode(source)->getOutEdges());
+  EXPECT_EQ((std::vector<TGraph::EdgeId>{surviving}), graph.getNode(target)->getInEdges());
+  ASSERT_EQ(middle, graph.createNode(nullptr));
+  EXPECT_TRUE(graph.getNode(middle)->getInEdges().empty());
+  EXPECT_TRUE(graph.getNode(middle)->getOutEdges().empty());
+}
+
 TEST_F(TGraphTests, testNodeClassification) {
   using CellKind = TNode::CellKind;
   using PinRole = TNode::PinRole;
