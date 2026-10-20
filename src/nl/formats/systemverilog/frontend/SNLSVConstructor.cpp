@@ -24422,11 +24422,14 @@ endmodule
                 auto statementSourceRange = getSourceRange(*current);
                 auto actionSourceRange =
                   action.rhs ? getSourceRange(*action.rhs) : statementSourceRange;
-                auto* assignedLHSNet = resolveAssignmentBaseNet(design, *assignedLHS);
+                // A selected LHS shares its base net with the whole register,
+                // but its bits need not match the RHS feedback operand. Lower
+                // the RHS normally instead of using the whole-net self-update
+                // shortcut, which requires a precomputed incrementer.
                 auto assignedBits = buildAssignBits(
                   design,
                   action,
-                  assignedLHSNet,
+                  nullptr,
                   assignedLHSBits,
                   nullptr,
                   actionSourceRange);

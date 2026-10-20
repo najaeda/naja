@@ -24,7 +24,9 @@ PACKAGE = f"pulp-benchmarks-v{VERSION}"
 URL = f"https://github.com/pulp-platform/eda-benchmarks/releases/download/v{VERSION}/{PACKAGE}.tar.gz"
 SHA256 = "a27eaca9359cd2c0b646892325355e102ae563bd8f772c77f18697ff8c4ad603"
 # Keep this small enough for pull requests; the complete survey is opt-in.
-SMOKE = ("cv32e40p.default", "cvfpu.fp32_fma", "ibex.minimal", "spi_host.default")
+SMOKE = ("cv32e40p.default", "cvfpu.fp32_fma", "ibex.minimal", "spi_host.default", "nvdla.top")
+# Some release sources mix explicit time scales with modules that omit them.
+DEFAULT_TIMESCALES = {"nvdla.top": "1ns/1ps"}
 
 
 def unpack(archive, destination):
@@ -51,7 +53,7 @@ def validate_diagnostics(diagnostics):
         raise RuntimeError("Incomplete or unsupported lowering; see diagnostics.log")
 
 
-def worker(top_name, artifacts, dump_netlist):
+def worker(top_name, artifacts, dump_netlist, default_timescale=None):
     from najaeda import netlist
 
     start = time.monotonic()
@@ -59,6 +61,7 @@ def worker(top_name, artifacts, dump_netlist):
         top=top_name, flist="filelist.f",
         diagnostics_report_path=str(artifacts / "diagnostics.log"),
         blackbox_unknown_modules=False,
+        default_timescale=default_timescale,
     ))
     loaded = time.monotonic()
     if top.get_name() != top_name or not top.count_terms():
@@ -106,10 +109,14 @@ def run_target(package, name, top, artifacts, najaeda_path, timeout, lint_runner
     (artifacts / "filelist.f").write_text(source_list)
     command = [sys.executable, str(Path(__file__).resolve()), "--worker", top,
                "--output", str(artifacts)]
+    default_timescale = DEFAULT_TIMESCALES.get(name)
+    if default_timescale is not None:
+        command.extend(["--default-timescale", default_timescale])
     if not dump_netlist:
         command.append("--elaboration-only")
     env = dict(os.environ, PYTHONPATH=str(najaeda_path))
     record = dict(target=name, top=top, command=command, cwd=str(source_dir),
+                  default_timescale=default_timescale,
                   source_count=sum(line.strip().endswith((".v", ".sv"))
                                    for line in source_list.splitlines()))
     start = time.monotonic()
@@ -189,10 +196,11 @@ def main():
     parser.add_argument("--elaboration-only", action="store_true",
                         help="Load and validate the design without structural Verilog dumping")
     parser.add_argument("--worker", help=argparse.SUPPRESS)
+    parser.add_argument("--default-timescale", help=argparse.SUPPRESS)
     args = parser.parse_args()
     args.output = args.output.resolve()
     if args.worker:
-        worker(args.worker, args.output, not args.elaboration_only)
+        worker(args.worker, args.output, not args.elaboration_only, args.default_timescale)
         return 0
     if args.timeout <= 0 or (args.all and args.case) or (args.elaboration_only and args.lint_runner):
         parser.error("--timeout must be positive; --all and --case are mutually exclusive")
