@@ -7,6 +7,8 @@ import unittest
 import faulthandler
 import os
 import tempfile
+import warnings
+from pathlib import Path
 
 from najaeda import netlist
 from najaeda import naja
@@ -14,6 +16,61 @@ from najaeda import naja
 class NajaNetlistTestErrors(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
+
+    def test_gate_level_verilog_names_and_compatibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "input.v"
+            source.write_text("module top(input a, output y); assign y = a; endmodule\n")
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("error", FutureWarning)
+                config = netlist.GateLevelVerilogConfig(keep_assigns=False)
+                dump_config = netlist.GateLevelVerilogDumpConfig(
+                    dumpAssignsAsInstances=True)
+                top = netlist.load_gate_level_verilog(str(source), config=config)
+                self.assertEqual(top.get_name(), "top")
+                top.dump_gate_level_verilog(
+                    str(Path(directory) / "new.v"), config=dump_config)
+            self.assertEqual(caught, [])
+            with self.assertWarnsRegex(
+                    FutureWarning, "VerilogConfig will be deprecated soon; use GateLevelVerilogConfig"):
+                old_config = netlist.VerilogConfig(keep_assigns=False)
+            self.assertIsInstance(old_config, netlist.GateLevelVerilogConfig)
+            with self.assertWarnsRegex(
+                    FutureWarning, "VerilogDumpConfig will be deprecated soon; use GateLevelVerilogDumpConfig"):
+                old_dump_config = netlist.VerilogDumpConfig(dumpAssignsAsInstances=True)
+            self.assertIsInstance(old_dump_config, netlist.GateLevelVerilogDumpConfig)
+            # New calls also accept existing config objects without another warning.
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", FutureWarning)
+                top.dump_gate_level_verilog(
+                    str(Path(directory) / "mixed.v"), old_dump_config)
+            netlist.reset()
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", FutureWarning)
+                top = netlist.load_verilog(str(source), config=old_config)
+                top.dump_verilog(str(Path(directory) / "old.v"), dump_config)
+            self.assertEqual(len(caught), 2)
+            self.assertIn("load_gate_level_verilog", str(caught[0].message))
+            self.assertIn("dump_gate_level_verilog", str(caught[1].message))
+            self.assertEqual(top.get_name(), "top")
+            # Compare the actual netlist bodies, ignoring only timestamp banners.
+            def body(name):
+                text = (Path(directory) / name).read_text()
+                return text[text.index("module "):]
+            self.assertEqual(body("new.v"), body("old.v"))
+            self.assertEqual(body("new.v"), body("mixed.v"))
+
+    def test_gate_level_verilog_validation(self):
+        with self.assertRaisesRegex(TypeError, "GateLevelVerilogConfig.keep_assigns"):
+            netlist.GateLevelVerilogConfig(keep_assigns=1)
+        with self.assertRaisesRegex(TypeError, "load_gate_level_verilog config"):
+            netlist.load_gate_level_verilog([], config="invalid")
+        with self.assertRaises(ValueError):
+            netlist.GateLevelVerilogDumpConfig(rtlInfoDumpMode="invalid")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            with self.assertRaisesRegex(FutureWarning, "load_verilog will be deprecated soon"):
+                netlist.load_verilog([])
 
     def test_missing_model(self):
         top = netlist.create_top('Top')

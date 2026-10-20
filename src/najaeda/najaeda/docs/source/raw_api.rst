@@ -65,7 +65,7 @@ process.
 Verilog dumps and primitive models
 ----------------------------------
 
-``SNLDesign.dumpVerilog`` and ``NLDB.dumpVerilog`` emit ``naja_primitives.v``
+``SNLDesign.dumpGateLevelVerilog`` and ``NLDB.dumpGateLevelVerilog`` emit ``naja_primitives.v``
 beside the structural output when Naja primitive models are needed. Include
 that generated file when linting or simulating the dump. Use the models from
 the same dump rather than a separately maintained primitive library.
@@ -93,7 +93,7 @@ getters return null for these models.
 
 The generated division/remainder model implements signed and unsigned
 quotient and remainder operations separately. The high-level
-:meth:`najaeda.netlist.Instance.dump_verilog` uses the same dumper; raw API
+:meth:`najaeda.netlist.Instance.dump_gate_level_verilog` uses the same dumper; raw API
 calls are not required for this behavior.
 
 Deprecated names
@@ -236,13 +236,13 @@ pattern shows the intended ownership flow:
    a.setNet(n)
    y.setNet(n)
 
-For Verilator verification, ``SNLDesign.dumpVerilog(path, top_file_name,
+For Verilator verification, ``SNLDesign.dumpGateLevelVerilog(path, top_file_name,
 verilatorSplitPackedSignals=True)`` annotates internal bus nets and packed
 child-module ports with ``/* verilator split_var */``. Public top-module ports
 are excluded. The keyword defaults to ``False``; comments affect Verilator's
 dependency tracking and do not change the netlist logic or suppress warnings.
 The high-level API exposes the same option through
-``najaeda.netlist.VerilogDumpConfig``. Library-only dumps annotate internal nets
+``najaeda.netlist.GateLevelVerilogDumpConfig``. Library-only dumps annotate internal nets
 but leave module ports unannotated because no single public top is specified.
 
 Object lifetime and safety
@@ -288,6 +288,16 @@ Accordingly, ``SNLInstance.create(owner, model, name)`` raises
 ``RuntimeError`` when ``owner`` is primitive.  Passing a primitive as
 ``model`` remains the normal way to instantiate that primitive in a
 non-primitive design.
+
+SystemVerilog loading can produce canonical ``naja_add__w...``,
+``naja_sub__w...``, ``naja_mul__w...`` and ``naja_shift__...`` models.
+Addition, subtraction and multiplication retain the low ``WIDTH`` result
+bits after frontend operand sizing. Add/subtract models have width-bit ``A``,
+``B`` and ``Y`` ports; their operation is fixed by their canonical family. These word-level models expose conservative
+combinational dependencies through ``SNLDesign.getCombinatorialInputs`` and
+``getCombinatorialOutputs``; they do not expose Boolean truth tables. Inspect
+these models through the raw API when working on primitive-level analysis;
+normal loading and exporting use the high-level API.
 
 Sequential primitives should declare both their timing arcs and the role of
 each bit term:
@@ -550,11 +560,11 @@ semantic source of truth.
    * - :class:`najaeda.naja.NLUniverse`
      - :meth:`create <najaeda.naja.NLUniverse.create>`, :meth:`destroy <najaeda.naja.NLUniverse.destroy>`, :meth:`get <najaeda.naja.NLUniverse.get>`, :meth:`getDB <najaeda.naja.NLUniverse.getDB>`, :meth:`getTopDB <najaeda.naja.NLUniverse.getTopDB>`, :meth:`setTopDB <najaeda.naja.NLUniverse.setTopDB>`, :meth:`getTopDesign <najaeda.naja.NLUniverse.getTopDesign>`, :meth:`setTopDesign <najaeda.naja.NLUniverse.setTopDesign>`, :meth:`getUserDBs <najaeda.naja.NLUniverse.getUserDBs>`, :meth:`getSNLDesign <najaeda.naja.NLUniverse.getSNLDesign>`, :meth:`getObject <najaeda.naja.NLUniverse.getObject>`, :meth:`applyDLE <najaeda.naja.NLUniverse.applyDLE>`, :meth:`applyConstantPropagation <najaeda.naja.NLUniverse.applyConstantPropagation>`, :meth:`getMaxFanout <najaeda.naja.NLUniverse.getMaxFanout>`, :meth:`getMaxLogicLevel <najaeda.naja.NLUniverse.getMaxLogicLevel>`
    * - :class:`najaeda.naja.NLDB`
-     - :meth:`create <najaeda.naja.NLDB.create>`, :meth:`destroy <najaeda.naja.NLDB.destroy>`, :meth:`getID <najaeda.naja.NLDB.getID>`, :meth:`getNLID <najaeda.naja.NLDB.getNLID>`, :meth:`isTopDB <najaeda.naja.NLDB.isTopDB>`, :meth:`getLibraries <najaeda.naja.NLDB.getLibraries>`, :meth:`getLibrary <najaeda.naja.NLDB.getLibrary>`, :meth:`getGlobalLibraries <najaeda.naja.NLDB.getGlobalLibraries>`, :meth:`getPrimitiveLibraries <najaeda.naja.NLDB.getPrimitiveLibraries>`, :meth:`getTopDesign <najaeda.naja.NLDB.getTopDesign>`, :meth:`loadVerilog <najaeda.naja.NLDB.loadVerilog>`, :meth:`loadSystemVerilog <najaeda.naja.NLDB.loadSystemVerilog>`, :meth:`loadVHDL <najaeda.naja.NLDB.loadVHDL>`, :meth:`loadLibertyPrimitives <najaeda.naja.NLDB.loadLibertyPrimitives>`, :meth:`loadNajaIF <najaeda.naja.NLDB.loadNajaIF>`, :meth:`dumpNajaIF <najaeda.naja.NLDB.dumpNajaIF>`, :meth:`dumpVerilog <najaeda.naja.NLDB.dumpVerilog>`, :meth:`getClocks <najaeda.naja.NLDB.getClocks>`
+     - :meth:`create <najaeda.naja.NLDB.create>`, :meth:`destroy <najaeda.naja.NLDB.destroy>`, :meth:`getID <najaeda.naja.NLDB.getID>`, :meth:`getNLID <najaeda.naja.NLDB.getNLID>`, :meth:`isTopDB <najaeda.naja.NLDB.isTopDB>`, :meth:`getLibraries <najaeda.naja.NLDB.getLibraries>`, :meth:`getLibrary <najaeda.naja.NLDB.getLibrary>`, :meth:`getGlobalLibraries <najaeda.naja.NLDB.getGlobalLibraries>`, :meth:`getPrimitiveLibraries <najaeda.naja.NLDB.getPrimitiveLibraries>`, :meth:`getTopDesign <najaeda.naja.NLDB.getTopDesign>`, :meth:`loadGateLevelVerilog <najaeda.naja.NLDB.loadGateLevelVerilog>`, :meth:`loadVerilog (compatibility alias) <najaeda.naja.NLDB.loadVerilog>`, :meth:`loadSystemVerilog <najaeda.naja.NLDB.loadSystemVerilog>`, :meth:`loadVHDL <najaeda.naja.NLDB.loadVHDL>`, :meth:`loadLibertyPrimitives <najaeda.naja.NLDB.loadLibertyPrimitives>`, :meth:`loadNajaIF <najaeda.naja.NLDB.loadNajaIF>`, :meth:`dumpNajaIF <najaeda.naja.NLDB.dumpNajaIF>`, :meth:`dumpGateLevelVerilog <najaeda.naja.NLDB.dumpGateLevelVerilog>`, :meth:`dumpVerilog (compatibility alias) <najaeda.naja.NLDB.dumpVerilog>`, :meth:`getClocks <najaeda.naja.NLDB.getClocks>`
    * - :class:`najaeda.naja.NLLibrary`
      - :meth:`create <najaeda.naja.NLLibrary.create>`, :meth:`createPrimitives <najaeda.naja.NLLibrary.createPrimitives>`, :meth:`getDB <najaeda.naja.NLLibrary.getDB>`, :meth:`getID <najaeda.naja.NLLibrary.getID>`, :meth:`getNLID <najaeda.naja.NLLibrary.getNLID>`, :meth:`getName <najaeda.naja.NLLibrary.getName>`, :meth:`setName <najaeda.naja.NLLibrary.setName>`, :meth:`isStandard <najaeda.naja.NLLibrary.isStandard>`, :meth:`isPrimitives <najaeda.naja.NLLibrary.isPrimitives>`, :meth:`getSNLDesign <najaeda.naja.NLLibrary.getSNLDesign>`, :meth:`getSNLDesigns <najaeda.naja.NLLibrary.getSNLDesigns>`, :meth:`getLibrary <najaeda.naja.NLLibrary.getLibrary>`, :meth:`getLibraries <najaeda.naja.NLLibrary.getLibraries>`
    * - :class:`najaeda.naja.SNLDesign`
-     - :meth:`create <najaeda.naja.SNLDesign.create>`, :meth:`createPrimitive <najaeda.naja.SNLDesign.createPrimitive>`, :meth:`clone <najaeda.naja.SNLDesign.clone>`, :meth:`destroy <najaeda.naja.SNLDesign.destroy>`, :meth:`getName <najaeda.naja.SNLDesign.getName>`, :meth:`setName <najaeda.naja.SNLDesign.setName>`, :meth:`getDB <najaeda.naja.SNLDesign.getDB>`, :meth:`getLibrary <najaeda.naja.SNLDesign.getLibrary>`, :meth:`getID <najaeda.naja.SNLDesign.getID>`, :meth:`getNLID <najaeda.naja.SNLDesign.getNLID>`, :meth:`getRevisionCount <najaeda.naja.SNLDesign.getRevisionCount>`, :meth:`getTerms <najaeda.naja.SNLDesign.getTerms>`, :meth:`getTerm <najaeda.naja.SNLDesign.getTerm>`, :meth:`getTermByID <najaeda.naja.SNLDesign.getTermByID>`, :meth:`getScalarTerms <najaeda.naja.SNLDesign.getScalarTerms>`, :meth:`getBusTerms <najaeda.naja.SNLDesign.getBusTerms>`, :meth:`getBundleTerms <najaeda.naja.SNLDesign.getBundleTerms>`, :meth:`getNets <najaeda.naja.SNLDesign.getNets>`, :meth:`getNet <najaeda.naja.SNLDesign.getNet>`, :meth:`getScalarNets <najaeda.naja.SNLDesign.getScalarNets>`, :meth:`getBusNets <najaeda.naja.SNLDesign.getBusNets>`, :meth:`getInstances <najaeda.naja.SNLDesign.getInstances>`, :meth:`getInstance <najaeda.naja.SNLDesign.getInstance>`, :meth:`getInstanceByID <najaeda.naja.SNLDesign.getInstanceByID>`, :meth:`getInstanceByIDList <najaeda.naja.SNLDesign.getInstanceByIDList>`, :meth:`getParameters <najaeda.naja.SNLDesign.getParameters>`, :meth:`getParameter <najaeda.naja.SNLDesign.getParameter>`, :meth:`addCombinatorialArcs <najaeda.naja.SNLDesign.addCombinatorialArcs>`, :meth:`addInputsToClockArcs <najaeda.naja.SNLDesign.addInputsToClockArcs>`, :meth:`addClockToOutputsArcs <najaeda.naja.SNLDesign.addClockToOutputsArcs>`, :meth:`setTimingModelParameter <najaeda.naja.SNLDesign.setTimingModelParameter>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLDesign.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLDesign.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLDesign.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLDesign.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLDesign.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLDesign.getOutputRelatedClocks>`, :meth:`getClockTerms <najaeda.naja.SNLDesign.getClockTerms>`, :meth:`getAsyncResetTerms <najaeda.naja.SNLDesign.getAsyncResetTerms>`, :meth:`getAsyncSetTerms <najaeda.naja.SNLDesign.getAsyncSetTerms>`, :meth:`getSyncResetTerms <najaeda.naja.SNLDesign.getSyncResetTerms>`, :meth:`getSyncSetTerms <najaeda.naja.SNLDesign.getSyncSetTerms>`, :meth:`getDataInputTerms <najaeda.naja.SNLDesign.getDataInputTerms>`, :meth:`getOutputTerms <najaeda.naja.SNLDesign.getOutputTerms>`, :meth:`setTruthTable <najaeda.naja.SNLDesign.setTruthTable>`, :meth:`setSequentialModel <najaeda.naja.SNLDesign.setSequentialModel>`, :meth:`setSequentialModelFromParameters <najaeda.naja.SNLDesign.setSequentialModelFromParameters>`, :meth:`setRolesFromParameters <najaeda.naja.SNLDesign.setRolesFromParameters>`, :meth:`hasRolesFromParameters <najaeda.naja.SNLDesign.hasRolesFromParameters>`, :meth:`hasSequentialModel <najaeda.naja.SNLDesign.hasSequentialModel>`, :meth:`hasSequentialModelFromParameters <najaeda.naja.SNLDesign.hasSequentialModelFromParameters>`, :meth:`getSequentialModel <najaeda.naja.SNLDesign.getSequentialModel>`, :meth:`hasMemoryInterface <najaeda.naja.SNLDesign.hasMemoryInterface>`, :meth:`getMemoryInterface <najaeda.naja.SNLDesign.getMemoryInterface>`, :meth:`setTruthTableFromParameter <najaeda.naja.SNLDesign.setTruthTableFromParameter>`, :meth:`setTruthTables <najaeda.naja.SNLDesign.setTruthTables>`, :meth:`getTruthTable <najaeda.naja.SNLDesign.getTruthTable>`, :meth:`getTruthTableByOutputID <najaeda.naja.SNLDesign.getTruthTableByOutputID>`, :meth:`isConst0 <najaeda.naja.SNLDesign.isConst0>`, :meth:`isConst1 <najaeda.naja.SNLDesign.isConst1>`, :meth:`isConst <najaeda.naja.SNLDesign.isConst>`, :meth:`isBuf <najaeda.naja.SNLDesign.isBuf>`, :meth:`isInv <najaeda.naja.SNLDesign.isInv>`, :meth:`isAnd <najaeda.naja.SNLDesign.isAnd>`, :meth:`isNand <najaeda.naja.SNLDesign.isNand>`, :meth:`isOr <najaeda.naja.SNLDesign.isOr>`, :meth:`isNor <najaeda.naja.SNLDesign.isNor>`, :meth:`isXor <najaeda.naja.SNLDesign.isXor>`, :meth:`isXnor <najaeda.naja.SNLDesign.isXnor>`, :meth:`isMux <najaeda.naja.SNLDesign.isMux>`, :meth:`dumpVerilog <najaeda.naja.SNLDesign.dumpVerilog>`, :meth:`dumpFullDotFile <najaeda.naja.SNLDesign.dumpFullDotFile>`, :meth:`dumpContextDotFile <najaeda.naja.SNLDesign.dumpContextDotFile>`, :meth:`getClocks <najaeda.naja.SNLDesign.getClocks>`
+     - :meth:`create <najaeda.naja.SNLDesign.create>`, :meth:`createPrimitive <najaeda.naja.SNLDesign.createPrimitive>`, :meth:`clone <najaeda.naja.SNLDesign.clone>`, :meth:`destroy <najaeda.naja.SNLDesign.destroy>`, :meth:`getName <najaeda.naja.SNLDesign.getName>`, :meth:`setName <najaeda.naja.SNLDesign.setName>`, :meth:`getDB <najaeda.naja.SNLDesign.getDB>`, :meth:`getLibrary <najaeda.naja.SNLDesign.getLibrary>`, :meth:`getID <najaeda.naja.SNLDesign.getID>`, :meth:`getNLID <najaeda.naja.SNLDesign.getNLID>`, :meth:`getRevisionCount <najaeda.naja.SNLDesign.getRevisionCount>`, :meth:`getTerms <najaeda.naja.SNLDesign.getTerms>`, :meth:`getTerm <najaeda.naja.SNLDesign.getTerm>`, :meth:`getTermByID <najaeda.naja.SNLDesign.getTermByID>`, :meth:`getScalarTerms <najaeda.naja.SNLDesign.getScalarTerms>`, :meth:`getBusTerms <najaeda.naja.SNLDesign.getBusTerms>`, :meth:`getBundleTerms <najaeda.naja.SNLDesign.getBundleTerms>`, :meth:`getNets <najaeda.naja.SNLDesign.getNets>`, :meth:`getNet <najaeda.naja.SNLDesign.getNet>`, :meth:`getScalarNets <najaeda.naja.SNLDesign.getScalarNets>`, :meth:`getBusNets <najaeda.naja.SNLDesign.getBusNets>`, :meth:`getInstances <najaeda.naja.SNLDesign.getInstances>`, :meth:`getInstance <najaeda.naja.SNLDesign.getInstance>`, :meth:`getInstanceByID <najaeda.naja.SNLDesign.getInstanceByID>`, :meth:`getInstanceByIDList <najaeda.naja.SNLDesign.getInstanceByIDList>`, :meth:`getParameters <najaeda.naja.SNLDesign.getParameters>`, :meth:`getParameter <najaeda.naja.SNLDesign.getParameter>`, :meth:`addCombinatorialArcs <najaeda.naja.SNLDesign.addCombinatorialArcs>`, :meth:`addInputsToClockArcs <najaeda.naja.SNLDesign.addInputsToClockArcs>`, :meth:`addClockToOutputsArcs <najaeda.naja.SNLDesign.addClockToOutputsArcs>`, :meth:`setTimingModelParameter <najaeda.naja.SNLDesign.setTimingModelParameter>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLDesign.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLDesign.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLDesign.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLDesign.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLDesign.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLDesign.getOutputRelatedClocks>`, :meth:`getClockTerms <najaeda.naja.SNLDesign.getClockTerms>`, :meth:`getAsyncResetTerms <najaeda.naja.SNLDesign.getAsyncResetTerms>`, :meth:`getAsyncSetTerms <najaeda.naja.SNLDesign.getAsyncSetTerms>`, :meth:`getSyncResetTerms <najaeda.naja.SNLDesign.getSyncResetTerms>`, :meth:`getSyncSetTerms <najaeda.naja.SNLDesign.getSyncSetTerms>`, :meth:`getDataInputTerms <najaeda.naja.SNLDesign.getDataInputTerms>`, :meth:`getOutputTerms <najaeda.naja.SNLDesign.getOutputTerms>`, :meth:`setTruthTable <najaeda.naja.SNLDesign.setTruthTable>`, :meth:`setSequentialModel <najaeda.naja.SNLDesign.setSequentialModel>`, :meth:`setSequentialModelFromParameters <najaeda.naja.SNLDesign.setSequentialModelFromParameters>`, :meth:`setRolesFromParameters <najaeda.naja.SNLDesign.setRolesFromParameters>`, :meth:`hasRolesFromParameters <najaeda.naja.SNLDesign.hasRolesFromParameters>`, :meth:`hasSequentialModel <najaeda.naja.SNLDesign.hasSequentialModel>`, :meth:`hasSequentialModelFromParameters <najaeda.naja.SNLDesign.hasSequentialModelFromParameters>`, :meth:`getSequentialModel <najaeda.naja.SNLDesign.getSequentialModel>`, :meth:`hasMemoryInterface <najaeda.naja.SNLDesign.hasMemoryInterface>`, :meth:`getMemoryInterface <najaeda.naja.SNLDesign.getMemoryInterface>`, :meth:`setTruthTableFromParameter <najaeda.naja.SNLDesign.setTruthTableFromParameter>`, :meth:`setTruthTables <najaeda.naja.SNLDesign.setTruthTables>`, :meth:`getTruthTable <najaeda.naja.SNLDesign.getTruthTable>`, :meth:`getTruthTableByOutputID <najaeda.naja.SNLDesign.getTruthTableByOutputID>`, :meth:`isConst0 <najaeda.naja.SNLDesign.isConst0>`, :meth:`isConst1 <najaeda.naja.SNLDesign.isConst1>`, :meth:`isConst <najaeda.naja.SNLDesign.isConst>`, :meth:`isBuf <najaeda.naja.SNLDesign.isBuf>`, :meth:`isInv <najaeda.naja.SNLDesign.isInv>`, :meth:`isAnd <najaeda.naja.SNLDesign.isAnd>`, :meth:`isNand <najaeda.naja.SNLDesign.isNand>`, :meth:`isOr <najaeda.naja.SNLDesign.isOr>`, :meth:`isNor <najaeda.naja.SNLDesign.isNor>`, :meth:`isXor <najaeda.naja.SNLDesign.isXor>`, :meth:`isXnor <najaeda.naja.SNLDesign.isXnor>`, :meth:`isMux <najaeda.naja.SNLDesign.isMux>`, :meth:`dumpGateLevelVerilog <najaeda.naja.SNLDesign.dumpGateLevelVerilog>`, :meth:`dumpVerilog (compatibility alias) <najaeda.naja.SNLDesign.dumpVerilog>`, :meth:`dumpFullDotFile <najaeda.naja.SNLDesign.dumpFullDotFile>`, :meth:`dumpContextDotFile <najaeda.naja.SNLDesign.dumpContextDotFile>`, :meth:`getClocks <najaeda.naja.SNLDesign.getClocks>`
    * - :class:`najaeda.naja.SNLInstance`
      - :meth:`create <najaeda.naja.SNLInstance.create>`, :meth:`destroy <najaeda.naja.SNLInstance.destroy>`, :meth:`getName <najaeda.naja.SNLInstance.getName>`, :meth:`setName <najaeda.naja.SNLInstance.setName>`, :meth:`getID <najaeda.naja.SNLInstance.getID>`, :meth:`getNLID <najaeda.naja.SNLInstance.getNLID>`, :meth:`getDesign <najaeda.naja.SNLInstance.getDesign>`, :meth:`getModel <najaeda.naja.SNLInstance.getModel>`, :meth:`getSequentialModel <najaeda.naja.SNLInstance.getSequentialModel>`, :meth:`getMemoryInterface <najaeda.naja.SNLInstance.getMemoryInterface>`, :meth:`getInstTerm <najaeda.naja.SNLInstance.getInstTerm>`, :meth:`getInstTerms <najaeda.naja.SNLInstance.getInstTerms>`, :meth:`getInstParameter <najaeda.naja.SNLInstance.getInstParameter>`, :meth:`getInstParameters <najaeda.naja.SNLInstance.getInstParameters>`, :meth:`getCombinatorialInputs <najaeda.naja.SNLInstance.getCombinatorialInputs>`, :meth:`getCombinatorialOutputs <najaeda.naja.SNLInstance.getCombinatorialOutputs>`, :meth:`getClockRelatedInputs <najaeda.naja.SNLInstance.getClockRelatedInputs>`, :meth:`getClockRelatedOutputs <najaeda.naja.SNLInstance.getClockRelatedOutputs>`, :meth:`getInputRelatedClocks <najaeda.naja.SNLInstance.getInputRelatedClocks>`, :meth:`getOutputRelatedClocks <najaeda.naja.SNLInstance.getOutputRelatedClocks>`
    * - :class:`najaeda.naja.SNLTerm` and term subclasses
@@ -616,6 +626,19 @@ Core database objects
    :members:
    :undoc-members:
    :inherited-members:
+
+The former ``NLDB.loadVerilog``, ``NLDB.dumpVerilog`` and
+``SNLDesign.dumpVerilog`` names remain compatibility aliases. Each emits
+``FutureWarning`` stating that it will be deprecated soon and naming its
+``*GateLevelVerilog`` replacement. See the migration table in :doc:`loading`.
+
+``NLDB.loadGateLevelVerilog`` loads **gate-level (structural) Verilog netlists**; it does
+not provide general behavioral Verilog RTL support. For Verilog or SystemVerilog
+RTL, including ``.v`` files, use ``NLDB.loadSystemVerilog`` within its supported
+RTL subset. The normal high-level equivalents are ``netlist.load_gate_level_verilog`` and
+``netlist.load_system_verilog``; see :doc:`loading`. ``NLDB.dumpGateLevelVerilog`` and
+``SNLDesign.dumpGateLevelVerilog`` export structural netlists rather than reconstructing
+the original behavioral RTL.
 
 ``NLDB.loadSystemVerilog`` writes incremental frontend diagnostics to
 ``naja_sv_diagnostics.log`` by default. Pass ``diagnostics_report_path=None``
@@ -1180,6 +1203,10 @@ it does not load the Cap'n Proto payload or create an ``NLUniverse``.  It
 returns the schema version and the Naja producer version / Git hash.  At
 present, loading a snapshot requires an exact match of both producer
 values with the reader build; regenerate snapshots after changing builds.
+The manifest also records ``D <db0-library-id-version>``. Loading requires
+this canonical primitive library ID layout to match the reader; snapshots
+without this record use the legacy layout and must be regenerated. This
+layout version is independent of the wire schema version owned by ``naja-if``.
 
 .. autofunction:: najaeda.naja.snapshotManifest
 .. autofunction:: najaeda.naja.setLogLevel
@@ -1324,11 +1351,11 @@ keeps its snake_case convention and is not deprecated.
 Structural Verilog provenance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``NLDB.loadVerilog(files, keep_assigns=True, blackbox_unknown_modules=False,
+``NLDB.loadGateLevelVerilog(files, keep_assigns=True, blackbox_unknown_modules=False,
 preprocess_enabled=False, conflicting_design_name_policy=None,
 yosys_source_attributes=False)`` appends an explicit Yosys provenance option.
 Existing positional arguments keep their meanings. Use the high-level
-``VerilogConfig(yosys_source_attributes=True)`` for normal loading workflows.
+``GateLevelVerilogConfig(yosys_source_attributes=True)`` for normal loading workflows.
 Experts can use the raw option with ``getSourceDeclaration()`` and
 ``getSourceOrigins()`` directly; no extra high-level source wrapper is needed.
 

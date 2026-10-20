@@ -40,7 +40,7 @@ enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SYSTEMVERILOG, SNL, DOT,
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
-  } else if (inputFormat == "verilog") {
+  } else if (inputFormat == "gate-level-verilog" || inputFormat == "verilog") {
     return FormatType::VERILOG;
   } else if (inputFormat == "systemverilog" || inputFormat == "sv") {
     return FormatType::SYSTEMVERILOG;
@@ -169,9 +169,12 @@ int main(int argc, char* argv[]) {
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
   program.add_argument("-f", "--from_format")
-    .help("from/input format (verilog|systemverilog|sv|snl)");
+    .help("from/input format: gate-level-verilog, "
+          "systemverilog|sv (Verilog/SystemVerilog RTL subset), snl; "
+          "verilog is a compatibility alias and will be deprecated soon");
   program.add_argument("-t", "--to_format")
-    .help("to/output format (verilog|snl|dot)");
+    .help("to/output format: gate-level-verilog, snl, dot; "
+          "verilog is a compatibility alias and will be deprecated soon");
   program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
   program.add_argument("-p", "--primitives")
@@ -261,13 +264,18 @@ int main(int argc, char* argv[]) {
   if (auto inputFormatArg = program.present("-f")) {
     inputFormat = *inputFormatArg;
   }
+  if (inputFormat == "verilog") {
+    NAJA_LOG_WARN(
+      "--from_format (-f) 'verilog' will be deprecated soon; "
+      "use 'gate-level-verilog' instead");
+  }
   FormatType inputFormatType = argToFormatType(inputFormat);
   if (inputFormatType == FormatType::UNKNOWN ||
       inputFormatType == FormatType::DOT ||
       inputFormatType == FormatType::SVG) {
     NAJA_LOG_CRITICAL(
       "Invalid value '{}' for --from_format (-f). "
-      "Expected one of: verilog, systemverilog (or sv), snl",
+      "Expected one of: gate-level-verilog (or verilog), systemverilog (or sv), snl",
       inputFormat);
     argError = true;
   }
@@ -283,6 +291,11 @@ int main(int argc, char* argv[]) {
   std::string outputFormat;
   if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
+    if (outputFormat == "verilog") {
+      NAJA_LOG_WARN(
+        "--to_format (-t) 'verilog' will be deprecated soon; "
+        "use 'gate-level-verilog' instead");
+    }
   } else {
     if (program.is_used("-o")) {
       // in case output format is not provided and output path is provided
@@ -295,7 +308,7 @@ int main(int argc, char* argv[]) {
       } else if (inputFormatType == FormatType::SYSTEMVERILOG) {
         NAJA_LOG_CRITICAL(
           "--to_format (-t) is required for SystemVerilog input. "
-          "Expected one of: verilog, snl, dot");
+          "Expected one of: gate-level-verilog (or verilog), snl, dot");
         argError = true;
       } else {
         outputFormat = inputFormat;
@@ -309,7 +322,7 @@ int main(int argc, char* argv[]) {
       outputFormatType == FormatType::SVG) {
     NAJA_LOG_CRITICAL(
       "Invalid value '{}' for --to_format (-t). "
-      "Expected one of: verilog, snl, dot",
+      "Expected one of: gate-level-verilog (or verilog), snl, dot",
       outputFormat);
     argError = true;
   }

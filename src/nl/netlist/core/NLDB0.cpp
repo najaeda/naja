@@ -26,39 +26,48 @@
   #include <intrin.h>
 #endif
 namespace {
-  constexpr naja::NL::NLID::LibraryID RootLibraryID = 0;
-  constexpr naja::NL::NLID::LibraryID AssignLibraryID = 1;
-  constexpr naja::NL::NLID::LibraryID Mux2LibraryID = 2;
-  //All DFF primitive families share one contiguous canonical ID range [3, 10].
-  constexpr naja::NL::NLID::LibraryID DFFLibraryID = 3;
-  constexpr naja::NL::NLID::LibraryID DFFNLibraryID = 4;
-  constexpr naja::NL::NLID::LibraryID DFFRNLibraryID = 5;
-  constexpr naja::NL::NLID::LibraryID DFFRLibraryID = 6;
-  constexpr naja::NL::NLID::LibraryID DFFSLibraryID = 7;
-  constexpr naja::NL::NLID::LibraryID DFFELibraryID = 8;
-  constexpr naja::NL::NLID::LibraryID DFFRELibraryID = 9;
-  constexpr naja::NL::NLID::LibraryID DFFSELibraryID = 10;
-  constexpr naja::NL::NLID::LibraryID DLatchLibraryID = 11;
-  constexpr naja::NL::NLID::LibraryID DivModLibraryID = 12;
-  constexpr naja::NL::NLID::LibraryID DivModUnsignedLibraryID = 13;
-  constexpr naja::NL::NLID::LibraryID DivModSignedLibraryID = 14;
-  constexpr naja::NL::NLID::LibraryID TableSelectLibraryID = 15;
-  constexpr naja::NL::NLID::LibraryID MemoryLibraryID = 16;
-  constexpr naja::NL::NLID::LibraryID DFFSRLibraryID = 17;
-  constexpr naja::NL::NLID::LibraryID DFFSRNLibraryID = 18;
-  constexpr naja::NL::NLID::LibraryID DFFSSLibraryID = 19;
-  constexpr naja::NL::NLID::LibraryID DFFSSNLibraryID = 20;
-  constexpr naja::NL::NLID::LibraryID DFFSRELibraryID = 21;
-  constexpr naja::NL::NLID::LibraryID DFFSRNELibraryID = 22;
-  constexpr naja::NL::NLID::LibraryID DFFSSELibraryID = 23;
-  constexpr naja::NL::NLID::LibraryID DFFSSNELibraryID = 24;
-  //Gate libraries get one reserved canonical ID per GateType so that a model
-  //reference into DB0 is self-describing: libraryID = GateLibraryIDBase + GateType,
-  //designID = gate fan-in (N-input) or fan-out (N-output).
-  constexpr naja::NL::NLID::LibraryID GateLibraryIDBase = 25;
+  // Canonical snapshot identities. Advance NLDB0::LibraryIDVersion when
+  // changing an existing family ID. Keep the variable gate range last.
+  enum : naja::NL::NLID::LibraryID {
+    // Root and connectivity.
+    RootLibraryID = 0,
+    AssignLibraryID,
+    Mux2LibraryID,
+    TableSelectLibraryID,
 
-  // Gate families occupy [25, 32]; shifts use the next reserved family ID.
-  constexpr naja::NL::NLID::LibraryID ShiftLibraryID = 33;
+    // Word-level arithmetic.
+    AddLibraryID,
+    SubtractLibraryID,
+    MultiplyLibraryID,
+    DivModLibraryID,
+    DivModUnsignedLibraryID,
+    DivModSignedLibraryID,
+    ShiftLibraryID,
+
+    // Storage and sequential primitives.
+    MemoryLibraryID,
+    DLatchLibraryID,
+    DFFLibraryID,
+    DFFNLibraryID,
+    DFFRNLibraryID,
+    DFFRLibraryID,
+    DFFSLibraryID,
+    DFFELibraryID,
+    DFFRELibraryID,
+    DFFSELibraryID,
+    DFFSRLibraryID,
+    DFFSRNLibraryID,
+    DFFSSLibraryID,
+    DFFSSNLibraryID,
+    DFFSRELibraryID,
+    DFFSRNELibraryID,
+    DFFSSELibraryID,
+    DFFSSNELibraryID,
+
+    // One ID per GateType; designID carries fan-in or fan-out.
+    // Add fixed families above this final enumerator.
+    GateLibraryIDBase
+  };
 
   constexpr naja::NL::NLID::DesignID ScalarPrimitiveDesignID = 1;
   constexpr naja::NL::NLID::DesignID FADesignID = 1;
@@ -1359,10 +1368,18 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, AssignLibraryID, NLLibrary::Type::Primitives, NLName(AssignName));
   auto mux2Library =
     NLLibrary::create(rootLibrary, Mux2LibraryID, NLLibrary::Type::Primitives, NLName(Mux2Name));
-  auto dffLibrary =
-    NLLibrary::create(rootLibrary, DFFLibraryID, NLLibrary::Type::Primitives, NLName(DFFName));
+  NLLibrary::create(
+    rootLibrary, TableSelectLibraryID, NLLibrary::Type::Primitives, NLName(TableSelectName));
+  auto divModLibrary =
+    NLLibrary::create(rootLibrary, DivModLibraryID, NLLibrary::Type::Primitives, NLName(DivModLibraryName));
+  NLLibrary::create(
+    divModLibrary, DivModUnsignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModUnsignedLibraryName));
+  NLLibrary::create(
+    divModLibrary, DivModSignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModSignedLibraryName));
   auto dlatchLibrary =
     NLLibrary::create(rootLibrary, DLatchLibraryID, NLLibrary::Type::Primitives, NLName(DLatchName));
+  auto dffLibrary =
+    NLLibrary::create(rootLibrary, DFFLibraryID, NLLibrary::Type::Primitives, NLName(DFFName));
   auto dffnLibrary =
     NLLibrary::create(rootLibrary, DFFNLibraryID, NLLibrary::Type::Primitives, NLName(DFFNName));
   auto dffrnLibrary =
@@ -1393,14 +1410,6 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(rootLibrary, DFFSSELibraryID, NLLibrary::Type::Primitives, NLName(DFFSSEName));
   auto dffssneLibrary =
     NLLibrary::create(rootLibrary, DFFSSNELibraryID, NLLibrary::Type::Primitives, NLName(DFFSSNEName));
-  auto divModLibrary =
-    NLLibrary::create(rootLibrary, DivModLibraryID, NLLibrary::Type::Primitives, NLName(DivModLibraryName));
-  NLLibrary::create(
-    rootLibrary, TableSelectLibraryID, NLLibrary::Type::Primitives, NLName(TableSelectName));
-  NLLibrary::create(
-    divModLibrary, DivModUnsignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModUnsignedLibraryName));
-  NLLibrary::create(
-    divModLibrary, DivModSignedLibraryID, NLLibrary::Type::Primitives, NLName(DivModSignedLibraryName));
 
   createAssignPrimitive(assignLibrary);
   createFAPrimitive(rootLibrary);
@@ -1569,6 +1578,143 @@ SNLBusTerm* NLDB0::getMemoryWriteEnable(const SNLDesign* design) {
     throw NLException("NLDB0::getMemoryWriteEnable: design is not a memory primitive");
   }
   return design->getBusTerm(NLName("WE"));
+}
+
+bool NLDB0::isMultiply(const SNLDesign* design) {
+  return design && design->isPrimitive() &&
+      design->getLibrary() == getPrimitiveLibrary(MultiplyLibraryID);
+}
+
+size_t NLDB0::getMultiplyWidth(const SNLDesign* design) {
+  if (!isMultiply(design)) {
+    throw NLException("NLDB0::getMultiplyWidth: design is not a multiply primitive");
+  }
+  return getMemoryDecimalParameter(design, "WIDTH");
+}
+
+size_t NLDB0::getMultiplyWidth(const SNLInstance* instance) {
+  if (!instance || !isMultiply(instance->getModel())) {
+    throw NLException("NLDB0::getMultiplyWidth: instance is not a multiply primitive");
+  }
+  const auto width = getMultiplyWidth(instance->getModel());
+  if (auto* parameter = instance->getInstParameter(NLName("WIDTH"));
+      parameter && parameter->getValue() != std::to_string(width)) {
+    throw NLException("NLDB0::getMultiplyWidth: instance width differs from its model");
+  }
+  return width;
+}
+
+SNLBusTerm* NLDB0::getMultiplyInputA(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term0ID);
+}
+
+SNLBusTerm* NLDB0::getMultiplyInputB(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term1ID);
+}
+
+SNLBusTerm* NLDB0::getMultiplyOutput(const SNLDesign* design) {
+  getMultiplyWidth(design);
+  return design->getBusTerm(Term2ID);
+}
+
+SNLDesign* NLDB0::getOrCreateMultiply(size_t width) {
+  if (!width || width - 1 > static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) ||
+      width > static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max())) {
+    throw NLException("NLDB0::getOrCreateMultiply: invalid multiply width");
+  }
+  auto* library = getOrCreatePrimitiveLibrary(MultiplyLibraryID, "naja_mul");
+  if (!library) return nullptr;
+  const auto id = static_cast<NLID::DesignID>(width);
+  if (auto* existing = library->getSNLDesign(id)) return existing;
+  auto* model = SNLDesign::create(library, id, SNLDesign::Type::Primitive,
+      NLName("naja_mul__w" + std::to_string(width)));
+  SNLParameter::create(model, NLName("WIDTH"), SNLParameter::Type::Decimal,
+      std::to_string(width));
+  auto* a = SNLBusTerm::create(model, Term0ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("A"));
+  auto* b = SNLBusTerm::create(model, Term1ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("B"));
+  auto* y = SNLBusTerm::create(model, Term2ID, SNLTerm::Direction::Output,
+      width - 1, 0, NLName("Y"));
+  auto inputs = collectBitTerms(*a);
+  const auto bBits = collectBitTerms(*b);
+  inputs.insert(inputs.end(), bBits.begin(), bBits.end());
+  SNLDesignModeling::addCombinatorialArcs(inputs, collectBitTerms(*y));
+  return model;
+}
+
+bool NLDB0::isAddSub(const SNLDesign* design) {
+  return design && design->isPrimitive() &&
+      (design->getLibrary() == getPrimitiveLibrary(AddLibraryID) ||
+       design->getLibrary() == getPrimitiveLibrary(SubtractLibraryID));
+}
+
+bool NLDB0::isSubtract(const SNLDesign* design) {
+  return isAddSub(design) && design->getLibrary()->getID() == SubtractLibraryID;
+}
+
+size_t NLDB0::getAddSubWidth(const SNLDesign* design) {
+  if (!isAddSub(design)) {
+    throw NLException("NLDB0::getAddSubWidth: design is not an add/subtract primitive");
+  }
+  return getMemoryDecimalParameter(design, "WIDTH");
+}
+
+size_t NLDB0::getAddSubWidth(const SNLInstance* instance) {
+  if (!instance || !isAddSub(instance->getModel())) {
+    throw NLException("NLDB0::getAddSubWidth: instance is not an add/subtract primitive");
+  }
+  const auto width = getAddSubWidth(instance->getModel());
+  if (auto* parameter = instance->getInstParameter(NLName("WIDTH"));
+      parameter && parameter->getValue() != std::to_string(width)) {
+    throw NLException("NLDB0::getAddSubWidth: instance width differs from its model");
+  }
+  return width;
+}
+
+SNLBusTerm* NLDB0::getAddSubInputA(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term0ID);
+}
+
+SNLBusTerm* NLDB0::getAddSubInputB(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term1ID);
+}
+
+SNLBusTerm* NLDB0::getAddSubOutput(const SNLDesign* design) {
+  getAddSubWidth(design);
+  return design->getBusTerm(Term2ID);
+}
+
+SNLDesign* NLDB0::getOrCreateAddSub(size_t width, bool subtract) {
+  if (!width || width - 1 > static_cast<size_t>(std::numeric_limits<NLID::Bit>::max()) ||
+      width > static_cast<size_t>(std::numeric_limits<NLID::DesignID>::max())) {
+    throw NLException("NLDB0::getOrCreateAddSub: invalid add/subtract width");
+  }
+  const auto name = subtract ? "naja_sub" : "naja_add";
+  auto* library = getOrCreatePrimitiveLibrary(
+      subtract ? SubtractLibraryID : AddLibraryID, name);
+  if (!library) return nullptr;
+  const auto id = static_cast<NLID::DesignID>(width);
+  if (auto* existing = library->getSNLDesign(id)) return existing;
+  auto* model = SNLDesign::create(library, id, SNLDesign::Type::Primitive,
+      NLName(std::string(name) + "__w" + std::to_string(width)));
+  SNLParameter::create(model, NLName("WIDTH"), SNLParameter::Type::Decimal,
+      std::to_string(width));
+  auto* a = SNLBusTerm::create(model, Term0ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("A"));
+  auto* b = SNLBusTerm::create(model, Term1ID, SNLTerm::Direction::Input,
+      width - 1, 0, NLName("B"));
+  auto* y = SNLBusTerm::create(model, Term2ID, SNLTerm::Direction::Output,
+      width - 1, 0, NLName("Y"));
+  auto inputs = collectBitTerms(*a);
+  const auto bBits = collectBitTerms(*b);
+  inputs.insert(inputs.end(), bBits.begin(), bBits.end());
+  SNLDesignModeling::addCombinatorialArcs(inputs, collectBitTerms(*y));
+  return model;
 }
 
 bool NLDB0::isShift(const SNLDesign* design) {
@@ -1889,6 +2035,12 @@ SNLTruthTable NLDB0::getDivModTruthTable(
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isAddSub(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: add/subtract primitive has no truth table");
+  }
+  if (isMultiply(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: multiply primitive has no truth table");
+  }
   if (isShift(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: shift primitive has no truth table");
   }
@@ -2954,7 +3106,7 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
     NLID::LibraryID libraryID,
     NLID::DesignID designID,
     const PrimitiveParameters& parameters) {
-  //Single-parameter families: designID carries the width / fan-in / fan-out.
+  // Width-based families use designID; compound signatures use parameters.
   switch (libraryID) {
     case RootLibraryID:
       return (designID == FADesignID) ? getFA() : nullptr;
@@ -2962,10 +3114,29 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
       return getAssign();
     case Mux2LibraryID:
       return getOrCreateMux2(designID);
-    case DFFLibraryID:
-      return getOrCreateDFF(designID);
+    case TableSelectLibraryID:
+      return getOrCreateTableSelect(tableSelectSignatureFromParameters(parameters));
+    case AddLibraryID:
+      return getOrCreateAddSub(size_t(designID), false);
+    case SubtractLibraryID:
+      return getOrCreateAddSub(size_t(designID), true);
+    case MultiplyLibraryID:
+      return getOrCreateMultiply(size_t(designID));
+    case DivModUnsignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), false});
+    case DivModSignedLibraryID:
+      return getOrCreateDivMod(DivModSignature{size_t(designID), true});
+    case ShiftLibraryID:
+      return getOrCreateShift({getDecimalParameter(parameters, "WIDTH"),
+          getDecimalParameter(parameters, "COUNT_WIDTH"),
+          getBooleanParameter(parameters, "RIGHT"),
+          getBooleanParameter(parameters, "ARITHMETIC")});
+    case MemoryLibraryID:
+      return getOrCreateMemory(memorySignatureFromParameters(parameters));
     case DLatchLibraryID:
       return getOrCreateDLatch(designID);
+    case DFFLibraryID:
+      return getOrCreateDFF(designID);
     case DFFNLibraryID:
       return getOrCreateDFFN(designID);
     case DFFRNLibraryID:
@@ -2996,26 +3167,12 @@ SNLDesign* NLDB0::getOrCreatePrimitive(
       return getOrCreateDFFSSE(designID);
     case DFFSSNELibraryID:
       return getOrCreateDFFSSNE(designID);
-    case DivModUnsignedLibraryID:
-      return getOrCreateDivMod(DivModSignature{size_t(designID), false});
-    case DivModSignedLibraryID:
-      return getOrCreateDivMod(DivModSignature{size_t(designID), true});
-    //Multi-parameter families: the full signature comes from the instance params.
-    case MemoryLibraryID:
-      return getOrCreateMemory(memorySignatureFromParameters(parameters));
-    case ShiftLibraryID:
-      return getOrCreateShift({getDecimalParameter(parameters, "WIDTH"),
-          getDecimalParameter(parameters, "COUNT_WIDTH"),
-          getBooleanParameter(parameters, "RIGHT"),
-          getBooleanParameter(parameters, "ARITHMETIC")});
-    case TableSelectLibraryID:
-      return getOrCreateTableSelect(tableSelectSignatureFromParameters(parameters));
     default:
       break;
   }
   //Gate libraries: one reserved ID per GateType, designID = fan-in/out.
   if (libraryID >= GateLibraryIDBase &&
-      libraryID < GateLibraryIDBase + GateType::Unknown) {
+      libraryID < GateLibraryIDBase + static_cast<int>(GateType::Unknown)) {
     GateType type(GateType::GateTypeEnum(libraryID - GateLibraryIDBase));
     if (type.isNInput()) {
       return getOrCreateNInputGate(type, designID);

@@ -30,7 +30,8 @@ void prepareDesignForConcurrentAccess(
 
   if (design->isPrimitive()) {
     // These DB0 primitives do not expose combinational truth tables.
-    if (NLDB0::isDivMod(design) or NLDB0::isMemory(design)) {
+    if (NLDB0::isDivMod(design) or NLDB0::isMemory(design) or
+        NLDB0::isShift(design) or NLDB0::isMultiply(design) or NLDB0::isAddSub(design)) {
       return;
     }
     for (auto term: design->getBitTerms()) {

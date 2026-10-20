@@ -14318,11 +14318,15 @@ endmodule
               return false;
             }
             auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
-            if (conversionExpr.operand().type->isSigned() && !operandBits.empty()) {
+            // Propagated arithmetic conversions use the expression's signedness
+            // before extension (SV 11.8.2), unlike assignment and explicit casts.
+            const bool extendSigned =
+              conversionExpr.conversionKind == slang::ast::ConversionKind::Propagated
+                ? targetType.isSigned() : conversionExpr.operand().type->isSigned();
+            if (extendSigned && !operandBits.empty()) {
               fillBit = operandBits.back();
             }
-            // Size conversion extends according to the source signedness;
-            // a subsequent context resize uses the converted type's signedness.
+            // A subsequent context resize uses the converted type's signedness.
             resizeBitsToWidth(operandBits, targetType.getBitWidth(), fillBit);
             fillBit = targetType.isSigned() && !operandBits.empty()
               ? operandBits.back() : static_cast<SNLBitNet*>(getConstNet(design, false));
@@ -16794,6 +16798,26 @@ endmodule
              bits.size() == targetWidth;
     }
 
+    bool createAddSubInstance(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& leftBits,
+      const std::vector<SNLBitNet*>& rightBits,
+      const std::vector<SNLBitNet*>& outputBits,
+      bool subtract,
+      const std::optional<slang::SourceRange>& sourceRange) {
+      if (leftBits.empty() || leftBits.size() != rightBits.size() ||
+          leftBits.size() != outputBits.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      auto* model = NLDB0::getOrCreateAddSub(leftBits.size(), subtract);
+      auto* instance = SNLInstance::create(design, model);
+      annotateSourceInfo(instance, sourceRange);
+      connectInstanceTermBits(instance, NLDB0::getAddSubInputA(model), leftBits);
+      connectInstanceTermBits(instance, NLDB0::getAddSubInputB(model), rightBits);
+      connectInstanceTermBits(instance, NLDB0::getAddSubOutput(model), outputBits);
+      return true;
+    }
+
     bool createAddAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -16833,23 +16857,26 @@ endmodule
           sourceRange);
       }
 
-      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
-      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              rightBits[bitIndex],
-              carry,
-              lhsBits[bitIndex],
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        carry = carryOut;
+      return createAddSubInstance(design, leftBits, rightBits, lhsBits, false, sourceRange);
+    }
+
+    bool buildAddSubBits(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& leftBits,
+      const std::vector<SNLBitNet*>& rightBits,
+      std::vector<SNLBitNet*>& resultBits,
+      bool subtract,
+      const std::optional<slang::SourceRange>& sourceRange) {
+      if (leftBits.empty() || leftBits.size() != rightBits.size()) {
+        return false; // LCOV_EXCL_LINE
       }
-      return true;
+      const auto width = leftBits.size();
+      auto* output = width == 1
+        ? static_cast<SNLNet*>(SNLScalarNet::create(design))
+        : SNLBusNet::create(design, static_cast<NLID::Bit>(width - 1), 0);
+      annotateSourceInfo(output, sourceRange);
+      resultBits = collectBits(output);
+      return createAddSubInstance(design, leftBits, rightBits, resultBits, subtract, sourceRange);
     }
 
     bool addBitVectors(
@@ -16858,32 +16885,7 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       std::vector<SNLBitNet*>& sumBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (leftBits.size() != rightBits.size()) {
-        return false; // LCOV_EXCL_LINE
-      }
-
-      sumBits.clear();
-      sumBits.reserve(leftBits.size());
-      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
-      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
-        auto* sumBit = SNLScalarNet::create(design);
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(sumBit, sourceRange);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              rightBits[bitIndex],
-              carry,
-              sumBit,
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        sumBits.push_back(sumBit);
-        carry = carryOut;
-      }
-      return true;
+      return buildAddSubBits(design, leftBits, rightBits, sumBits, false, sourceRange);
     }
 
     bool subtractBitVectors(
@@ -16892,58 +16894,7 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       std::vector<SNLBitNet*>& differenceBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (leftBits.size() != rightBits.size()) {
-        return false; // LCOV_EXCL_LINE
-      }
-
-      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-      std::vector<SNLBitNet*> invertedRightBits;
-      invertedRightBits.reserve(rightBits.size());
-      for (auto* rightBit : rightBits) {
-        if (rightBit == const0) {
-          invertedRightBits.push_back(const1);
-          continue;
-        }
-        if (rightBit == const1) {
-          invertedRightBits.push_back(const0);
-          continue;
-        }
-        auto* invertedBit = SNLScalarNet::create(design);
-        annotateSourceInfo(invertedBit, sourceRange);
-        if (!createUnaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Not),
-              rightBit,
-              invertedBit,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        invertedRightBits.push_back(invertedBit);
-      }
-
-      differenceBits.clear();
-      differenceBits.reserve(leftBits.size());
-      auto* carry = const1;
-      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
-        auto* diffBit = SNLScalarNet::create(design);
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(diffBit, sourceRange);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              invertedRightBits[bitIndex],
-              carry,
-              diffBit,
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        differenceBits.push_back(diffBit);
-        carry = carryOut;
-      }
-      return true;
+      return buildAddSubBits(design, leftBits, rightBits, differenceBits, true, sourceRange);
     }
 
     bool createPowerOfTwoBits(
@@ -17035,83 +16986,32 @@ endmodule
       const std::vector<SNLBitNet*>& rightBits,
       std::vector<SNLBitNet*>& productBits,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      if (leftBits.size() != rightBits.size()) {
+      if (leftBits.empty() || leftBits.size() != rightBits.size()) {
         return false; // LCOV_EXCL_LINE
       }
 
       auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-
-      std::vector<SNLBitNet*> accumulatedBits;
-      bool hasAccumulated = false;
-      for (size_t row = 0; row < leftBits.size(); ++row) {
-        auto* rowEnableBit = rightBits[row];
-        if (rowEnableBit == const0) {
-          continue;
-        }
-
-        std::vector<SNLBitNet*> partialBits(leftBits.size(), const0);
-        for (size_t col = 0; col + row < leftBits.size(); ++col) {
-          auto* multiplicandBit = leftBits[col];
-          const auto outIndex = col + row;
-          if (rowEnableBit == const1) {
-            partialBits[outIndex] = multiplicandBit;
-            continue;
-          }
-          if (multiplicandBit == const0) {
-            partialBits[outIndex] = const0;
-            continue;
-          }
-          if (multiplicandBit == const1) {
-            partialBits[outIndex] = rowEnableBit;
-            continue;
-          }
-
-          auto* andBit = SNLScalarNet::create(design);
-          annotateSourceInfo(andBit, sourceRange);
-          if (!createBinaryGate(
-                design,
-                NLDB0::GateType(NLDB0::GateType::And),
-                multiplicandBit,
-                rowEnableBit,
-                andBit,
-                sourceRange)) {
-            return false; // LCOV_EXCL_LINE
-          }
-          partialBits[outIndex] = andBit;
-        }
-
-        bool rowHasSignal = false;
-        for (auto* bit : partialBits) {
-          if (bit != const0) {
-            rowHasSignal = true;
-            break;
-          }
-        }
-        if (!rowHasSignal) {
-          continue;
-        }
-
-        if (!hasAccumulated) {
-          accumulatedBits = std::move(partialBits);
-          hasAccumulated = true;
-          continue;
-        }
-
-        std::vector<SNLBitNet*> sumBits;
-        if (!addBitVectors(design, accumulatedBits, partialBits, sumBits, sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        accumulatedBits = std::move(sumBits);
-      }
-
-      if (!hasAccumulated) {
+      const auto isZero = [&](const std::vector<SNLBitNet*>& operand) {
+        return std::all_of(operand.begin(), operand.end(),
+          [&](auto* bit) { return bit == const0; });
+      };
+      if (isZero(leftBits) || isZero(rightBits)) {
         productBits.assign(leftBits.size(), const0);
         return true;
       }
-
-      productBits = std::move(accumulatedBits);
-      return productBits.size() == leftBits.size();
+      const auto width = leftBits.size();
+      auto* model = NLDB0::getOrCreateMultiply(width);
+      auto* output = width == 1
+        ? static_cast<SNLNet*>(SNLScalarNet::create(design))
+        : SNLBusNet::create(design, static_cast<NLID::Bit>(width - 1), 0);
+      annotateSourceInfo(output, sourceRange);
+      auto* instance = SNLInstance::create(design, model);
+      annotateSourceInfo(instance, sourceRange);
+      connectInstanceTermBits(instance, NLDB0::getMultiplyInputA(model), leftBits);
+      connectInstanceTermBits(instance, NLDB0::getMultiplyInputB(model), rightBits);
+      productBits = collectBits(output);
+      connectInstanceTermBits(instance, NLDB0::getMultiplyOutput(model), productBits);
+      return true;
     }
 
     bool createMultiplyAssign(
@@ -17256,40 +17156,7 @@ endmodule
           sourceRange);
       }
 
-      std::vector<SNLBitNet*> invertedRightBits;
-      invertedRightBits.reserve(rightBits.size());
-      for (auto* rightBit : rightBits) {
-        auto* invertedBit = SNLScalarNet::create(design);
-        annotateSourceInfo(invertedBit, sourceRange);
-        if (!createUnaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Not),
-              rightBit,
-              invertedBit,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        invertedRightBits.push_back(invertedBit);
-      }
-
-      // Two's-complement subtraction: A - B == A + (~B) + 1.
-      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, true));
-      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-        auto* carryOut = SNLScalarNet::create(design);
-        annotateSourceInfo(carryOut, sourceRange);
-        if (!createFAInstance(
-              design,
-              leftBits[bitIndex],
-              invertedRightBits[bitIndex],
-              carry,
-              lhsBits[bitIndex],
-              carryOut,
-              sourceRange)) {
-          return false; // LCOV_EXCL_LINE
-        }
-        carry = carryOut;
-      }
-      return true;
+      return createAddSubInstance(design, leftBits, rightBits, lhsBits, true, sourceRange);
     }
 
     bool createEqualityAssign(
@@ -17504,17 +17371,8 @@ endmodule
         if (inBit == const1) {
           return const0;
         }
-        auto* outBit = SNLScalarNet::create(design);
-        annotateSourceInfo(outBit, sourceRange);
-        if (!createUnaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Not),
-              inBit,
-              outBit,
-              sourceRange)) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        return outBit;
+        return getSingleBitNet(createUnaryGate(
+          design, NLDB0::GateType(NLDB0::GateType::Not), inBit, nullptr, sourceRange));
       };
 
       auto makeAnd = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
@@ -17533,18 +17391,9 @@ endmodule
         if (leftBit == rightBit) {
           return leftBit; // LCOV_EXCL_LINE
         }
-        auto* outBit = SNLScalarNet::create(design);
-        annotateSourceInfo(outBit, sourceRange);
-        if (!createBinaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::And),
-              leftBit,
-              rightBit,
-              outBit,
-              sourceRange)) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        return outBit;
+        return getSingleBitNet(createBinaryGate(
+          design, NLDB0::GateType(NLDB0::GateType::And),
+          leftBit, rightBit, nullptr, sourceRange));
       };
 
       auto makeOr = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
@@ -17563,18 +17412,9 @@ endmodule
         if (leftBit == rightBit) {
           return leftBit; // LCOV_EXCL_LINE
         }
-        auto* outBit = SNLScalarNet::create(design);
-        annotateSourceInfo(outBit, sourceRange);
-        if (!createBinaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Or),
-              leftBit,
-              rightBit,
-              outBit,
-              sourceRange)) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        return outBit;
+        return getSingleBitNet(createBinaryGate(
+          design, NLDB0::GateType(NLDB0::GateType::Or),
+          leftBit, rightBit, nullptr, sourceRange));
       };
 
       auto makeXnor = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
@@ -17596,43 +17436,30 @@ endmodule
         if (rightBit == const1) {
           return leftBit;
         }
-        auto* outBit = SNLScalarNet::create(design);
-        annotateSourceInfo(outBit, sourceRange);
-        if (!createBinaryGate(
-              design,
-              NLDB0::GateType(NLDB0::GateType::Xnor),
-              leftBit,
-              rightBit,
-              outBit,
-              sourceRange)) {
-          return nullptr; // LCOV_EXCL_LINE
-        }
-        return outBit;
+        return getSingleBitNet(createBinaryGate(
+          design, NLDB0::GateType(NLDB0::GateType::Xnor),
+          leftBit, rightBit, nullptr, sourceRange));
       };
 
+      const bool needsGreater = op == slang::ast::BinaryOperator::GreaterThan ||
+                                op == slang::ast::BinaryOperator::GreaterThanEqual;
       SNLBitNet* eqBit = const1;
       SNLBitNet* gtBit = const0;
       SNLBitNet* ltBit = const0;
       for (size_t bitIndex = compareWidth; bitIndex-- > 0;) {
         auto* leftBit = leftBits[bitIndex];
         auto* rightBit = rightBits[bitIndex];
-        auto* notLeft = makeNot(leftBit);
-        auto* notRight = makeNot(rightBit);
-        if (!notLeft || !notRight) {
+        auto* negatedBit = makeNot(needsGreater ? rightBit : leftBit);
+        auto* orderedBit = makeAnd(needsGreater ? leftBit : rightBit, negatedBit);
+        if (!negatedBit || !orderedBit) {
           return false; // LCOV_EXCL_LINE
         }
-        auto* leftGtRight = makeAnd(leftBit, notRight);
-        auto* leftLtRight = makeAnd(notLeft, rightBit);
-        if (!leftGtRight || !leftLtRight) {
+        auto* eqAndOrdered = makeAnd(eqBit, orderedBit);
+        if (!eqAndOrdered) {
           return false; // LCOV_EXCL_LINE
         }
-        auto* eqAndGt = makeAnd(eqBit, leftGtRight);
-        auto* eqAndLt = makeAnd(eqBit, leftLtRight);
-        if (!eqAndGt || !eqAndLt) {
-          return false; // LCOV_EXCL_LINE
-        }
-        gtBit = makeOr(gtBit, eqAndGt);
-        ltBit = makeOr(ltBit, eqAndLt);
+        auto*& orderedResult = needsGreater ? gtBit : ltBit;
+        orderedResult = makeOr(orderedResult, eqAndOrdered);
         auto* bitEq = makeXnor(leftBit, rightBit);
         if (!gtBit || !ltBit || !bitEq) {
           return false; // LCOV_EXCL_LINE
@@ -17653,23 +17480,17 @@ endmodule
         auto* signRight = rightBits.back();
         auto* sameSign = makeXnor(signLeft, signRight);
         auto* differentSign = makeNot(sameSign);
-        auto* notSignLeft = makeNot(signLeft);
-        auto* notSignRight = makeNot(signRight);
-        if (!sameSign || !differentSign || !notSignLeft || !notSignRight) {
+        auto* nonNegativeSign = makeNot(needsGreater ? signLeft : signRight);
+        if (!sameSign || !differentSign || !nonNegativeSign) {
           return false; // LCOV_EXCL_LINE
         }
-        auto* leftPositiveRightNegative = makeAnd(notSignLeft, signRight);
-        auto* leftNegativeRightPositive = makeAnd(signLeft, notSignRight);
-        auto* gtIfSameSign = makeAnd(sameSign, gtBit);
-        auto* gtIfDifferentSign = makeAnd(differentSign, leftPositiveRightNegative);
-        auto* ltIfSameSign = makeAnd(sameSign, ltBit);
-        auto* ltIfDifferentSign = makeAnd(differentSign, leftNegativeRightPositive);
-        if (!leftPositiveRightNegative || !leftNegativeRightPositive ||
-            !gtIfSameSign || !gtIfDifferentSign || !ltIfSameSign || !ltIfDifferentSign) {
+        auto* signOrdered = makeAnd(nonNegativeSign, needsGreater ? signRight : signLeft);
+        auto* ifSameSign = makeAnd(sameSign, needsGreater ? gtBit : ltBit);
+        auto* ifDifferentSign = makeAnd(differentSign, signOrdered);
+        if (!signOrdered || !ifSameSign || !ifDifferentSign) {
           return false; // LCOV_EXCL_LINE
         }
-        gtBit = makeOr(gtIfSameSign, gtIfDifferentSign);
-        ltBit = makeOr(ltIfSameSign, ltIfDifferentSign);
+        (needsGreater ? gtBit : ltBit) = makeOr(ifSameSign, ifDifferentSign);
         if (!gtBit || !ltBit) {
           return false; // LCOV_EXCL_LINE
         }
@@ -17745,6 +17566,31 @@ endmodule
              << ", target_width=" << shiftWidth << ")";
       setFailureReason(reason.str());
       return false;
+    }
+
+    bool createShiftInstance(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& valueBits,
+      const std::vector<SNLBitNet*>& countBits,
+      const std::vector<SNLBitNet*>& outputBits,
+      bool right,
+      bool arithmetic,
+      const std::optional<slang::SourceRange>& sourceRange) {
+      if (valueBits.empty() || valueBits.size() != outputBits.size() || countBits.empty()) {
+        return false;
+      }
+      const NLDB0::ShiftSignature signature {
+        valueBits.size(), countBits.size(), right, arithmetic};
+      auto* model = NLDB0::getOrCreateShift(signature);
+      auto* instance = SNLInstance::create(design, model);
+      annotateSourceInfo(instance, sourceRange);
+      for (auto* parameter : model->getParameters()) {
+        SNLInstParameter::create(instance, parameter, parameter->getValue());
+      }
+      connectInstanceTermBits(instance, NLDB0::getShiftData(model), valueBits);
+      connectInstanceTermBits(instance, NLDB0::getShiftCount(model), countBits);
+      connectInstanceTermBits(instance, NLDB0::getShiftOutput(model), outputBits);
+      return true;
     }
 
     bool createLogicalRightShiftAssign(
@@ -17824,44 +17670,8 @@ endmodule
         return false;
       }
 
-      std::vector<SNLBitNet*> stageBits = valueBits;
-      for (size_t stageIndex = 0; stageIndex < shiftBits.size(); ++stageIndex) {
-        bool shiftAll = stageIndex >= 63;
-        size_t stageShift = 0;
-        if (!shiftAll) {
-          const auto rawShift = uint64_t {1} << stageIndex;
-          if (rawShift >= lhsBits.size()) {
-            shiftAll = true;
-          } else {
-            stageShift = static_cast<size_t>(rawShift);
-          }
-        }
-
-        std::vector<SNLBitNet*> nextBits;
-        nextBits.reserve(lhsBits.size());
-        const bool isLastStage = stageIndex + 1 == shiftBits.size();
-        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          auto* shiftedBit = constZero;
-          if (!shiftAll && bitIndex + stageShift < lhsBits.size()) {
-            shiftedBit = stageBits[bitIndex + stageShift];
-          }
-
-          auto* outBit = isLastStage ? lhsBits[bitIndex] : SNLScalarNet::create(design);
-          if (!isLastStage) {
-            annotateSourceInfo(outBit, sourceRange);
-          }
-          createMux2Instance(
-            design,
-            shiftBits[stageIndex],
-            stageBits[bitIndex],
-            shiftedBit,
-            outBit,
-            sourceRange);
-          nextBits.push_back(outBit);
-        }
-        stageBits = std::move(nextBits);
-      }
-      return true;
+      return createShiftInstance(design, valueBits, shiftBits, lhsBits,
+        true, false, sourceRange);
     }
 
     bool createArithmeticRightShiftAssign(
@@ -17949,44 +17759,8 @@ endmodule
         return false;
       }
 
-      std::vector<SNLBitNet*> stageBits = valueBits;
-      for (size_t stageIndex = 0; stageIndex < shiftBits.size(); ++stageIndex) {
-        bool shiftAll = stageIndex >= 63;
-        size_t stageShift = 0;
-        if (!shiftAll) {
-          const auto rawShift = uint64_t {1} << stageIndex;
-          if (rawShift >= lhsBits.size()) {
-            shiftAll = true;
-          } else {
-            stageShift = static_cast<size_t>(rawShift);
-          }
-        }
-
-        std::vector<SNLBitNet*> nextBits;
-        nextBits.reserve(lhsBits.size());
-        const bool isLastStage = stageIndex + 1 == shiftBits.size();
-        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          auto* shiftedBit = signFillBit;
-          if (!shiftAll && bitIndex + stageShift < lhsBits.size()) {
-            shiftedBit = stageBits[bitIndex + stageShift];
-          }
-
-          auto* outBit = isLastStage ? lhsBits[bitIndex] : SNLScalarNet::create(design);
-          if (!isLastStage) {
-            annotateSourceInfo(outBit, sourceRange);
-          }
-          createMux2Instance(
-            design,
-            shiftBits[stageIndex],
-            stageBits[bitIndex],
-            shiftedBit,
-            outBit,
-            sourceRange);
-          nextBits.push_back(outBit);
-        }
-        stageBits = std::move(nextBits);
-      }
-      return true;
+      return createShiftInstance(design, valueBits, shiftBits, lhsBits,
+        true, valueExpr.type->isSigned(), sourceRange);
     }
 
     bool createLogicalLeftShiftAssign(
@@ -18044,44 +17818,8 @@ endmodule
         return false;
       }
 
-      std::vector<SNLBitNet*> stageBits = valueBits;
-      for (size_t stageIndex = 0; stageIndex < shiftBits.size(); ++stageIndex) {
-        bool shiftAll = stageIndex >= 63;
-        size_t stageShift = 0;
-        if (!shiftAll) {
-          const auto rawShift = uint64_t {1} << stageIndex;
-          if (rawShift >= lhsBits.size()) {
-            shiftAll = true;
-          } else {
-            stageShift = static_cast<size_t>(rawShift);
-          }
-        }
-
-        std::vector<SNLBitNet*> nextBits;
-        nextBits.reserve(lhsBits.size());
-        const bool isLastStage = stageIndex + 1 == shiftBits.size();
-        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
-          auto* shiftedBit = constZero;
-          if (!shiftAll && bitIndex >= stageShift) {
-            shiftedBit = stageBits[bitIndex - stageShift];
-          }
-
-          auto* outBit = isLastStage ? lhsBits[bitIndex] : SNLScalarNet::create(design);
-          if (!isLastStage) {
-            annotateSourceInfo(outBit, sourceRange);
-          }
-          createMux2Instance(
-            design,
-            shiftBits[stageIndex],
-            stageBits[bitIndex],
-            shiftedBit,
-            outBit,
-            sourceRange);
-          nextBits.push_back(outBit);
-        }
-        stageBits = std::move(nextBits);
-      }
-      return true;
+      return createShiftInstance(design, valueBits, shiftBits, lhsBits,
+        false, false, sourceRange);
     }
 
     SNLScalarNet* getConstNet(
@@ -22652,9 +22390,12 @@ endmodule
       auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
 
       SNLBitNet* equalsIndexBit = const1;
-      for (size_t bitIndex = 0; bitIndex < selectorBits.size(); ++bitIndex) {
+      // Decode the shared upper index bits first so candidates can reuse the
+      // same prefix through the gate cache.
+      for (size_t remaining = selectorBits.size(); remaining > 0; --remaining) {
+        const auto bitIndex = remaining - 1;
         const bool indexOne =
-          ((static_cast<uint64_t>(static_cast<uint32_t>(index)) >> bitIndex) & 1ULL) != 0ULL;
+          bitIndex < 32 && ((static_cast<uint32_t>(index) >> bitIndex) & 1U) != 0U;
         auto* selectorBit = selectorBits[bitIndex];
         auto* expectedBit = indexOne ? const1 : const0;
 
@@ -22664,14 +22405,12 @@ endmodule
         } else if (selectorBit == (indexOne ? const0 : const1)) {
           bitEquals = const0;
         } else {
-          auto* xnorBit = SNLScalarNet::create(design);
-          annotateSourceInfo(xnorBit, sourceRange);
           bitEquals = getSingleBitNet(createBinaryGate(
             design,
             NLDB0::GateType(NLDB0::GateType::Xnor),
             selectorBit,
             expectedBit,
-            xnorBit,
+            nullptr,
             sourceRange));
           if (!bitEquals) {
             return nullptr; // LCOV_EXCL_LINE
@@ -22690,14 +22429,12 @@ endmodule
           continue;
         }
 
-        auto* andBit = SNLScalarNet::create(design);
-        annotateSourceInfo(andBit, sourceRange);
         equalsIndexBit = getSingleBitNet(createBinaryGate(
           design,
           NLDB0::GateType(NLDB0::GateType::And),
           equalsIndexBit,
           bitEquals,
-          andBit,
+          nullptr,
           sourceRange));
         if (!equalsIndexBit) {
           return nullptr; // LCOV_EXCL_LINE
@@ -26603,6 +26340,17 @@ endmodule
           auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
           const bool signExtend = op == slang::ast::BinaryOperator::ArithmeticShiftRight &&
                                   action.lhs && action.lhs->type->isSigned();
+          if (std::any_of(countBits.begin(), countBits.end(), [&](auto* bit) {
+                return bit != const0 && bit != const1;
+              })) {
+            auto* output = targetWidth == 1
+              ? static_cast<SNLNet*>(SNLScalarNet::create(design))
+              : SNLBusNet::create(design, static_cast<NLID::Bit>(targetWidth - 1), 0);
+            annotateSourceInfo(output, getSourceRange(*action.rhs));
+            assignedBits = collectBits(output);
+            return createShiftInstance(design, *currentBits, countBits, assignedBits,
+              !shiftLeft, signExtend, getSourceRange(*action.rhs));
+          }
           auto* fill = signExtend ? currentBits->back() : const0;
           assignedBits = *currentBits;
           for (size_t stage = 0; stage < countBits.size(); ++stage) {
@@ -27296,6 +27044,8 @@ endmodule
         auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         auto elementSourceRange = getSourceRange(assignedLHS);
         std::optional<size_t> selectedWidth;
+        std::optional<std::vector<SNLBitNet*>> sharedAssignedBits;
+        const bool needsCurrentBits = assignmentActionRequiresCurrentBits(action);
 
         int32_t index = valueType.getFixedRange().right;
         const int32_t end = valueType.getFixedRange().left;
@@ -27356,7 +27106,6 @@ endmodule
             }
 
             std::vector<SNLBitNet*> currentBits;
-            const bool needsCurrentBits = assignmentActionRequiresCurrentBits(action);
             if (needsCurrentBits) {
               currentBits.reserve(candidateOffsets.size());
               for (const auto offset : candidateOffsets) {
@@ -27373,7 +27122,9 @@ endmodule
             }
 
             std::vector<SNLBitNet*> assignedBits;
-            if (!buildCombinationalAssignBits(
+            if (sharedAssignedBits) {
+              assignedBits = *sharedAssignedBits;
+            } else if (!buildCombinationalAssignBits(
                   design,
                   action,
                   candidateOffsets.size(),
@@ -27381,6 +27132,9 @@ endmodule
                   needsCurrentBits ? &currentBits : nullptr,
                   failureReason)) {
               return false;
+            }
+            if (!needsCurrentBits && !sharedAssignedBits) {
+              sharedAssignedBits = assignedBits;
             }
             if (assignedBits.size() != candidateOffsets.size()) {
               // LCOV_EXCL_START
@@ -27662,6 +27416,8 @@ endmodule
         // LCOV_EXCL_STOP
       }
 
+      std::optional<std::vector<SNLBitNet*>> sharedAssignedBits;
+      const bool needsCurrentBits = assignmentActionRequiresCurrentBits(action);
       int32_t index = baseType.getFixedRange().right;
       const int32_t end = baseType.getFixedRange().left;
       const int32_t step = index <= end ? 1 : -1;
@@ -27683,14 +27439,19 @@ endmodule
           const auto offset = static_cast<size_t>(translated) * selectedElementWidth;
           auto currentBits = getCurrentBits(offset);
           std::vector<SNLBitNet*> assignedBits;
-          if (!buildCombinationalAssignBits(
+          if (sharedAssignedBits) {
+            assignedBits = *sharedAssignedBits;
+          } else if (!buildCombinationalAssignBits(
                 design,
                 action,
                 selectedElementWidth,
                 assignedBits,
-                assignmentActionRequiresCurrentBits(action) ? &currentBits : nullptr,
+                needsCurrentBits ? &currentBits : nullptr,
                 failureReason)) {
             return false;
+          }
+          if (!needsCurrentBits && !sharedAssignedBits) {
+            sharedAssignedBits = assignedBits;
           }
           if (!updateSlice(offset, equalsIndexBit, assignedBits)) {
             return false; // LCOV_EXCL_LINE

@@ -143,7 +143,7 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   return PySNLDesign_Link(newDesign);
 }
 
-static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+static PyObject* PySNLDesign_dumpGateLevelVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
   const char* path = nullptr;
   const char* topFileName = nullptr;
   int dumpRTLInfosAsAttributes = 0;
@@ -158,14 +158,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "ss|ppsp:SNLDesign.dumpVerilog",
+    args, kwargs, "ss|ppsp:SNLDesign.dumpGateLevelVerilog",
     const_cast<char**>(kwords),
     &path, &topFileName, &dumpRTLInfosAsAttributes, &dumpAssignsAsInstances,
     &rtlInfoDumpMode, &verilatorSplitPackedSignals)) {
-    setError("malformed SNLDesign.dumpVerilog method");
+    setError("malformed SNLDesign.dumpGateLevelVerilog method");
     return nullptr;
   }
-  METHOD_HEAD("SNLDesign.dumpVerilog()")
+  METHOD_HEAD("SNLDesign.dumpGateLevelVerilog()")
   TRY
   SNLVRLDumper dumper;
   dumper.setTopFileName(topFileName);
@@ -183,6 +183,14 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyOb
   dumper.dumpDesign(selfObject, std::filesystem::path(path));
   NLCATCH
   Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args, PyObject* kwargs) {
+  if (PyErr_WarnEx(PyExc_FutureWarning,
+      "SNLDesign.dumpVerilog will be deprecated soon; use SNLDesign.dumpGateLevelVerilog instead.", 1) < 0) {
+    return nullptr;
+  }
+  return PySNLDesign_dumpGateLevelVerilog(self, args, kwargs);
 }
 
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
@@ -1041,7 +1049,9 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
     "clone this SNLDesign."},
   { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS|METH_KEYWORDS,
-    "dump verilog file of this SNLDesign."},
+    "Compatibility alias for dumpGateLevelVerilog; will be deprecated soon. Emits FutureWarning."},
+  { "dumpGateLevelVerilog", (PyCFunction)PySNLDesign_dumpGateLevelVerilog, METH_VARARGS|METH_KEYWORDS,
+    "dump this SNLDesign as gate-level (structural) Verilog, not the original behavioral RTL."},
   { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
     "dump full dot file for this SNLDesign."},
   { "dumpContextDotFile", (PyCFunction)PySNLDesign_dumpContextDotFile, METH_VARARGS,

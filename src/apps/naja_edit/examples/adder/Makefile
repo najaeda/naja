@@ -11,7 +11,7 @@ adder_netlist.v: src/adder.v
 
 adder_snl.v primitives.v: adder_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
-	${NAJA_EDIT} -f verilog -t verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
+	${NAJA_EDIT} -f gate-level-verilog -t gate-level-verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
 
 clean:
 	-rm adder_snl.v primitives.v adder_netlist.v 
