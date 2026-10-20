@@ -14,6 +14,7 @@ class SNLDumpManifest {
     static constexpr std::string_view ManifestFileName = "snl.mf";
     SNLDump::Version getVersion() const { return version_; }
     SNLDump::Version getSchemaVersion() const { return version_; }
+    unsigned getDB0LibraryIDVersion() const { return db0LibraryIDVersion_; }
     std::string getProducerVersion() const { return producerVersion_; }
     std::string getProducerGitHash() const { return producerGitHash_; }
     static SNLDumpManifest load(const std::filesystem::path& snlDir);
@@ -21,6 +22,7 @@ class SNLDumpManifest {
   private:
     SNLDumpManifest(): version_(0, 0, 0) {}
     SNLDump::Version  version_;
+    unsigned          db0LibraryIDVersion_ {0};
     std::string       producerVersion_;
     std::string       producerGitHash_;
 };

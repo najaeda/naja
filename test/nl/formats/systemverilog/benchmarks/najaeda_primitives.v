@@ -26,6 +26,35 @@ module naja_mux2 #(
   assign Y = S ? B : A;
 endmodule
 
+module naja_mul #(parameter WIDTH = 1) (
+  input wire [WIDTH-1:0] A,
+  input wire [WIDTH-1:0] B,
+  output wire [WIDTH-1:0] Y
+);
+  assign Y = A * B;
+endmodule
+
+module naja_shift #(
+  parameter WIDTH = 1,
+  parameter COUNT_WIDTH = 1,
+  parameter RIGHT = 0,
+  parameter ARITHMETIC = 0
+) (
+  input wire [WIDTH-1:0] DATA,
+  input wire [COUNT_WIDTH-1:0] COUNT,
+  output wire [WIDTH-1:0] Y
+);
+  generate
+    if (RIGHT && ARITHMETIC) begin
+      assign Y = $signed(DATA) >>> COUNT;
+    end else if (RIGHT) begin
+      assign Y = DATA >> COUNT;
+    end else begin
+      assign Y = DATA << COUNT;
+    end
+  endgenerate
+endmodule
+
 module naja_table_select #(
   parameter WIDTH = 1,
   parameter DEPTH = 1,
@@ -444,4 +473,18 @@ module naja_mem #(
       end
     end
   endgenerate
+endmodule
+
+module naja_add #(parameter WIDTH = 1) (
+  input [WIDTH-1:0] A, B,
+  output [WIDTH-1:0] Y
+);
+  assign Y = A + B;
+endmodule
+
+module naja_sub #(parameter WIDTH = 1) (
+  input [WIDTH-1:0] A, B,
+  output [WIDTH-1:0] Y
+);
+  assign Y = A - B;
 endmodule

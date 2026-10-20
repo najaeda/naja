@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "NajaVersion.h"
+#include "NLDB0.h"
 #include "SNLDumpManifest.h"
 #include "SNLDumpException.h"
 #include "NLException.h"
@@ -62,6 +63,7 @@ TEST_F(SNLDumpManifestTest, test0) {
   EXPECT_EQ(SNLDump::getVersion().getRevision(), manifest.getVersion().getRevision());
   EXPECT_EQ(SNLDump::getVersion(), manifest.getVersion());
   EXPECT_EQ(SNLDump::getVersion(), manifest.getSchemaVersion());
+  EXPECT_EQ(NLDB0::LibraryIDVersion, manifest.getDB0LibraryIDVersion());
   EXPECT_EQ(naja::NAJA_VERSION, manifest.getProducerVersion());
   EXPECT_EQ(naja::NAJA_GIT_HASH, manifest.getProducerGitHash());
 }
@@ -106,6 +108,12 @@ TEST_F(SNLDumpManifestTest, recordCountsAndDuplicatesAreRejected) {
     size_t lineNumber;
   };
   const std::vector<MalformedManifest> malformedManifests = {
+    {"db0_value_count", "V 1 2 3\nD 1 2\n",
+     "requires one value", "D <db0-library-id-version>", 2},
+    {"duplicate_db0", "V 1 2 3\nD 1\nD 1\n",
+     "duplicate DB0 library ID version", "D <db0-library-id-version>", 3},
+    {"invalid_db0", "V 1 2 3\nD -1\n",
+     "must be a non-negative integer", "D <db0-library-id-version>", 2},
     {
       "schema_value_count",
       "V 1 2\n",

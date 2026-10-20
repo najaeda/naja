@@ -222,6 +222,17 @@ iteration for multiple indices and support for omitted indices. Named blocks
 and compound assignments use the same lowering as in ``for`` loops. Dynamically
 sized iterated dimensions are rejected; the unroll limit is 4096 body executions.
 
+SystemVerilog addition, subtraction, variable multiplication and dynamic shifts
+use compact canonical NLDB0 primitives. Arithmetic operands are sized and
+sign-extended according to SystemVerilog before the primitive retains the low
+result-width bits. Addition and subtraction compute modulo ``2**WIDTH``; their
+operation is fixed by the canonical model identity. Dynamic shifts preserve
+all count bits, including oversized counts, and signed arithmetic right-shift
+fill behavior. These primitives retain combinational dependencies and survive
+NajaIF snapshot round trips; structural Verilog exports include their models.
+VHDL arithmetic currently retains its scalar full-adder lowering; the compact
+add/subtract lowering described here applies to SystemVerilog.
+
 Combinational procedural lowering supports compound shifts (``<<=``, ``>>=``,
 ``<<<=``, ``>>>=``), preserving the full shift-count width and signed arithmetic
 right-shift behavior. Blocking assignments earlier in the block are visible to

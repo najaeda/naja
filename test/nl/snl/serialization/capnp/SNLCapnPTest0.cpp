@@ -26,6 +26,8 @@ using ::testing::Property;
 #include "SNLDumpException.h"
 #include "SNLDump.h"
 #include "SNLDumpManifest.h"
+#include "NLDB0.h"
+#include "NajaVersion.h"
 
 using namespace naja;
 using namespace naja::NL;
@@ -406,4 +408,29 @@ TEST_F(SNLCapNpTest0, requiredParameterRoundTrip) {
   EXPECT_EQ("", loadedModel->getParameter(NLName("EMPTY"))->getValue());
   EXPECT_EQ("", loaded->getTopDesign()->getInstance(NLName("instance1"))
     ->getInstParameter(NLName("REQUIRED"))->getValue());
+}
+
+TEST_F(SNLCapNpTest0, incompatibleDB0LibraryIDsThrowBeforePayloadLoad) {
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH)
+    / "incompatibleDB0LibraryIDs.snl";
+  std::filesystem::create_directories(outPath);
+  // No payloads are needed: compatibility must be checked first, including
+  // when producer hashes are identical for two dirty builds.
+  for (const auto& record : {std::string(), std::string("D 0\n"),
+      "D " + std::to_string(NLDB0::LibraryIDVersion + 1) + "\n"}) {
+    {
+      std::ofstream manifest(outPath/SNLDumpManifest::ManifestFileName);
+      manifest << "V " << SNLDump::getVersion().getMajor()
+        << " " << SNLDump::getVersion().getMinor()
+        << " " << SNLDump::getVersion().getRevision() << "\n"
+        << record << "P " << naja::NAJA_VERSION << " " << naja::NAJA_GIT_HASH << "\n";
+    }
+    try {
+      SNLCapnP::load(outPath);
+      FAIL() << "Expected incompatible DB0 library identities to throw";
+    } catch (const SNLDumpException& exception) {
+      EXPECT_THAT(exception.what(),
+        ::testing::HasSubstr("Incompatible SNL snapshot DB0 library ID version"));
+    }
+  }
 }

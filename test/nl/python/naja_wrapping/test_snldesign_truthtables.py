@@ -90,11 +90,12 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
   def testFullAdderPredicates(self):
     with tempfile.TemporaryDirectory() as directory:
       source = Path(directory) / "add.sv"
-      source.write_text("module top(input [1:0] a, b, output [1:0] y); "
-                        "assign y = a + b; endmodule")
+      source.write_text("module top(input [1:0] a, output logic [1:0] y); "
+                        "always_comb begin y = a; y++; end endmodule")
       top = self.designs.getDB().loadSystemVerilog([str(source)])
-    instances = list(top.getInstances())
-    self.assertTrue(instances)
+    instances = [instance for instance in top.getInstances()
+                 if instance.getModel().getName() == "naja_fa"]
+    self.assertEqual(2, len(instances))
     for instance in instances:
       model = instance.getModel()
       for name in ("isConst0", "isConst1", "isConst", "isInv", "isBuf",
