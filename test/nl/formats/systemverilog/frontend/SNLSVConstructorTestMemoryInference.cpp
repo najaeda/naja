@@ -8882,20 +8882,23 @@ endmodule
   EXPECT_EQ("1", wrPortsParam->getValue());
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFailureFallback) {
-  SNLSVConstructor constructor(library_);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "qd_next_local_commit_equality_rhs_failure_fallback";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityOperandFailureFallback) {
+  for (const auto* side : {"lhs", "rhs"}) {
+    SCOPED_TRACE(side);
+    auto* library = NLLibrary::create(library_->getDB(), NLName(side));
+    SNLSVConstructor constructor(library);
+    std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+    outPath = outPath / (std::string("qd_next_local_commit_equality_failure_") + side);
+    if (std::filesystem::exists(outPath)) {
+      std::filesystem::remove_all(outPath);
+    }
+    std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "qd_next_local_commit_equality_rhs_failure_fallback.sv";
-  std::ofstream svFile(svPath);
-  ASSERT_TRUE(svFile.good());
-  svFile
-    << R"(module qd_next_local_commit_equality_rhs_failure_fallback(
+    const auto svPath = outPath / "qd_next_local_commit_equality_operand_failure_fallback.sv";
+    std::ofstream svFile(svPath);
+    ASSERT_TRUE(svFile.good());
+    svFile
+      << R"(module qd_next_local_commit_equality_operand_failure_fallback(
   input  logic       clk_i,
   input  logic [1:0] addr_i,
   input  logic       bit_i,
@@ -8913,7 +8916,9 @@ TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFai
   always_comb begin
     for (int i = 0; i < 4; i++) begin
       mem_next[i] = mem_d[i];
-      if (mem_d[i][0] == mem_d[0][0]) begin
+      if ()" << (std::string(side) == "lhs"
+        ? "mem_d[0][0] == mem_d[i][0]"
+        : "mem_d[i][0] == mem_d[0][0]") << R"() begin
         mem_next[i] = mem_q[i];
       end
     end
@@ -8926,12 +8931,13 @@ TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFai
   assign data_o = mem_q[addr_i];
 endmodule
 )";
-  svFile.close();
+    svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement pattern for sequential lowering"});
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"unsupported statement pattern for sequential lowering"});
+  }
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitLogicalAndSupported) {
@@ -9104,11 +9110,14 @@ endmodule
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, wildcardLocalConditionsKeepMemoryInference) {
-  for (const auto* op : {"==?", "!=?"}) {
-    auto* library = NLLibrary::create(library_->getDB(), NLName(op));
+  for (const auto* variant : {"eq", "ne", "signed_eq", "signed_ne"}) {
+    SCOPED_TRACE(variant);
+    const bool isSigned = std::string(variant).find("signed_") == 0;
+    const auto* op = std::string(variant).find("eq") != std::string::npos ? "==?" : "!=?";
+    auto* library = NLLibrary::create(library_->getDB(), NLName(variant));
     SNLSVConstructor constructor(library);
     const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
-      (std::string("wildcard_memory_") + (op[0] == '=' ? "eq" : "ne"));
+      (std::string("wildcard_memory_") + variant);
     std::filesystem::create_directories(outPath);
     const auto svPath = outPath / "input.sv";
     std::ofstream source(svPath);
@@ -9118,7 +9127,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, wildcardLocalConditionsKeepMemoryInf
   input logic [6:0] data,
   output wire [6:0] result
 );
-  logic [6:0] current [0:3], updated [0:3], next_value [0:3];
+  logic )" << (isSigned ? "signed " : "") << R"([6:0] current [0:3], updated [0:3], next_value [0:3];
   always_comb begin
     updated = current;
     updated[addr] = data;
@@ -9126,7 +9135,7 @@ TEST_F(SNLSVConstructorTestMemoryInference, wildcardLocalConditionsKeepMemoryInf
   always_comb begin
     for (int i = 0; i < 4; i++) begin
       next_value[i] = updated[i];
-      if ((updated[i] )" << op << R"( 7'b1?x0z?1) && (updated[i] ==? 'z))
+      if ((updated[i] )" << op << (isSigned ? " 7'sb1?x0z?1" : " 7'b1?x0z?1") << R"() && (updated[i] ==? 'z))
         next_value[i] = current[i];
     end
   end

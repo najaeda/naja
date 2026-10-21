@@ -232,3 +232,10 @@ Procedural concatenation requests refer to the source before this change
 | 28060–28061 | Excluded: leaf widths were validated before RHS lowering, which returns their total width; subsequent slices must fit. |
 | 28077, 28094 | `proceduralConcatResolutionFailuresCoverage`: unsupported dynamic selectors fail both dependency replay and tracked-target application, with the selector diagnostic checked. |
 | 28097–28098 | Excluded: a leaf accepted by `isTrackedSelectionSubLhsOf` is handled by the element/range handlers or by the fixed-subassignment handler, which sets `handled` for every remaining selection rooted at the tracked LHS. |
+
+Inferred-memory local equality requests (source line numbers before this change):
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 8659 | `parseQDNextLocalCommitEqualityOperandFailureFallback`, `lhs` variant: a reference to a different memory entry cannot resolve as the current entry's local slice; lowering must diagnose and throw. The `rhs` variant preserves the existing opposite-operand regression. |
+| 8667 | `wildcardLocalConditionsKeepMemoryInference`, signed `==?` and `!=?` variants: signed memory words and signed wildcard patterns exercise both operand type checks, retain one inferred memory, and match RTL simulation. |
