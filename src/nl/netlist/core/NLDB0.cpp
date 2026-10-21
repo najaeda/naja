@@ -2034,6 +2034,135 @@ SNLTruthTable NLDB0::getDivModTruthTable(
       NLBitDependencies::encodeBits(dependencies));
 }
 
+namespace {
+
+// Decode a memory INIT literal ("<n>'h..." or "<n>'b...", as written by
+// SNLRTLPrimitives::createROM) into count bits, least significant first.
+// Returns false when a digit is x or z: such contents have no binary table.
+bool decodeMemoryInitBits(
+    const std::string& literal,
+    size_t count,
+    std::vector<bool>& bits) {
+  const auto quote = literal.find('\'');
+  if (quote == std::string::npos || quote + 1 >= literal.size()) {
+    throw naja::NL::NLException(
+        "NLDB0::getRomTruthTable: unsupported INIT literal " + literal);
+  }
+  const char base = static_cast<char>(
+      std::tolower(static_cast<unsigned char>(literal[quote + 1])));
+  const unsigned digitBits = base == 'h' ? 4 : base == 'b' ? 1 : 0;
+  if (digitBits == 0) {
+    throw naja::NL::NLException(
+        "NLDB0::getRomTruthTable: unsupported INIT literal " + literal);
+  }
+  std::vector<bool> msbFirst;
+  for (size_t i = quote + 2; i < literal.size(); ++i) {
+    const char c = static_cast<char>(
+        std::tolower(static_cast<unsigned char>(literal[i])));
+    if (c == '_') {
+      continue;
+    }
+    if (c == 'x' || c == 'z') {
+      return false;
+    }
+    unsigned digit = 0;
+    if (c >= '0' && c <= '9') {
+      digit = static_cast<unsigned>(c - '0');
+    } else if (base == 'h' && c >= 'a' && c <= 'f') {
+      digit = 10u + static_cast<unsigned>(c - 'a');
+    } else {
+      throw naja::NL::NLException(
+          "NLDB0::getRomTruthTable: unsupported INIT literal " + literal);
+    }
+    if (digit >= (1u << digitBits)) {
+      throw naja::NL::NLException(
+          "NLDB0::getRomTruthTable: unsupported INIT literal " + literal);
+    }
+    for (unsigned b = digitBits; b-- > 0;) {
+      msbFirst.push_back(((digit >> b) & 1u) != 0);
+    }
+  }
+  bits.assign(count, false);
+  for (size_t i = 0; i < msbFirst.size(); ++i) {
+    if (!msbFirst[i]) {
+      continue;
+    }
+    const size_t bit = msbFirst.size() - 1 - i;
+    if (bit >= count) {
+      throw naja::NL::NLException(
+          "NLDB0::getRomTruthTable: INIT literal exceeds the memory contents");
+    }
+    bits[bit] = true;
+  }
+  return true;
+}
+
+}  // namespace
+
+SNLTruthTable NLDB0::getRomTruthTable(
+    const SNLInstance* instance,
+    size_t flatTermID) {
+  if (!instance || !isMemory(instance->getModel())) {
+    throw NLException("NLDB0::getRomTruthTable: instance is not a memory primitive");
+  }
+  const auto* design = instance->getModel();
+  const auto signature = getMemorySignature(instance);
+  if (signature.writePorts != 0) {
+    throw NLException("NLDB0::getRomTruthTable: memory is not read-only");
+  }
+  const auto* rdata = getMemoryReadData(design);
+  const SNLBitTerm* outputTerm = nullptr;
+  for (const auto* term : design->getBitTerms()) {
+    if (term->getOrderID() == flatTermID) {
+      outputTerm = term;
+      break;
+    }
+  }
+  if (!outputTerm || outputTerm->getID() != rdata->getID()) {
+    std::ostringstream reason;
+    reason << "Term ID " << flatTermID
+           << " is not a read-data bit in memory design <"
+           << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+  if (signature.abits >= 64 ||
+      signature.depth > (uint64_t{1} << signature.abits)) {
+    throw NLException(
+        "NLDB0::getRomTruthTable: signature does not fit truth table metadata");
+  }
+  // Contents are undefined without INIT; x/z digits have no binary table.
+  if (!getBooleanParameter(instance, "INIT_ENABLE")) {
+    return SNLTruthTable();
+  }
+  const auto* initParameter = instance->getInstParameter(NLName("INIT"));
+  const std::string init = initParameter
+      ? initParameter->getValue()
+      : design->getParameter(NLName("INIT"))->getValue();
+  std::vector<bool> bits;
+  if (!decodeMemoryInitBits(init, signature.width * signature.depth, bits)) {
+    return SNLTruthTable();
+  }
+  const auto bit = static_cast<size_t>(outputTerm->getBit());
+  const size_t port = bit / signature.width;
+  const size_t lane = bit % signature.width;
+  SNLTruthTable::RomMetadata rom;
+  rom.addressSize = static_cast<uint32_t>(signature.abits);
+  rom.depth = static_cast<uint32_t>(signature.depth);
+  rom.column.reserve(signature.depth);
+  for (size_t row = 0; row < signature.depth; ++row) {
+    rom.column.push_back(bits[row * signature.width + lane]);
+  }
+  const auto* raddr = getMemoryReadAddress(design);
+  std::vector<size_t> dependencies;
+  dependencies.reserve(signature.abits);
+  for (size_t k = 0; k < signature.abits; ++k) {
+    dependencies.push_back(
+        raddr->getBit(static_cast<NLID::Bit>(port * signature.abits + k))
+            ->getOrderID());
+  }
+  return SNLTruthTable::Rom(rom, NLBitDependencies::encodeBits(dependencies));
+}
+
 SNLTruthTable NLDB0::getWordTruthTable(
     const SNLDesign* design,
     size_t flatTermID) {

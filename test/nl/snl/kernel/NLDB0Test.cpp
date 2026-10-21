@@ -2449,3 +2449,68 @@ TEST_F(NLDB0Test, CanonicalLibraryGroupsEndWithGateFamilies) {
       model->getLibrary()->getID(), model->getID()));
   }
 }
+
+TEST_F(NLDB0Test, ReadOnlyMemoryExposesRomTruthTables) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* top = SNLDesign::create(NLLibrary::create(db, NLName("designs")), NLName("top"));
+  // Three 2-bit rows in a 2-bit address space: {2'b10, 2'b01, 2'b11},
+  // packed least significant row first.
+  auto* rom = NLDB0::getOrCreateMemory({2, 3, 2, 1, 0});
+  ASSERT_NE(nullptr, rom);
+  EXPECT_FALSE(SNLDesignModeling::isSequential(rom));
+  auto* instance = SNLInstance::create(top, rom, NLName("rom0"));
+  SNLInstParameter::create(instance, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(instance, rom->getParameter(NLName("INIT")), "6'h36");
+  auto* rdata = NLDB0::getMemoryReadData(rom);
+  auto* raddr = NLDB0::getMemoryReadAddress(rom);
+  EXPECT_EQ(2u, SNLDesignModeling::getTruthTableCount(rom));
+  EXPECT_TRUE(SNLDesignModeling::hasTruthTableFromParameter(rom, rdata->getBit(0)->getOrderID()));
+  // The design alone has no contents.
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(rom, rdata->getBit(0)->getOrderID()).isInitialized());
+  const std::vector<std::vector<bool>> columns{{false, true, true}, {true, false, true}};
+  std::vector<size_t> expectedDependencies;
+  for (auto* bit : raddr->getBits()) {
+    expectedDependencies.push_back(bit->getOrderID());
+  }
+  for (size_t lane = 0; lane < 2; ++lane) {
+    const auto table = SNLDesignModeling::getTruthTable(instance, rdata->getBit(lane)->getOrderID());
+    ASSERT_TRUE(table.isInitialized());
+    EXPECT_EQ(SNLTruthTable::GenericType::ROM, table.getGenericType());
+    EXPECT_TRUE(table.isRom());
+    EXPECT_EQ(2u, table.size());
+    EXPECT_EQ(2u, table.getRomMetadata().addressSize);
+    EXPECT_EQ(3u, table.getRomMetadata().depth);
+    EXPECT_EQ(columns[lane], table.getRomMetadata().column);
+    EXPECT_EQ(NLBitDependencies::encodeBits(expectedDependencies), table.getDependencies());
+    EXPECT_THROW(table.getWordMetadata(), NLException);
+    EXPECT_THROW(table.getReducedWithConstants({{0, true}}), NLException);
+  }
+  EXPECT_THROW(NLDB0::getRomTruthTable(instance, raddr->getBit(0)->getOrderID()), NLException);
+  EXPECT_THROW(SNLTruthTable().getRomMetadata(), NLException);
+  // x/z contents and disabled INIT have no binary table.
+  auto* xrom = SNLInstance::create(top, rom, NLName("rom1"));
+  SNLInstParameter::create(xrom, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(xrom, rom->getParameter(NLName("INIT")), "6'b1101x0");
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(xrom, rdata->getBit(0)->getOrderID()).isInitialized());
+  auto* blank = SNLInstance::create(top, rom, NLName("rom2"));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(blank, rdata->getBit(0)->getOrderID()).isInitialized());
+  // Contents wider than the memory are rejected; writable memories keep no table.
+  auto* bad = SNLInstance::create(top, rom, NLName("rom3"));
+  SNLInstParameter::create(bad, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(bad, rom->getParameter(NLName("INIT")), "6'h136");
+  EXPECT_THROW(SNLDesignModeling::getTruthTable(bad, rdata->getBit(0)->getOrderID()), NLException);
+  auto* ram = NLDB0::getOrCreateMemory({2, 3, 2, 1, 1});
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(ram));
+  EXPECT_FALSE(SNLDesignModeling::hasTruthTableFromParameter(
+      ram, NLDB0::getMemoryReadData(ram)->getBit(0)->getOrderID()));
+  EXPECT_THROW(NLDB0::getRomTruthTable(SNLInstance::create(top, ram, NLName("ram0")),
+      NLDB0::getMemoryReadData(ram)->getBit(0)->getOrderID()), NLException);
+  // Factory validation.
+  const SNLTruthTable::RomMetadata metadata{2, 3, {true, false, true}};
+  EXPECT_NO_THROW(SNLTruthTable::Rom(metadata, NLBitDependencies::encodeBits({0, 1})));
+  EXPECT_THROW(SNLTruthTable::Rom(metadata, NLBitDependencies::encodeBits({0})), NLException);
+  EXPECT_THROW(SNLTruthTable::Rom({2, 5, {true, false, true, true, false}},
+      NLBitDependencies::encodeBits({0, 1})), NLException);
+  EXPECT_THROW(SNLTruthTable::Rom({2, 3, {true}}, NLBitDependencies::encodeBits({0, 1})), NLException);
+}

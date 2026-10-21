@@ -35,7 +35,8 @@ class SNLTruthTable {
     DIVMOD,
     ADD_SUB,
     MULTIPLY,
-    SHIFT
+    SHIFT,
+    ROM
   };
 
   enum class DivModResult {
@@ -62,6 +63,22 @@ class SNLTruthTable {
     }
   };
   
+  // Metadata of one output bit of a read-only memory (ROM): a table select
+  // whose rows are constants. The dependencies are the address bits, most
+  // significant bit first; column holds this bit of every row, row 0 first.
+  // Addresses at or beyond depth read 0.
+  struct RomMetadata {
+    uint32_t addressSize{0};
+    uint32_t depth{0};
+    std::vector<bool> column{};
+
+    bool operator==(const RomMetadata&) const = default;
+    bool operator<(const RomMetadata& o) const {
+      return std::tie(addressSize, depth, column) <
+             std::tie(o.addressSize, o.depth, o.column);
+    }
+  };
+
   SNLTruthTable() : size_(0) {}
 
   static std::vector<uint64_t> fullDependencies(size_t size) {
@@ -115,7 +132,8 @@ class SNLTruthTable {
       divModSigned_(o.divModSigned_),
       divModResult_(o.divModResult_),
       divModOutputBit_(o.divModOutputBit_),
-      word_(o.word_)
+      word_(o.word_),
+      rom_(o.rom_)
   {}
 
   // explicit copy‐assignment to match
@@ -133,6 +151,7 @@ class SNLTruthTable {
       divModResult_ = o.divModResult_;
       divModOutputBit_ = o.divModOutputBit_;
       word_ = o.word_;
+      rom_ = o.rom_;
     }
     return *this;
   }
@@ -272,6 +291,21 @@ class SNLTruthTable {
     return table;
   }
 
+  static SNLTruthTable Rom(
+      const RomMetadata& rom,
+      const std::vector<uint64_t>& dependencies) {
+    if (NLBitDependencies::countBitsForVector(dependencies) != rom.addressSize) {
+      throw NLException("ROM truth table must depend on every address bit");
+    }
+    SNLTruthTable table;
+    table.size_ = rom.addressSize;
+    table.dependencies_ = dependencies;
+    table.genericType_ = GenericType::ROM;
+    table.rom_ = rom;
+    table.validateGenericMetadata();
+    return table;
+  }
+
   bool operator==(const SNLTruthTable& o) const {
     return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_ &&
            genericType_ == o.genericType_ &&
@@ -281,7 +315,7 @@ class SNLTruthTable {
            divModSigned_ == o.divModSigned_ &&
            divModResult_ == o.divModResult_ &&
            divModOutputBit_ == o.divModOutputBit_ &&
-           word_ == o.word_;
+           word_ == o.word_ && rom_ == o.rom_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
@@ -303,6 +337,8 @@ class SNLTruthTable {
       return divModOutputBit_ < o.divModOutputBit_;
     if (word_ != o.word_)
       return word_ < o.word_;
+    if (rom_ != o.rom_)
+      return rom_ < o.rom_;
     if (bits_ != o.bits_)
       return bits_ < o.bits_;
     return dependencies_ < o.dependencies_;
@@ -407,6 +443,15 @@ class SNLTruthTable {
       throw NLException("Truth table has no word arithmetic metadata");
     }
     return word_;
+  }
+
+  bool isRom() const { return genericType_ == GenericType::ROM; }
+
+  const RomMetadata& getRomMetadata() const {
+    if (!isRom()) {
+      throw NLException("Truth table has no ROM metadata");
+    }
+    return rom_;
   }
 
   uint32_t getDivModOutputBit() const {
@@ -531,6 +576,9 @@ class SNLTruthTable {
         case GenericType::DIVMOD:
           throw NLException(
               "getReducedWithConstants() does not support DIVMOD");
+        case GenericType::ROM:
+          throw NLException(
+              "getReducedWithConstants() does not support ROM");
         default:
           break;  // LCOV_EXCL_LINE
       }
@@ -754,6 +802,16 @@ class SNLTruthTable {
       }
       return;
     }
+    if (genericType_ == GenericType::ROM) {
+      if (tableSelectAddressSize_ != 0 || tableSelectDepth_ != 0 ||
+          divModWidth_ != 0 || word_ != WordMetadata{} ||
+          rom_.addressSize == 0 || rom_.addressSize >= 64 || rom_.depth == 0 ||
+          rom_.depth > (uint64_t{1} << rom_.addressSize) ||
+          size_ != rom_.addressSize || rom_.column.size() != rom_.depth) {
+        throw NLException("Invalid ROM truth table metadata");
+      }
+      return;
+    }
     if (isWordArithmetic()) {
       const uint64_t inputCount =
           static_cast<uint64_t>(word_.width) +
@@ -779,6 +837,9 @@ class SNLTruthTable {
     if (word_ != WordMetadata{}) {
       throw NLException("Unexpected word arithmetic metadata on truth table");
     }
+    if (rom_ != RomMetadata{}) {
+      throw NLException("Unexpected ROM metadata on truth table");
+    }
   }
 
   uint32_t size_{0};
@@ -792,6 +853,7 @@ class SNLTruthTable {
   DivModResult divModResult_{DivModResult::QUOTIENT};
   uint32_t divModOutputBit_{0};
   WordMetadata word_{};
+  RomMetadata rom_{};
 };
 
 }  // namespace naja::NL
