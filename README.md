@@ -24,16 +24,6 @@ Naja is an open source EDA framework for loading, elaborating, analyzing, optimi
 - **ECO transformations** — direct netlist editing
 - **Serialization** — SNL interchange format (Cap'n Proto) and Verilog output
 
-In the APIs and CLI, `load_gate_level_verilog`, `NLDB.loadGateLevelVerilog`, and `-f gate-level-verilog` mean
-**gate-level (structural) Verilog**, not general behavioral RTL. For Verilog or
-SystemVerilog RTL, including `.v` sources, use `load_system_verilog`,
-`NLDB.loadSystemVerilog`, or `-f systemverilog` within the slang frontend's
-supported RTL subset. Verilog export writes structural netlists. The former Python names
-(`load_verilog`, `VerilogConfig`, `dump_verilog`, `VerilogDumpConfig`, and raw
-`loadVerilog`/`dumpVerilog`) remain compatibility aliases and warn that they
-will be deprecated soon. The CLI also keeps `-f verilog` and `-t verilog` as
-compatibility aliases with the same migration warning; prefer `gate-level-verilog`.
-
 ### Architecture
 
 The diagram below shows how formats, frontends, APIs, and companion tools
@@ -145,6 +135,21 @@ RTL files into chat, agents can ask targeted questions — what drives a signal,
 what is inside a module, where a net comes from — and get small, exact answers
 with file-and-line references.
 
+### Choosing a Verilog loader
+
+Choose the frontend by the source contents, including for `.v` files:
+
+| Input | Python API | Raw API | CLI input format |
+| --- | --- | --- | --- |
+| Gate-level (structural) Verilog | `load_gate_level_verilog` | `NLDB.loadGateLevelVerilog` | `-f gate-level-verilog` |
+| Verilog or SystemVerilog RTL within slang's supported subset | `load_system_verilog` | `NLDB.loadSystemVerilog` | `-f systemverilog` |
+
+Verilog export writes structural netlists.
+
+The former Python names (`load_verilog`, `VerilogConfig`, `dump_verilog`,
+`VerilogDumpConfig`, and raw `loadVerilog`/`dumpVerilog`) remain compatibility
+aliases and warn that they will be deprecated soon.
+
 ### Tutorials
 
 Six hands-on notebooks — open any of them in Colab with no local install needed:
@@ -179,6 +184,9 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle -e pre.py -z post.py
 ```
 
 Available optimizations (`-a`): `all` (DLE + constant propagation + primitives), `dle`.
+
+The CLI keeps `-f verilog` and `-t verilog` as compatibility aliases that warn
+they will be deprecated soon; prefer `gate-level-verilog`.
 
 Python script examples: [src/apps/naja_edit/examples](https://github.com/najaeda/naja/blob/main/src/apps/naja_edit/examples)  
 Regression suite: [naja-regress](https://github.com/najaeda/naja-regress)
