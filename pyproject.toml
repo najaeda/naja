@@ -93,7 +93,8 @@ before-all = '''
   set -euo pipefail
   yum clean all
   echo "::group::Installing dependencies"
-  yum -y install curl boost-devel
+  # These packages come from AlmaLinux; avoid unrelated EPEL mirror failures.
+  yum -y --disablerepo='epel*' install curl boost-devel
   echo "::endgroup::"
 
   echo "::group::Installing TBB"
