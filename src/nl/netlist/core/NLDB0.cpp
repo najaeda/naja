@@ -2034,6 +2034,65 @@ SNLTruthTable NLDB0::getDivModTruthTable(
       NLBitDependencies::encodeBits(dependencies));
 }
 
+SNLTruthTable NLDB0::getWordTruthTable(
+    const SNLDesign* design,
+    size_t flatTermID) {
+  const bool addSub = isAddSub(design);
+  const bool multiply = isMultiply(design);
+  const bool shift = isShift(design);
+  if (!addSub && !multiply && !shift) {
+    throw NLException(
+        "NLDB0::getWordTruthTable: design is not a word arithmetic primitive");
+  }
+  const SNLBusTerm* first = shift ? getShiftData(design)
+      : addSub ? getAddSubInputA(design) : getMultiplyInputA(design);
+  const SNLBusTerm* second = shift ? getShiftCount(design)
+      : addSub ? getAddSubInputB(design) : getMultiplyInputB(design);
+  const SNLBusTerm* output = shift ? getShiftOutput(design)
+      : addSub ? getAddSubOutput(design) : getMultiplyOutput(design);
+  const SNLBitTerm* outputTerm = nullptr;
+  for (const auto* term : design->getBitTerms()) {
+    if (term->getOrderID() == flatTermID) {
+      outputTerm = term;
+      break;
+    }
+  }
+  if (!outputTerm || outputTerm->getID() != output->getID()) {
+    std::ostringstream reason;
+    reason << "Term ID " << flatTermID
+           << " is not an output in word arithmetic design <"
+           << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+  const auto width = static_cast<size_t>(first->getWidth());
+  const auto secondWidth = static_cast<size_t>(second->getWidth());
+  if (width > std::numeric_limits<uint32_t>::max() / 2 ||
+      secondWidth > std::numeric_limits<uint32_t>::max() / 2) {
+    throw NLException(
+        "NLDB0::getWordTruthTable: width does not fit truth table metadata");
+  }
+  std::vector<size_t> dependencies;
+  dependencies.reserve(width + secondWidth);
+  for (const auto* operand : {first, second}) {
+    for (const auto* bit : operand->getBits()) {
+      dependencies.push_back(bit->getOrderID());
+    }
+  }
+  const auto outputBit = static_cast<uint32_t>(outputTerm->getBit());
+  const auto encoded = NLBitDependencies::encodeBits(dependencies);
+  if (shift) {
+    const auto signature = getShiftSignature(design);
+    return SNLTruthTable::Shift(
+        static_cast<uint32_t>(width), static_cast<uint32_t>(secondWidth),
+        signature.right, signature.arithmetic, outputBit, encoded);
+  }
+  if (addSub) {
+    return SNLTruthTable::AddSub(
+        static_cast<uint32_t>(width), isSubtract(design), outputBit, encoded);
+  }
+  return SNLTruthTable::Multiply(static_cast<uint32_t>(width), outputBit, encoded);
+}
+
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isAddSub(design)) {
     throw NLException("NLDB0::getPrimitiveTruthTable: add/subtract primitive has no truth table");

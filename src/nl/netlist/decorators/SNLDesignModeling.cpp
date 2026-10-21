@@ -2439,12 +2439,12 @@ bool SNLDesignModeling::areDependenciesDefined(const SNLBitTerm* term) {
 
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   if (NLDB0::isDB0Primitive(design)) {
-    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
-        NLDB0::isShift(design) || NLDB0::isMultiply(design) || NLDB0::isAddSub(design)) {
+    if (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design)) {
       return 0;
     }
     if (NLDB0::isMux2(design) || NLDB0::isTableSelect(design) ||
-        NLDB0::isDivMod(design)) {
+        NLDB0::isDivMod(design) || NLDB0::isShift(design) ||
+        NLDB0::isMultiply(design) || NLDB0::isAddSub(design)) {
       size_t tableCount = 0;
       for (const auto* term : design->getBitTerms()) {
         if (term->getDirection() != SNLTerm::Direction::Input) {
@@ -2638,8 +2638,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
     return found; };
 
   if (NLDB0::isDB0Primitive(design) &&
-      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design) ||
-        NLDB0::isShift(design) || NLDB0::isMultiply(design) || NLDB0::isAddSub(design))) {
+      (isDB0SequentialPrimitive(design) || NLDB0::isMemory(design))) {
     return SNLTruthTable();
   }
   auto property = getTruthTableProperty(design);
@@ -2688,6 +2687,16 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
         throw NLException(reason.str());
       }
       return NLDB0::getDivModTruthTable(design, flatTermID);
+    } else if (NLDB0::isAddSub(design) || NLDB0::isMultiply(design) ||
+               NLDB0::isShift(design)) {
+      if (!isOutputTerm) {
+        std::ostringstream reason;
+        reason << "Term ID " << flatTermID
+               << " is not an output in word arithmetic design <"
+               << design->getName().getString() << ">";
+        throw NLException(reason.str());
+      }
+      return NLDB0::getWordTruthTable(design, flatTermID);
     } else {
       if (outputCount != 1) {
         std::ostringstream reason;
