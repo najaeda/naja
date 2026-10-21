@@ -91,10 +91,25 @@ before-all = '''
 build-frontend = "build"
 before-all = '''
   set -euo pipefail
-  yum clean all
   echo "::group::Installing dependencies"
-  # These packages come from AlmaLinux; avoid unrelated EPEL mirror failures.
-  yum -y --disablerepo='epel*' install curl boost-devel
+  # Use official AlmaLinux repositories to avoid inconsistent mirror metadata.
+  # Only BaseOS and AppStream are needed; unrelated EPEL failures must not block us.
+  for attempt in 1 2 3; do
+    yum clean all
+    if yum -y --refresh --disablerepo='*' --enablerepo=baseos,appstream \
+      --setopt=baseos.mirrorlist= \
+      --setopt='baseos.baseurl=https://repo.almalinux.org/almalinux/$releasever/BaseOS/$basearch/os/' \
+      --setopt=appstream.mirrorlist= \
+      --setopt='appstream.baseurl=https://repo.almalinux.org/almalinux/$releasever/AppStream/$basearch/os/' \
+      install curl boost-devel; then
+      break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+      echo "Dependency installation failed after $attempt attempts" >&2
+      exit 1
+    fi
+    sleep 10
+  done
   echo "::endgroup::"
 
   echo "::group::Installing TBB"
