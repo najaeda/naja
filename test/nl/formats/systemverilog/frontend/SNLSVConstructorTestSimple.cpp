@@ -26394,6 +26394,109 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSuppor
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, wildcardComparisonPatternsPreserveSemantics) {
+  const std::string source = R"(module wildcard_patterns(
+  input logic clk,
+  input logic [7:0] a,
+  output wire [11:0] y,
+  output logic branch, seq, guarded
+);
+  localparam logic [7:0] MASK = 8'b1?x01z?0;
+  localparam logic signed [3:0] SIGNED_MASK = 4'b?101;
+  assign y[0] = a ==? MASK;
+  assign y[1] = a !=? MASK;
+  assign y[2] = a ==? 'x;
+  assign y[3] = a !=? 'z;
+  assign y[4] = a ==? 4'b?101;
+  assign y[5] = $signed(a) ==? SIGNED_MASK;
+  assign y[6] = a ==? {2{4'b1?0z}};
+  assign y[7] = a !=? 8'(4'b?101);
+  assign y[8] = (a ==? MASK) ? a[3] : a[6];
+  assign y[9] = a ==? 8'b10100110;
+  assign y[10] = a ==? '1;
+  assign y[11] = a !=? '0;
+  always_comb begin
+    if (a ==? MASK) branch = a[2];
+    else branch = a[5];
+  end
+  always_ff @(posedge clk) begin
+    seq <= a !=? MASK;
+    if (a ==? MASK) guarded <= a[3];
+    else guarded <= a[6];
+  end
+endmodule
+)";
+  const auto sourcePath = writeSVTestFile("wildcard_patterns", source);
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = sourcePath.parent_path() / "diagnostics.log";
+  constructor.construct(sourcePath, options);
+  EXPECT_EQ(std::string::npos,
+    readTextFile(*options.diagnosticsReportPath).find("case_comparison_two_state"));
+  auto* top = library_->getSNLDesign(NLName("wildcard_patterns"));
+  ASSERT_NE(nullptr, top);
+  const auto dumpedPath = dumpTopAndGetVerilogPath(top, "wildcard_patterns_dump");
+  const auto dumped = readTextFile(dumpedPath);
+  // Pattern X/Z bits must never become gate operands.
+  EXPECT_EQ(std::string::npos, dumped.find("1'bz"));
+  EXPECT_EQ(std::string::npos, dumped.find("1'bx"));
+  auto quote = [](const std::filesystem::path& path) {
+    return "\"" + path.string() + "\"";
+  };
+  if (std::system("command -v verilator >/dev/null 2>&1") == 0) {
+    const auto command = "verilator --lint-only --sv --top-module wildcard_patterns " +
+      quote(dumpedPath) + " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(command.c_str()));
+  }
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for four-state wildcard simulation";
+  }
+  auto reference = source;
+  reference.replace(reference.find("module wildcard_patterns"),
+    std::string("module wildcard_patterns").size(), "module wildcard_reference");
+  const auto referencePath = writeSVTestFile("wildcard_reference", reference);
+  const auto tbPath = dumpedPath.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg clk = 0;
+  reg [7:0] a;
+  wire [11:0] y, expected;
+  wire branch, seq, guarded, ref_branch, ref_seq, ref_guarded;
+  wildcard_patterns dut(.*);
+  wildcard_reference ref_dut(.clk(clk), .a(a), .y(expected),
+    .branch(ref_branch), .seq(ref_seq), .guarded(ref_guarded));
+  task check;
+    begin
+      #1;
+      if ({y, branch} !== {expected, ref_branch}) $fatal(1, "combinational mismatch a=%b", a);
+      clk = 1; #1;
+      if (seq !== ref_seq) $fatal(1, "sequential comparison mismatch a=%b", a);
+      if (!$isunknown(a) && guarded !== ref_guarded) $fatal(1, "guard mismatch a=%b", a);
+      clk = 0;
+    end
+  endtask
+  integer i;
+  initial begin
+    for (i = 0; i < 256; i = i + 1) begin a = i; check; end
+    a = 8'b1xz01zx0; check;
+    a = 8'bxx101101; check;
+    a = 8'bzz101101; check;
+    a = 8'bxxxxxxxx; check;
+    a = 8'bzzzzzzzz; check;
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto executable = dumpedPath.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(referencePath) + " " + quote(dumpedPath) +
+    " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

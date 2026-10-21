@@ -262,6 +262,13 @@ the frontend's two-state matching behavior; overlapping items retain source-orde
 priority. A result must be defined for every selector value; functions with an
 uncovered path are rejected.
 
+Wildcard equality (``==?``) and inequality (``!=?``) ignore ``X``, ``Z``, and
+``?`` bits in constant right-hand patterns after operand sizing and extension.
+This includes parameter, concatenation, replication, and cast expressions in
+assignments and conditions. Left-hand unknown bits remain comparison inputs.
+Runtime four-state right-hand patterns retain the frontend's two-state
+comparison limitation and emit ``case_comparison_two_state``.
+
 Combinational function input arguments can include fixed-size unpacked arrays
 of integral elements. Actuals may be local or package parameters, or unpacked
 variables; earlier blocking writes in a combinational block are visible to the
