@@ -279,6 +279,27 @@ module top(input logic clk, rst, enable,
 endmodule
 """)
 
+    def test_systemverilog_dynamic_packed_fields(self):
+        self.check_determinism("sv", """
+package types;
+  typedef struct packed {
+    logic [1:0] tag;
+    logic [4:0] data;
+    logic valid;
+  } state_t;
+endpackage
+module top import types::*;
+  (input logic clk, rst, input logic [2:0] index,
+   input logic [1:0] value, output state_t q);
+  always_ff @(posedge clk) q.tag <= value;
+  always_ff @(posedge clk) q.valid <= value[0];
+  always_ff @(posedge clk or posedge rst) begin
+    if (rst) q.data <= '0;
+    else q.data[index] <= value[0];
+  end
+endmodule
+""")
+
     def test_verilog(self):
         self.check_determinism("v", VERILOG)
 
