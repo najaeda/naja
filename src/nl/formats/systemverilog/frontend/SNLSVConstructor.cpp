@@ -29616,7 +29616,7 @@ endmodule
       std::vector<CombinationalSelectionStep> steps;
       if (!collectCombinationalSelectionStepsFromTrackedLhs(
             assignedExpr, lhsExpr, steps)) {
-        return false;
+        return false; // LCOV_EXCL_LINE: The caller verifies the tracked root; a dynamic selected LHS supplies at least one selection step.
       }
       std::vector<std::vector<size_t>> candidates(1);
       for (size_t bit = 0; bit < lhsWidth; ++bit) {
@@ -29629,7 +29629,7 @@ endmodule
           if (step.element && !getConstantInt32(step.element->selector(), index)) {
             const auto width = getElementSelectionWidth(*step.element, offsets.size());
             if (!width || !*width || offsets.size() % *width) {
-              return false;
+              return false; // LCOV_EXCL_LINE: Slang fixed-range array elements have positive widths dividing their resolved parent width.
             }
             for (size_t offset = 0; offset < offsets.size(); offset += *width) {
               nextCandidates.emplace_back(
@@ -29639,12 +29639,12 @@ endmodule
             int32_t width = 0;
             if (step.range->getSelectionKind() == slang::ast::RangeSelectionKind::Simple ||
                 !getConstantInt32(step.range->right(), width) || width <= 0) {
-              return false;
+              return false; // LCOV_EXCL_LINE: Slang requires constant simple-range bounds and positive constant indexed-range widths.
             }
             // Every bit in the selected base can be reached by an indexed
             // part-select, including selections partially outside its bounds.
             if (&step != &steps.back()) {
-              return false;
+              return false; // LCOV_EXCL_LINE: Slang rejects chained selections after a range select.
             }
             assignedOffsets.insert(assignedOffsets.end(), offsets.begin(), offsets.end());
           } else {

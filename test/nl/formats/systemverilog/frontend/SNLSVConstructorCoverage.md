@@ -245,3 +245,13 @@ Inferred-memory local equality requests (source line numbers before this change)
 | --- | --- |
 | 8659 | `parseQDNextLocalCommitEqualityOperandFailureFallback`, `lhs` variant: a reference to a different memory entry cannot resolve as the current entry's local slice; lowering must diagnose and throw. The `rhs` variant preserves the existing opposite-operand regression. |
 | 8667 | `wildcardLocalConditionsKeepMemoryInference`, signed `==?` and `!=?` variants: signed memory words and signed wildcard patterns exercise both operand type checks, retain one inferred memory, and match RTL simulation. |
+
+
+Procedural assignment-offset requests (source line numbers before this change):
+
+| Original lines | Coverage or exclusion |
+| --- | --- |
+| 29619 | Excluded: the only caller first verifies that the assigned expression belongs to the tracked storage root. Dynamic selected targets have a nonempty element/member/range chain back to that root. |
+| 29632 | Excluded: accepted fixed-range integral arrays have positive element widths dividing the parent storage width; preceding static selections retain whole typed elements or fail before reaching this check. |
+| 29642 | Excluded: Slang rejects nonconstant simple-range bounds and indexed ranges with nonconstant or nonpositive widths before constructor lowering. |
+| 29647 | Excluded: Slang rejects any chained selection after a range select, so a range selection is necessarily the final step. Parser-backed probes checked dynamic element, constant element, and range suffixes. |
