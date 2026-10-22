@@ -33,6 +33,10 @@ struct PrimitiveCase {
   std::function<SNLDesign*()> create;
 };
 
+void PrintTo(const PrimitiveCase& primitive, std::ostream* out) {
+  *out << primitive.name;
+}
+
 std::vector<PrimitiveCase> primitiveCases(bool wide = true) {
   std::vector<PrimitiveCase> cases{{"assign", NLDB0::getAssign}, {"fa", NLDB0::getFA}};
   const std::vector<std::pair<std::string, SNLDesign*(*)(size_t)>> sized{
@@ -390,8 +394,9 @@ TEST_F(SNLCapnPPrimitiveIdentityTest, SeparateInterfaceAndImplementationRoundTri
 TEST_F(SNLCapnPPrimitiveIdentityTest, IncompleteModelSignatureIsRejected) {
   auto* top = createTop();
   auto* model = NLDB0::getOrCreateShift({3, 2, false, false});
-  add(top, model, "used");
+  // Remove the declaration before creating overrides that reference it.
   model->getParameter(NLName("COUNT_WIDTH"))->destroy();
+  add(top, model, "used");
   const auto path = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "incomplete_db0_signature";
   SNLCapnP::dump(top->getDB(), path);
   NLUniverse::get()->destroy();
