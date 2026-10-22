@@ -24,7 +24,8 @@ PACKAGE = f"pulp-benchmarks-v{VERSION}"
 URL = f"https://github.com/pulp-platform/eda-benchmarks/releases/download/v{VERSION}/{PACKAGE}.tar.gz"
 SHA256 = "a27eaca9359cd2c0b646892325355e102ae563bd8f772c77f18697ff8c4ad603"
 # Keep this small enough for pull requests; the complete survey is opt-in.
-SMOKE = ("cv32e40p.default", "cvfpu.fp32_fma", "ibex.minimal", "spi_host.default", "nvdla.top")
+SMOKE = ("cv32e40p.default", "cvfpu.fp32_fma", "ibex.minimal", "spi_host.default",
+         "nvdla.top", "snitch_cluster.minimal")
 # Some release sources mix explicit time scales with modules that omit them.
 DEFAULT_TIMESCALES = {"nvdla.top": "1ns/1ps"}
 

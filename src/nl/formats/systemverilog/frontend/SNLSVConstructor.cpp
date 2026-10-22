@@ -24485,7 +24485,9 @@ endmodule
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
           if (hasDynamicLHSSelection(*assignedLHS) &&
-              strippedAssignedLHS->kind != slang::ast::ExpressionKind::ElementSelect &&
+              (strippedAssignedLHS->kind != slang::ast::ExpressionKind::ElementSelect ||
+               !sameLhs(&strippedAssignedLHS->as<slang::ast::ElementSelectExpression>().value(),
+                        &lhsExpr)) &&
               isTrackedSelectionSubLhsOf(assignedLHS, &lhsExpr)) {
             bool handled = false;
             if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
@@ -29606,6 +29608,61 @@ endmodule
       return false; // LCOV_EXCL_LINE
     }
 
+    bool collectProceduralAssignmentOffsets(
+      const Expression& assignedExpr,
+      const Expression& lhsExpr,
+      size_t lhsWidth,
+      std::vector<size_t>& assignedOffsets) {
+      std::vector<CombinationalSelectionStep> steps;
+      if (!collectCombinationalSelectionStepsFromTrackedLhs(
+            assignedExpr, lhsExpr, steps)) {
+        return false;
+      }
+      std::vector<std::vector<size_t>> candidates(1);
+      for (size_t bit = 0; bit < lhsWidth; ++bit) {
+        candidates.front().push_back(bit);
+      }
+      for (const auto& step : steps) {
+        std::vector<std::vector<size_t>> nextCandidates;
+        for (const auto& offsets : candidates) {
+          int32_t index = 0;
+          if (step.element && !getConstantInt32(step.element->selector(), index)) {
+            const auto width = getElementSelectionWidth(*step.element, offsets.size());
+            if (!width || !*width || offsets.size() % *width) {
+              return false;
+            }
+            for (size_t offset = 0; offset < offsets.size(); offset += *width) {
+              nextCandidates.emplace_back(
+                offsets.begin() + offset, offsets.begin() + offset + *width);
+            }
+          } else if (step.range && !getConstantInt32(step.range->left(), index)) {
+            int32_t width = 0;
+            if (step.range->getSelectionKind() == slang::ast::RangeSelectionKind::Simple ||
+                !getConstantInt32(step.range->right(), width) || width <= 0) {
+              return false;
+            }
+            // Every bit in the selected base can be reached by an indexed
+            // part-select, including selections partially outside its bounds.
+            if (&step != &steps.back()) {
+              return false;
+            }
+            assignedOffsets.insert(assignedOffsets.end(), offsets.begin(), offsets.end());
+          } else {
+            std::vector<size_t> selected;
+            if (!applyStaticCombinationalSelectionStepOffsets(step, offsets, selected)) {
+              return false;
+            }
+            nextCandidates.push_back(std::move(selected));
+          }
+        }
+        candidates = std::move(nextCandidates);
+      }
+      for (const auto& offsets : candidates) {
+        assignedOffsets.insert(assignedOffsets.end(), offsets.begin(), offsets.end());
+      }
+      return true;
+    }
+
     std::vector<bool> makeProceduralAssignedBitMask(
       SNLDesign* design,
       const Statement& stmt,
@@ -29746,9 +29803,17 @@ endmodule
         if (hasDynamicSelectionInLHS(*assignedExpr)) {
           if (targetsTrackedLhs) {
             if (!requireDefiniteAssignment) {
-              std::fill(assignedMask.begin(), assignedMask.end(), true);
+              std::vector<size_t> assignedOffsets;
+              if (collectProceduralAssignmentOffsets(
+                    *assignedExpr, lhsExpr, lhsBits.size(), assignedOffsets)) {
+                for (const auto offset : assignedOffsets) {
+                  assignedMask[offset] = true;
+                }
+              } else {
+                std::fill(assignedMask.begin(), assignedMask.end(), true);
+              }
             }
-            return assignedMask;
+            continue;
           }
           continue; // LCOV_EXCL_LINE: Unrelated scalar targets are skipped above; dynamic concatenation targets are rejected before masking.
         }

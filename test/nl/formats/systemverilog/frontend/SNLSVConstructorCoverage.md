@@ -42,8 +42,14 @@ are still expected in real designs:
   propagation before narrowing logical/arithmetic right shifts, division, and
   remainder when an operand function contains an unsupported case-inside range.
 - Direct inferred-memory write coverage includes constant conditional writes,
-  nested packed constant-plus-dynamic selectors, two-dynamic-selector fallback,
-  unresolved system-call selectors, and nested duplicate shadow commits.
+  nested packed constant-plus-dynamic selectors, rejection of unsupported
+  two-dynamic-selector and system-call-selector writes, and nested duplicate
+  shadow commits.
+- `dynamicPackedFieldAssignmentOwnership` checks disjoint packed-field drivers
+  and next-state values for dynamic element writes, ascending and descending
+  fields, members of dynamically selected packed structs, and asynchronous reset.
+  The Python determinism suite checks live state, dumps, and snapshot round trips
+  for dynamic packed-field writes across processes.
 - Diagnostics report option paths are covered with explicit tests for:
   no-diagnostics content, non-empty diagnostics content, and empty report-path
   validation.

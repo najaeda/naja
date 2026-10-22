@@ -11989,7 +11989,7 @@ endmodule
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
-       parseDirectMemoryTwoDynamicPackedSelectorsFallback) {
+       parseDirectMemoryTwoDynamicPackedSelectorsUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "direct_memory_two_dynamic_packed_selectors_fallback";
@@ -12014,16 +12014,12 @@ endmodule
 )";
   svFile.close();
 
-  constructor.construct(svPath);
-
-  auto* top = library_->getSNLDesign(
-    NLName("direct_memory_two_dynamic_packed_selectors_fallback"));
-  ASSERT_NE(nullptr, top);
-  EXPECT_EQ(0u, countMemoryInstances(top));
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported dynamic sequential assignment LHS"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
-       parseDirectMemoryDynamicSystemCallSelectorFallback) {
+       parseDirectMemoryDynamicSystemCallSelectorUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "direct_memory_dynamic_system_call_selector_fallback";
@@ -12046,12 +12042,8 @@ endmodule
 )";
   svFile.close();
 
-  constructor.construct(svPath);
-
-  auto* top = library_->getSNLDesign(
-    NLName("direct_memory_dynamic_system_call_selector_fallback"));
-  ASSERT_NE(nullptr, top);
-  EXPECT_EQ(0u, countMemoryInstances(top));
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported dynamic sequential assignment LHS"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,

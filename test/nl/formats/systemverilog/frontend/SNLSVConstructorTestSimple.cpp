@@ -40393,3 +40393,99 @@ TEST_F(SNLSVConstructorTestSimple, primMubiPackageFunctionsExhaustive) {
     }
   }
 }
+
+TEST_F(SNLSVConstructorTestSimple, dynamicPackedFieldAssignmentOwnership) {
+  for (const auto* mode : {"element", "ascending", "nested"}) {
+    for (bool asyncReset : {false, true}) {
+      const auto name = std::string("field_ownership_") + mode + (asyncReset ? "_reset" : "");
+      SCOPED_TRACE(name);
+      const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
+      std::filesystem::create_directories(directory);
+      const auto path = directory / "source.sv";
+      const bool nested = std::string(mode) == "nested";
+      const bool ascending = std::string(mode) == "ascending";
+      std::ofstream source(path);
+      source << "package " << name << "_types;\n";
+      if (nested) {
+        source << "typedef struct packed {logic keep; logic [2:0] data;} lane_t;\n"
+               << "typedef struct packed {logic head; lane_t [1:0] lanes; logic tail;} state_t;\n";
+      } else {
+        source << "typedef struct packed {logic [1:0] head; logic "
+               << (ascending ? "[0:4]" : "[4:0]") << " data; logic tail;} state_t;\n";
+      }
+      source << "endpackage\nmodule " << name << " import " << name << "_types::*;\n"
+             << "(input logic clk, rst, input logic [7:0] a, output state_t q);\n";
+      source << "always_ff @(posedge clk) q.head <= " << (nested ? "a[7]" : "a[7:6]") << ";\n"
+             << "always_ff @(posedge clk) q.tail <= a[5];\n";
+      if (nested) {
+        source << "always_ff @(posedge clk) q.lanes[0].keep <= a[6];\n"
+               << "always_ff @(posedge clk) q.lanes[1].keep <= a[7];\n";
+      }
+      source << "always_ff @(posedge clk" << (asyncReset ? " or posedge rst" : "") << ") begin\n";
+      if (asyncReset) {
+        source << "if (rst) ";
+        if (nested) source << "begin q.lanes[0].data <= 0; q.lanes[1].data <= 0; end\n";
+        else source << "q.data <= 0;\n";
+        source << "else ";
+      }
+      if (nested) source << "q.lanes[a[0]].data <= a[3:1];\n";
+      else source << "q.data[a[2:0]] <= a[3];\n";
+      source << "end\nendmodule\n";
+      source.close();
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(path));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      auto* q = top->getBusNet(NLName("q"));
+      ASSERT_NE(nullptr, q);
+      const unsigned width = nested ? 10 : 8;
+      std::vector<SNLBitNet*> inputs;
+      for (unsigned bit = 0; bit < width; ++bit) {
+        SNLInstTerm* driver = nullptr;
+        for (auto* term : q->getBit(bit)->getInstTerms()) {
+          if (term->getDirection() == SNLTerm::Direction::Output) {
+            ASSERT_EQ(nullptr, driver) << "Multiple drivers on bit " << bit;
+            driver = term;
+          }
+        }
+        ASSERT_NE(nullptr, driver) << "Undriven bit " << bit;
+        auto* model = driver->getInstance()->getModel();
+        ASSERT_TRUE(NLDB0::isDFF(model) || NLDB0::isDFFR(model) || NLDB0::isDFFRN(model));
+        auto* d = model->getTerm(NLName("D"));
+        ASSERT_NE(nullptr, d);
+        auto* dBit = dynamic_cast<SNLBitTerm*>(d);
+        if (auto* bus = dynamic_cast<SNLBusTerm*>(d)) {
+          dBit = bus->getBit(driver->getBitTerm()->getBit());
+        }
+        ASSERT_NE(nullptr, dBit);
+        inputs.push_back(driver->getInstance()->getInstTerm(dBit)->getNet());
+      }
+      for (unsigned input = 0; input < 256; ++input) {
+        for (unsigned prior : {0u, 0x155u, 0x2aau, 0x3ffu}) {
+          std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+          for (unsigned bit = 0; bit < width; ++bit) memo[q->getBit(bit)] = bool((prior >> bit) & 1u);
+          memo[top->getScalarNet(NLName("rst"))] = false;
+          unsigned expected = prior;
+          if (nested) {
+            expected = (expected & 0xeeu) | ((input & 0x80u) << 2) |
+              ((input & 0x80u) << 1) | ((input & 0x40u) >> 2) | ((input & 0x20u) >> 5);
+            const unsigned offset = 1 + 4 * (input & 1u);
+            expected = (expected & ~(7u << offset)) | (((input >> 1) & 7u) << offset);
+          } else {
+            expected = (expected & 0x3eu) | (input & 0xc0u) | ((input >> 5) & 1u);
+            const unsigned selected = input & 7u;
+            if (selected < 5) {
+              const unsigned bit = 1 + (ascending ? 4 - selected : selected);
+              expected = (expected & ~(1u << bit)) | (((input >> 3) & 1u) << bit);
+            }
+          }
+          for (unsigned bit = 0; bit < width; ++bit) {
+            EXPECT_EQ(bool((expected >> bit) & 1u),
+              evaluateFunctionResultBit(top, inputs[bit], input, 0, &memo))
+              << "input=" << input << " prior=" << prior << " bit=" << bit;
+          }
+        }
+      }
+    }
+  }
+}

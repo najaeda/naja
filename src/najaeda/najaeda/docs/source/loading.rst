@@ -178,6 +178,12 @@ before the statement, including when the index is variable. Combinational cycles
 in the logic emitted for a single ``always_comb`` or ``always @*`` block are
 rejected with a ``combinational cycle inside procedural block`` diagnostic.
 
+Sequential dynamic writes to packed struct fields drive only the selected
+field's bits; independent processes may drive disjoint fields. This also applies
+to fields inside dynamically selected packed array elements. Dynamic sequential
+selections without a supported lowering, including unsupported nested memory
+selectors, raise an unsupported-construct diagnostic rather than dropping the write.
+
 Each source file is a separate compilation unit by default
 (``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
 in earlier files without including their definitions, set ``single_unit=True``.

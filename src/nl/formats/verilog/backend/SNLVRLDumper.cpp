@@ -1404,7 +1404,8 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     nbChars += termName.size();
     o << dumpName(termName);
     if (configuration_.isVerilatorSplitPackedSignals() && publicDesign_ &&
-        design != publicDesign_ && dynamic_cast<const SNLBusTerm*>(term)) {
+        design != publicDesign_ && term->getWidth() > 1 &&
+        dynamic_cast<const SNLBusTerm*>(term)) {
       o << " /* verilator split_var */";
     }
   }
@@ -1427,7 +1428,8 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
   o << dumpName(netName.getString());
-  if (configuration_.isVerilatorSplitPackedSignals() && dynamic_cast<const SNLBusNet*>(net)) {
+  if (configuration_.isVerilatorSplitPackedSignals() && net->getWidth() > 1 &&
+      dynamic_cast<const SNLBusNet*>(net)) {
     o << " /* verilator split_var */";
   }
   o << ";" << '\n';
