@@ -64,6 +64,10 @@ void checkManifestProducer(const SNLDumpManifest& manifest) {
 void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
   SNLDumpManifest::dump(path);
+  // Preserve all canonical models, including unused predecessors: compound
+  // families allocate IDs in creation order. This also preserves the initial
+  // DB0 state for subsequent creation after a fresh-universe reload.
+  dumpInterface(NLDB0::getDB0(), path/DB0InterfaceName);
   dumpInterface(db, path/InterfaceName);
   dumpImplementation(db, path/ImplementationName);
 }
@@ -96,6 +100,12 @@ NLDB* SNLCapnP::load(
       << manifest.getDB0LibraryIDVersion() << ", reader expects "
       << NLDB0::LibraryIDVersion << ". Regenerate the snapshot.";
     throw SNLDumpException(reason.str());
+  }
+  if (not std::filesystem::is_regular_file(path/DB0InterfaceName)) {
+    throw SNLDumpException("Missing snapshot DB0 model definitions (db0_interface.snl). Regenerate the snapshot.");
+  }
+  if (not NLDB0::isDB0(loadInterface(path/DB0InterfaceName, loadingConfiguration))) {
+    throw SNLDumpException("Invalid snapshot DB0 model definitions: expected database ID 0");
   }
   loadInterface(path/InterfaceName, loadingConfiguration);
   NLDB* db = loadImplementation(path/ImplementationName, loadingConfiguration);

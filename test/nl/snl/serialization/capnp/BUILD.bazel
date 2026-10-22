@@ -10,11 +10,13 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_test(
     name = "snlCapnPTests",
+    visibility = ["//test/najaeda:__pkg__"],
     srcs = [
         "SNLDumpManifestTest.cpp",
         "SNLCapnPTest0.cpp",
         "SNLCapnPTest1.cpp",
         "SNLCapnPTest2.cpp",
+        "SNLCapnPPrimitiveAuditTest.cpp",
         "SNLCapnPTest3.cpp",
         "SNLCapnPRTLInfosTest.cpp",
         "SNLCapnPAttributesTest.cpp",
@@ -22,6 +24,8 @@ cc_test(
     defines = ['SNL_CAPNP_TEST_PATH=\\".\\"'],
     deps = [
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
+        "//src/nl/formats/verilog:naja_snl_verilog",
+        "//src/nl/netlist:naja_snl_visual",
         "@googletest//:gtest_main",
     ],
 )

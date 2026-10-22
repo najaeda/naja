@@ -41,5 +41,9 @@ export LIBERTY_BENCHMARKS_PATH="$(abspath "${liberty_benchmarks}")"
 export NAJAEDA_TEST_PATH="${scratch}"
 export NAJAEDA_SOURCE_TEST_PATH="$(abspath "${test_src_dir}")"
 
+if [[ -n "${NAJA_DB0_AUDIT_BINARY:-}" ]]; then
+  export NAJA_DB0_AUDIT_BINARY="$(abspath "${NAJA_DB0_AUDIT_BINARY}")"
+fi
+
 cd "${scratch}"
 exec "$(abspath "${python3_bin}")" -m unittest discover -v "${NAJAEDA_SOURCE_TEST_PATH}" -p "${test_pattern}"

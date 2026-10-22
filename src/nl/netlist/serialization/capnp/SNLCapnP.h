@@ -25,6 +25,8 @@ class SNLCapnP {
 
     //static boost::asio::ip::tcp::socket getSocket(uint16_t port=0); 
     static constexpr std::string_view InterfaceName = "db_interface.snl";
+    // Canonical DB0 interfaces, encoded with the existing DBInterface schema.
+    static constexpr std::string_view DB0InterfaceName = "db0_interface.snl";
     static constexpr std::string_view ImplementationName = "db_implementation.snl";
     static void dump(const NLDB* db, const std::filesystem::path& dumpPath);
     //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port);

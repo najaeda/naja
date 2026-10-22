@@ -9,6 +9,7 @@
 #endif
 
 #include <fcntl.h>
+#include <cstring>
 #include <sstream>
 #include <list>
 //#include <boost/asio.hpp>
@@ -22,6 +23,7 @@
 
 #include "NLUniverse.h"
 #include "NLDB.h"
+#include "NLDB0.h"
 #include "NLException.h"
 
 #include "SNLDesign.h"
@@ -269,6 +271,39 @@ void dumpLibraryInterface(
     auto designInterfaceBuilder = designs[id++]; 
     dumpDesignInterface(designInterfaceBuilder, snlDesign);
   }
+}
+
+// DB0 is owned by NLUniverse. Recreate its canonical models through NLDB0,
+// rather than loading ordinary primitive shells without their native modeling.
+void loadDB0LibraryInterface(const DBInterface::LibraryInterface::Reader& library) {
+  const auto libraryID = NLID::LibraryID(library.getId());
+  for (auto definition : library.getSnlDesignInterfaces()) {
+    NLDB0::PrimitiveParameters parameters;
+    for (auto parameter : definition.getParameters()) {
+      if (!parameter.hasValue() || !parameters.emplace(
+          parameter.getName().cStr(), parameter.getValue().cStr()).second) {
+        throw NLException("Cannot load DB0 model: missing default or duplicate parameter");
+      }
+    }
+    auto* model = NLDB0::getOrCreatePrimitive(
+        libraryID, NLID::DesignID(definition.getId()), parameters);
+    if (!model || model->getID() != definition.getId()) {
+      throw NLException("Cannot load DB0 model: canonical identity conflicts with the snapshot; use a fresh universe");
+    }
+    // Check the entire interface, including parameter types/defaults, terminal
+    // IDs, bus bounds, directions and names. Never silently accept a mismatched
+    // signature or a modified canonical model.
+    ::capnp::MallocMessageBuilder generated;
+    auto builder = generated.initRoot<SNLDesignInterface>();
+    dumpDesignInterface(builder, model);
+    auto expected = ::capnp::canonicalize(definition);
+    auto actual = ::capnp::canonicalize(builder.asReader());
+    if (expected.size() != actual.size() || std::memcmp(
+        expected.begin(), actual.begin(), expected.size() * sizeof(::capnp::word))) {
+      throw NLException("Cannot load DB0 model: canonical interface differs from the snapshot");
+    }
+  }
+  for (auto child : library.getLibraryInterfaces()) loadDB0LibraryInterface(child);
 }
 
 SNLDesign::Type CapnPtoSNLDesignType(DesignType type) {
@@ -536,12 +571,12 @@ void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& int
 #ifdef _WIN32
   int fd = _open(
     interfacePath.string().c_str(),
-    _O_CREAT | _O_WRONLY | _O_BINARY,
+    _O_CREAT | _O_TRUNC | _O_WRONLY | _O_BINARY,
     _S_IREAD | _S_IWRITE);
 #else
   int fd = open(
     interfacePath.c_str(),
-    O_CREAT | O_WRONLY,
+    O_CREAT | O_TRUNC | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
 
@@ -586,6 +621,10 @@ NLDB* SNLCapnP::loadInterface(
   auto universe = NLUniverse::get();
   if (not universe) {
     universe = NLUniverse::create();
+  }
+  if (dbID == 0) {
+    for (auto library : dbInterface.getLibraryInterfaces()) loadDB0LibraryInterface(library);
+    return NLDB0::getDB0();
   }
   NLDB* snldb = universe->getDB(dbID);
   if (not snldb) {
@@ -634,7 +673,22 @@ NLDB* SNLCapnP::loadInterface(
 #else
   fd = open(interfacePath.c_str(), O_RDONLY);
 #endif
-  return loadInterface(fd, loadingConfiguration);
+  try {
+    auto* db = loadInterface(fd, loadingConfiguration);
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+    return db;
+  } catch (...) {
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+    throw;
+  }
 }
 
 //LCOV_EXCL_START

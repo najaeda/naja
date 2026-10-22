@@ -27,14 +27,17 @@ synthetic fixtures; no external design or checkout is needed:
   calls, nested conditions, loops, generate blocks, guarded registers and multiple
   memories with independent writers;
 - structural Verilog with hierarchy, buses, slices and concatenations;
-- VHDL with hierarchy, generated instances and logic lowering.
+- VHDL with hierarchy, generated instances, logic lowering and inferred memory;
+- all canonical DB0 primitive families through the native serialization audit,
+  including shared models and reversed instance/model creation order.
 
 For each fixture, at least five fresh processes use different Python hash seeds
 and keep differently sized heap allocations alive during native elaboration.
 Each process captures live object IDs, names, terms and connections **before**
 calling a dumper. It exports Verilog, DOT and NajaIF, destroys the universe,
-reloads the snapshot and repeats the capture and exports. Checks compare both
-processes and the snapshot round trip. Failures identify the artifact and hashes,
+reloads the snapshot and repeats the capture and exports. An additional fresh reader process loads each snapshot without prior elaboration.
+Checks compare writer processes, fresh readers and the snapshot round trip,
+including the DB0 interface payload. Failures identify the artifact and hashes,
 with a bounded text diff where appropriate.
 
 Run locally after building the Python extension:
