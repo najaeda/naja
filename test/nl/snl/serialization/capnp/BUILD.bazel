@@ -22,9 +22,6 @@ cc_test(
     defines = ['SNL_CAPNP_TEST_PATH=\\".\\"'],
     deps = [
         "//src/nl/netlist/serialization/capnp:naja_nl_dump",
-        "@capnp-cpp//src/capnp:capnp",
-        "@capnp-cpp//src/kj:kj",
         "@googletest//:gtest_main",
-        "@naja-if//:naja_nl_implementation_capnp",
     ],
 )
