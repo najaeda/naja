@@ -2195,11 +2195,13 @@ SNLTruthTable NLDB0::getWordTruthTable(
   }
   const auto width = static_cast<size_t>(first->getWidth());
   const auto secondWidth = static_cast<size_t>(second->getWidth());
+  // LCOV_EXCL_START
   if (width > std::numeric_limits<uint32_t>::max() / 2 ||
       secondWidth > std::numeric_limits<uint32_t>::max() / 2) {
     throw NLException(
         "NLDB0::getWordTruthTable: width does not fit truth table metadata");
   }
+  // LCOV_EXCL_STOP
   std::vector<size_t> dependencies;
   dependencies.reserve(width + secondWidth);
   for (const auto* operand : {first, second}) {

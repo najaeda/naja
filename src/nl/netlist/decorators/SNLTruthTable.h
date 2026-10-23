@@ -837,9 +837,12 @@ class SNLTruthTable {
     if (word_ != WordMetadata{}) {
       throw NLException("Unexpected word arithmetic metadata on truth table");
     }
+    // Only the Rom factory sets ROM metadata, and it fixes the generic type.
+    // LCOV_EXCL_START
     if (rom_ != RomMetadata{}) {
       throw NLException("Unexpected ROM metadata on truth table");
     }
+    // LCOV_EXCL_STOP
   }
 
   uint32_t size_{0};

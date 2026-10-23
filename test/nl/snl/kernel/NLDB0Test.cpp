@@ -2514,3 +2514,70 @@ TEST_F(NLDB0Test, ReadOnlyMemoryExposesRomTruthTables) {
       NLBitDependencies::encodeBits({0, 1})), NLException);
   EXPECT_THROW(SNLTruthTable::Rom({2, 3, {true}}, NLBitDependencies::encodeBits({0, 1})), NLException);
 }
+
+TEST_F(NLDB0Test, ReadOnlyMemoryInitLiteralsAndOrdering) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* top = SNLDesign::create(NLLibrary::create(db, NLName("designs")), NLName("top"));
+  auto* rom = NLDB0::getOrCreateMemory({2, 3, 2, 1, 0});
+  auto* rdata = NLDB0::getMemoryReadData(rom);
+  const auto lane0 = rdata->getBit(0)->getOrderID();
+  const auto lane1 = rdata->getBit(1)->getOrderID();
+  auto* initEnable = rom->getParameter(NLName("INIT_ENABLE"));
+  auto* init = rom->getParameter(NLName("INIT"));
+  const auto make = [&](const char* name, const char* literal) {
+    auto* instance = SNLInstance::create(top, rom, NLName(name));
+    SNLInstParameter::create(instance, initEnable, "1");
+    if (literal) {
+      SNLInstParameter::create(instance, init, literal);
+    }
+    return instance;
+  };
+  // Digit separators and hex letters in either case decode like plain digits.
+  auto* reference = make("rom_ref", "6'h36");
+  auto* separated = make("rom_sep", "6'b11_0110");
+  for (auto lane : {lane0, lane1}) {
+    EXPECT_EQ(SNLDesignModeling::getTruthTable(reference, lane),
+              SNLDesignModeling::getTruthTable(separated, lane));
+  }
+  auto* letters = make("rom_hex", "6'h2A");
+  EXPECT_EQ(std::vector<bool>({false, false, false}),
+            SNLDesignModeling::getTruthTable(letters, lane0).getRomMetadata().column);
+  EXPECT_EQ(std::vector<bool>({true, true, true}),
+            SNLDesignModeling::getTruthTable(letters, lane1).getRomMetadata().column);
+  // Without an instance INIT the primitive's default contents, all zero, apply.
+  auto* defaulted = make("rom_default", nullptr);
+  const auto zeros = SNLDesignModeling::getTruthTable(defaulted, lane1);
+  ASSERT_TRUE(zeros.isInitialized());
+  EXPECT_EQ(std::vector<bool>({false, false, false}), zeros.getRomMetadata().column);
+  // Literals without a base, with an unsupported base, a non-digit, or a
+  // digit beyond the base are rejected.
+  for (const char* literal : {"36", "6'd36", "6'hg6", "6'b12"}) {
+    EXPECT_THROW(SNLDesignModeling::getTruthTable(make(literal, literal), lane0), NLException)
+        << literal;
+  }
+  // A depth the address bits cannot reach has no table.
+  auto* deep = NLDB0::getOrCreateMemory({2, 5, 1, 1, 0});
+  auto* deepInstance = SNLInstance::create(top, deep, NLName("rom_deep"));
+  SNLInstParameter::create(deepInstance, deep->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(deepInstance, deep->getParameter(NLName("INIT")), "5'h1f");
+  EXPECT_THROW(NLDB0::getRomTruthTable(deepInstance,
+      NLDB0::getMemoryReadData(deep)->getBit(0)->getOrderID()), NLException);
+  // ROM tables order by their metadata once size and type agree.
+  const auto first = SNLDesignModeling::getTruthTable(reference, lane0);
+  const auto second = SNLDesignModeling::getTruthTable(reference, lane1);
+  EXPECT_FALSE(first < first);
+  EXPECT_NE(first < second, second < first);
+  const auto deps = NLBitDependencies::encodeBits({0, 1});
+  const auto shallow = SNLTruthTable::Rom({2, 2, {true, false}}, deps);
+  const auto full = SNLTruthTable::Rom({2, 3, {true, false, true}}, deps);
+  EXPECT_TRUE(shallow < full);
+  EXPECT_FALSE(full < shallow);
+  // Word arithmetic tables are only for word primitives and their outputs.
+  EXPECT_THROW(NLDB0::getWordTruthTable(rom, lane0), NLException);
+  auto* adder = NLDB0::getOrCreateAddSub(4, false);
+  EXPECT_THROW(NLDB0::getWordTruthTable(adder,
+      NLDB0::getAddSubInputA(adder)->getBit(0)->getOrderID()), NLException);
+  EXPECT_THROW(SNLTruthTable::Word(SNLTruthTable::GenericType::AND,
+      {1, 0, 0, false, false, false}, deps), NLException);
+}
