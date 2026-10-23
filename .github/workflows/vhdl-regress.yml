@@ -80,7 +80,7 @@ jobs:
           python3 regress/vhdl/microwatt_cosim.py \
             --source build/vhdl-regress/microwatt \
             --output build/vhdl-regress/microwatt-results \
-            --ghdl ghdl-gcc
+            --ghdl ghdl-gcc --jobs 4 --build-timeout 600
 
       - name: Run Microwatt full-core preview console regression
         env:

@@ -53,7 +53,12 @@ PYTHONPATH="$PWD/build/src/nl/python/naja_wrapping" \
 ```
 
 Use `--cases multiply divider` to select cases. An absolute path
-to GHDL is also accepted. Keep checkouts and generated files outside tracked
+to GHDL is also accepted. Verilator builds use four parallel jobs and a
+600-second timeout by default; adjust these with `--jobs` and
+`--build-timeout` (seconds). Generated C++ is split with
+`--output-split 20000` to keep compilation units manageable. Simulation
+commands retain their 300-second timeout.
+Keep checkouts and generated files outside tracked
 source directories. The runner records hashes of its input files, Naja's
 producer identity, test counts and model evaluation counts in `report.json`.
 The `reference.xml`/`naja.xml` reports and per-stage logs remain under each case

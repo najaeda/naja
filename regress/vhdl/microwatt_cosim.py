@@ -257,10 +257,11 @@ def execute_case(args, case, env):
     (work / "bridge.cpp").write_text(cpp_bridge(
         sum(w for _, w, d in ports if d == "in"), sum(w for _, w, d in ports if d == "out")))
     obj = work / "obj_dir"
-    run([args.verilator, "--cc", "--build", "--top-module", "naja_bridge", "--Mdir", obj,
+    run([args.verilator, "--cc", "--build", "-j", str(args.jobs), "--output-split", "20000",
+         "--top-module", "naja_bridge", "--Mdir", obj,
          "--prefix", "Vnaja_bridge", "-Wno-fatal", "-CFLAGS", "-fPIC",
          work / "adapter.sv", *sorted(export.glob("*.v")), work / "bridge.cpp"],
-        work, work / "verilator.log", env=env)
+        work, work / "verilator.log", timeout=args.build_timeout, env=env)
     # Link the static Verilated model and bridge into each GHDL simulation.
     # Verilator's generated makefile builds the supplied bridge.cpp for us.
     root_text = subprocess.check_output([args.verilator, "--getenv", "VERILATOR_ROOT"], text=True).strip()
@@ -306,7 +307,14 @@ def main():
     parser.add_argument("--ghdl", default="ghdl")
     parser.add_argument("--verilator", default="verilator")
     parser.add_argument("--cxx", default="c++")
+    parser.add_argument("--jobs", type=int, default=4, help="Parallel Verilator build jobs (default: 4)")
+    parser.add_argument("--build-timeout", type=int, default=600,
+                        help="Verilator build timeout in seconds (default: 600)")
     args = parser.parse_args()
+    if args.jobs < 1:
+        parser.error("--jobs must be positive")
+    if args.build_timeout < 1:
+        parser.error("--build-timeout must be positive")
     args.source = args.source.resolve()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
