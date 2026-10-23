@@ -171,8 +171,16 @@ def simulate(args, backend, program):
     work.mkdir(parents=True, exist_ok=True)
     shutil.copy2(args.source / "tests" / (program + ".bin"), work / "main_ram.bin")
     with (work / "simulation.log").open("wb") as log, (work / "console.out").open("wb") as console:
-        result = subprocess.run([str(args.output / backend / "core_tb"), "--stop-time=" + args.stop_time],
-                                cwd=work, stdin=subprocess.DEVNULL, stdout=log, stderr=console, timeout=300)
+        # The simulated UART treats stdin EOF as fatal. Keep an empty pipe open
+        # so polling reports no input until the noninteractive program finishes.
+        with subprocess.Popen([str(args.output / backend / "core_tb"), "--stop-time=" + args.stop_time],
+                              cwd=work, stdin=subprocess.PIPE, stdout=log, stderr=console) as result:
+            try:
+                result.wait(timeout=300)
+            except BaseException:
+                result.kill()
+                result.wait()
+                raise
     text = (work / "simulation.log").read_text()
     if result.returncode or "CORE_PROGRAM_DONE" not in text:
         raise RuntimeError(f"{backend}/{program}: core did not complete successfully; see {work / 'simulation.log'}")
