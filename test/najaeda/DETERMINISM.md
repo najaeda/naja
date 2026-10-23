@@ -40,6 +40,15 @@ Checks compare writer processes, fresh readers and the snapshot round trip,
 including the DB0 interface payload. Failures identify the artifact and hashes,
 with a bounded text diff where appropriate.
 
+The all-family native audit requires `NAJA_DB0_AUDIT_BINARY` to point to
+`snlCapnPTests`. CMake and Bazel supply it for both the full Python suite and
+the dedicated determinism target. Wheel CI enables
+`BUILD_NAJA_SERIALIZATION_TESTS`, retains the wheel build directory, and reads
+the executable path from CMake's `db0_audit_binary_Release.txt` before running
+pytest.
+The executable is built alongside the wheel but is not installed into it.
+Missing configuration or a missing or failing executable fails the audit.
+
 Run locally after building the Python extension:
 
 ```sh
