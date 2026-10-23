@@ -22,7 +22,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         design_files = [os.path.join(verilog_benchmarks, "test_attributes.v")]
         #primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         #netlist.load_liberty(primitives)
-        netlist.load_verilog(design_files)
+        netlist.load_gate_level_verilog(design_files)
 
     def tearDown(self):
         netlist.reset()
@@ -81,7 +81,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
                              '(* src="rtl.sv:8.70000-8.80000|rtl.sv:8.70000-8.80000" *) cell u(a,y);\n'
                              'endmodule\n')
             netlist.reset()
-            top = netlist.load_verilog(path, netlist.VerilogConfig(yosys_source_attributes=True))
+            top = netlist.load_gate_level_verilog(path, netlist.GateLevelVerilogConfig(yosys_source_attributes=True))
             child = top.get_child_instance("u")
             self.assertEqual(path, child.get_source_declaration().range.file)
             self.assertEqual(3, child.get_source_declaration().range.line)
@@ -97,7 +97,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
             os.unlink(path)
             self.assertEqual("rtl.sv", child.get_source_origins()[0].range.file)
         with self.assertRaises(TypeError):
-            netlist.VerilogConfig(yosys_source_attributes="yes")
+            netlist.GateLevelVerilogConfig(yosys_source_attributes="yes")
 
     def test(self):
         top = netlist.get_top()

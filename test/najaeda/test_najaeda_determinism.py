@@ -158,7 +158,7 @@ def dump_state(output):
     output.mkdir()
     (output / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
     top = netlist.get_top()
-    top.dump_verilog(str(output / "design.v"))
+    top.dump_gate_level_verilog(str(output / "design.v"))
     top.dump_full_dot(str(output / "design.dot"))
     netlist.dump_naja_if(str(output / "snapshot"))
 
@@ -173,7 +173,7 @@ def worker(kind, source, output, run):
         netlist.load_system_verilog(source, netlist.SystemVerilogConfig(
             top="top", diagnostics_report_path=None))
     elif kind == "v":
-        netlist.load_verilog(source)
+        netlist.load_gate_level_verilog(source)
         from najaeda import naja
         top = naja.NLUniverse.get().getTopDesign()
         instance = top.getInstance("u0")

@@ -23,7 +23,7 @@ class NajaNetlistTestGates0(unittest.TestCase):
     
     def test(self):
         design_files = [os.path.join(verilog_benchmarks, "test_gates0.v")]
-        netlist.load_verilog(design_files)
+        netlist.load_gate_level_verilog(design_files)
         top = netlist.get_top()
         self.assertIsNotNone(top)
         and0 = top.get_child_instance('and0')
@@ -39,7 +39,7 @@ class NajaNetlistTestGates0(unittest.TestCase):
     
         design_files = [os.path.join(verilog_benchmarks, "test_gates0.v")]
         netlist.load_primitives('xilinx')
-        netlist.load_verilog(design_files)
+        netlist.load_gate_level_verilog(design_files)
         #print("Max logic level:", netlist.get_max_logic_level()[0])
         #print("Max fanout:", netlist.get_max_fanout()[0])
        

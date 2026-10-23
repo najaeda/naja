@@ -95,7 +95,7 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().setTopDB("Error")
     del db    
   
-  def testGateLevelVerilogNamesAndAliases(self):
+  def testGateLevelVerilogNames(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
     with tempfile.TemporaryDirectory() as directory:
       source = os.path.join(directory, "input.v")
@@ -107,34 +107,8 @@ class SNLDBTest(unittest.TestCase):
         self.assertEqual(top.getName(), "top")
         db.dumpGateLevelVerilog(os.path.join(directory, "new_db.v"))
         top.dumpGateLevelVerilog(directory, "new_design.v", dumpAssignsAsInstances=True)
-      with self.assertWarnsRegex(FutureWarning, "NLDB.dumpVerilog will be deprecated soon"):
-        db.dumpVerilog(os.path.join(directory, "old_db.v"))
-      with self.assertWarnsRegex(FutureWarning, "SNLDesign.dumpVerilog will be deprecated soon"):
-        top.dumpVerilog(directory, "old_design.v", dumpAssignsAsInstances=True)
-      def body(name):
-        with open(os.path.join(directory, name)) as stream:
-          text = stream.read()
-        return text[text.index("module "):]
-      self.assertEqual(body("new_db.v"), body("old_db.v"))
-      self.assertEqual(body("new_design.v"), body("old_design.v"))
-      # Recreate the universe so the legacy loader sees identical initial state.
-      naja.NLUniverse.get().destroy()
-      naja.NLUniverse.create()
-      db = naja.NLDB.create(naja.NLUniverse.get())
-      with self.assertWarnsRegex(FutureWarning, "NLDB.loadVerilog will be deprecated soon"):
-        top = db.loadVerilog(files=[source], keep_assigns=False)
-      self.assertEqual(top.getName(), "top")
       with self.assertRaisesRegex(TypeError, "NLDB.loadGateLevelVerilog: files"):
         db.loadGateLevelVerilog("invalid")
-      with warnings.catch_warnings():
-        warnings.simplefilter("error", FutureWarning)
-        with self.assertRaises(FutureWarning):
-          db.loadVerilog([source])
-        with self.assertRaises(FutureWarning):
-          db.dumpVerilog(os.path.join(directory, "blocked.v"))
-        with self.assertRaises(FutureWarning):
-          top.dumpVerilog(directory, "blocked.v")
-      self.assertFalse(os.path.exists(os.path.join(directory, "blocked.v")))
 
   def testVerilog(self):
     u = naja.NLUniverse.get()
@@ -145,10 +119,10 @@ class SNLDBTest(unittest.TestCase):
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "test0.v")]
     primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
-    db.loadVerilog(verilogs)
-    db.dumpVerilog("./test_verilog")
-    with self.assertRaises(RuntimeError) as context: db.dumpVerilog()
-    with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
+    db.loadGateLevelVerilog(verilogs)
+    db.dumpGateLevelVerilog("./test_verilog")
+    with self.assertRaises(RuntimeError) as context: db.dumpGateLevelVerilog()
+    with self.assertRaises(RuntimeError) as context: db.dumpGateLevelVerilog(-1)
     with self.assertRaisesRegex(
         TypeError, r"files must be a list\[str\], got str"):
       db.loadLibertyPrimitives("./error.lib")
@@ -235,7 +209,7 @@ begin y <= data(to_integer(a)); end;
             middle = next(iter(design.getInstances())).getModel()
             self.assertEqual(middle.getName(), "middle")
             self.assertEqual(next(iter(middle.getInstances())).getModel().getName(), "leaf")
-            design.dumpVerilog(directory, "netlist.v")
+            design.dumpGateLevelVerilog(directory, "netlist.v")
             with open(os.path.join(directory, "netlist.v")) as output:
               # The banner date can change between otherwise identical dumps.
               netlist = re.sub(
@@ -629,11 +603,11 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertIsNotNone(formats_path)
 
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "conflicting_name_designs.v")]
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy="forbid")
+    with self.assertRaises(RuntimeError) as context: db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy="forbid")
 
     db.destroy()
     db = naja.NLDB.create(u)
-    top = db.loadVerilog(verilogs, conflicting_design_name_policy="first")
+    top = db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy="first")
     self.assertIsNotNone(top)
     self.assertEqual(top.getName(), 'clash')
     self.assertEqual(1, sum(1 for t in top.getTerms()))
@@ -644,7 +618,7 @@ architecture rtl of unsupported is begin y <= a and missing; end;
 
     db.destroy()
     db = naja.NLDB.create(u)
-    top = db.loadVerilog(verilogs, conflicting_design_name_policy="last")
+    top = db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy="last")
     self.assertIsNotNone(top)
     self.assertEqual(top.getName(), 'clash')
     self.assertEqual(1, sum(1 for t in top.getTerms()))
@@ -656,13 +630,13 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     #errors
     db.destroy()
     db = naja.NLDB.create(u)
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='verify') 
+    with self.assertRaises(RuntimeError) as context: db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy='verify')
     with self.assertRaisesRegex(
         TypeError, r"conflicting_design_name_policy must be a str or None, got int"):
-      db.loadVerilog(verilogs, conflicting_design_name_policy=1)
+      db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy=1)
     with self.assertRaisesRegex(
         ValueError, r"expected one of: forbid, first, last, verify"):
-      db.loadVerilog(verilogs, conflicting_design_name_policy='foo')
+      db.loadGateLevelVerilog(verilogs, conflicting_design_name_policy='foo')
 
 
   def testSNLFormat(self):
@@ -674,7 +648,7 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "test0.v")]
     primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
-    db.loadVerilog(verilogs)
+    db.loadGateLevelVerilog(verilogs)
     self.assertIsNotNone(db.getTopDesign())
     top = db.getTopDesign()
     self.assertTrue(top.isTopDesign())
@@ -742,11 +716,11 @@ architecture rtl of unsupported is begin y <= a and missing; end;
         ValueError,
         r"files\[0\] must not be empty"),
       (
-        lambda: db.loadVerilog([]),
+        lambda: db.loadGateLevelVerilog([]),
         ValueError,
         "files must contain at least one Verilog path"),
       (
-        lambda: db.loadVerilog([""]),
+        lambda: db.loadGateLevelVerilog([""]),
         ValueError,
         r"files\[0\] must not be empty"),
       (
@@ -805,12 +779,12 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "test0.v")]
     primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
-    db.loadVerilog(verilogs, keep_assigns=False)
+    db.loadGateLevelVerilog(verilogs, keep_assigns=False)
     with self.assertRaisesRegex(
         TypeError,
         r"(?:unexpected keyword argument 'keep_assign'.*keep_assigns|"
-        r"'keep_assign' is an invalid keyword argument for NLDB\.loadVerilog\(\))"):
-      db.loadVerilog(verilogs, keep_assign=False)
+        r"'keep_assign' is an invalid keyword argument for NLDB\.loadGateLevelVerilog\(\))"):
+      db.loadGateLevelVerilog(verilogs, keep_assign=False)
 
   def testAssignInstancePartition(self):
     db = naja.NLDB.create(naja.NLUniverse.get())
@@ -821,7 +795,7 @@ architecture rtl of unsupported is begin y <= a and missing; end;
         "wire n; child u_child(.i(i), .o(n)); assign o = n; endmodule\n")
       source_path = source.name
     try:
-      top = db.loadVerilog([source_path])
+      top = db.loadGateLevelVerilog([source_path])
       instances = list(top.getInstances())
       non_assign_instances = list(top.getNonAssignInstances())
       assign_instances = list(top.getAssignInstances())
@@ -844,11 +818,11 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     self.assertIsNotNone(formats_path)
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "preprocess_top.v")]
 
-    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs)
+    with self.assertRaises(RuntimeError) as context: db.loadGateLevelVerilog(verilogs)
 
     db.destroy()
     db = naja.NLDB.create(u)
-    top = db.loadVerilog(verilogs, preprocess_enabled=True)
+    top = db.loadGateLevelVerilog(verilogs, preprocess_enabled=True)
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
     self.assertEqual(1, sum(1 for _ in top.getInstances()))
@@ -1230,7 +1204,7 @@ endmodule
 
     with tempfile.TemporaryDirectory() as dump_dir:
       without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
-      top.dumpVerilog(
+      top.dumpGateLevelVerilog(
         path=dump_dir,
         top_file_name=os.path.basename(without_rtl_infos))
       with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
@@ -1238,7 +1212,7 @@ endmodule
       self.assertNotIn("sv_src_file", dumped_text)
 
       with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
-      top.dumpVerilog(
+      top.dumpGateLevelVerilog(
         path=dump_dir,
         top_file_name=os.path.basename(with_rtl_infos),
         dumpRTLInfosAsAttributes=True)
@@ -1248,7 +1222,7 @@ endmodule
       self.assertIn('naja_sv_src="', dumped_text)
 
       with_verbose_rtl_infos = os.path.join(dump_dir, "simple_with_verbose_rtl_infos.v")
-      top.dumpVerilog(
+      top.dumpGateLevelVerilog(
         path=dump_dir,
         top_file_name=os.path.basename(with_verbose_rtl_infos),
         dumpRTLInfosAsAttributes=True,
@@ -1259,7 +1233,7 @@ endmodule
       self.assertNotIn('naja_sv_src="', dumped_text)
 
       none_rtl_infos = os.path.join(dump_dir, "simple_none_rtl_infos.v")
-      top.dumpVerilog(
+      top.dumpGateLevelVerilog(
         path=dump_dir,
         top_file_name=os.path.basename(none_rtl_infos),
         dumpRTLInfosAsAttributes=True,
@@ -1270,7 +1244,7 @@ endmodule
       self.assertNotIn('naja_sv_src="', dumped_text)
 
       with self.assertRaises(RuntimeError) as context:
-        top.dumpVerilog(
+        top.dumpGateLevelVerilog(
           path=dump_dir,
           top_file_name="simple_invalid_rtl_infos.v",
           dumpRTLInfosAsAttributes=True,
@@ -1311,7 +1285,7 @@ endmodule
       multiTopFile.write("module top_a; endmodule\n")
       multiTopFile.write("module top_b; endmodule\n")
       multiTopPath = multiTopFile.name
-    with self.assertRaises(TypeError): db.loadVerilog("Error", "Error")
+    with self.assertRaises(TypeError): db.loadGateLevelVerilog("Error", "Error")
     with self.assertRaises(TypeError): db.loadSystemVerilog()
     with self.assertRaises(RuntimeError) as context:
       db.loadSystemVerilog([missingSvFile])
@@ -1348,8 +1322,8 @@ endmodule
       db.loadSystemVerilog([svFile], flist=1)
     with self.assertRaises(TypeError): db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaisesRegex(
-        TypeError, r"NLDB\.loadVerilog: files must be a list\[str\], got str"):
-      db.loadVerilog("Error")
+        TypeError, r"NLDB\.loadGateLevelVerilog: files must be a list\[str\], got str"):
+      db.loadGateLevelVerilog("Error")
     with self.assertRaisesRegex(
         TypeError, r"NLDB\.loadLibertyPrimitives: files must be a list\[str\], got str"):
       db.loadLibertyPrimitives("Error")
@@ -1357,8 +1331,8 @@ endmodule
         TypeError, r"files\[0\] must be a str path, got int"):
       db.loadLibertyPrimitives(primitives)
     with self.assertRaisesRegex(
-        TypeError, r"NLDB\.loadVerilog: files\[0\] must be a str path, got int"):
-      db.loadVerilog(designs)
+        TypeError, r"NLDB\.loadGateLevelVerilog: files\[0\] must be a str path, got int"):
+      db.loadGateLevelVerilog(designs)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesNoExtension)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtension)
     u.destroy()

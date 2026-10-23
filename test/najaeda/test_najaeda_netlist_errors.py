@@ -17,7 +17,7 @@ class NajaNetlistTestErrors(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
 
-    def test_gate_level_verilog_names_and_compatibility(self):
+    def test_gate_level_verilog_names(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "input.v"
             source.write_text("module top(input a, output y); assign y = a; endmodule\n")
@@ -31,34 +31,6 @@ class NajaNetlistTestErrors(unittest.TestCase):
                 top.dump_gate_level_verilog(
                     str(Path(directory) / "new.v"), config=dump_config)
             self.assertEqual(caught, [])
-            with self.assertWarnsRegex(
-                    FutureWarning, "VerilogConfig will be deprecated soon; use GateLevelVerilogConfig"):
-                old_config = netlist.VerilogConfig(keep_assigns=False)
-            self.assertIsInstance(old_config, netlist.GateLevelVerilogConfig)
-            with self.assertWarnsRegex(
-                    FutureWarning, "VerilogDumpConfig will be deprecated soon; use GateLevelVerilogDumpConfig"):
-                old_dump_config = netlist.VerilogDumpConfig(dumpAssignsAsInstances=True)
-            self.assertIsInstance(old_dump_config, netlist.GateLevelVerilogDumpConfig)
-            # New calls also accept existing config objects without another warning.
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", FutureWarning)
-                top.dump_gate_level_verilog(
-                    str(Path(directory) / "mixed.v"), old_dump_config)
-            netlist.reset()
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always", FutureWarning)
-                top = netlist.load_verilog(str(source), config=old_config)
-                top.dump_verilog(str(Path(directory) / "old.v"), dump_config)
-            self.assertEqual(len(caught), 2)
-            self.assertIn("load_gate_level_verilog", str(caught[0].message))
-            self.assertIn("dump_gate_level_verilog", str(caught[1].message))
-            self.assertEqual(top.get_name(), "top")
-            # Compare the actual netlist bodies, ignoring only timestamp banners.
-            def body(name):
-                text = (Path(directory) / name).read_text()
-                return text[text.index("module "):]
-            self.assertEqual(body("new.v"), body("old.v"))
-            self.assertEqual(body("new.v"), body("mixed.v"))
 
     def test_gate_level_verilog_validation(self):
         with self.assertRaisesRegex(TypeError, "GateLevelVerilogConfig.keep_assigns"):
@@ -67,10 +39,6 @@ class NajaNetlistTestErrors(unittest.TestCase):
             netlist.load_gate_level_verilog([], config="invalid")
         with self.assertRaises(ValueError):
             netlist.GateLevelVerilogDumpConfig(rtlInfoDumpMode="invalid")
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", FutureWarning)
-            with self.assertRaisesRegex(FutureWarning, "load_verilog will be deprecated soon"):
-                netlist.load_verilog([])
 
     def test_missing_model(self):
         top = netlist.create_top('Top')
@@ -78,10 +46,10 @@ class NajaNetlistTestErrors(unittest.TestCase):
         self.assertRaises(Exception, top.create_child_instance, 'Module0', 'mod')
 
     def test_missing_verilog(self):
-        self.assertRaises(TypeError, netlist.load_verilog)
+        self.assertRaises(TypeError, netlist.load_gate_level_verilog)
         with self.assertRaisesRegex(
                 ValueError, "No Verilog input files were provided"):
-            netlist.load_verilog([])
+            netlist.load_gate_level_verilog([])
         self.assertRaises(TypeError, netlist.load_system_verilog)
         with self.assertRaisesRegex(
                 ValueError,
@@ -91,12 +59,12 @@ class NajaNetlistTestErrors(unittest.TestCase):
     def test_loader_input_errors_identify_argument_and_path(self):
         with self.assertRaisesRegex(
                 TypeError, r"Verilog files\[1\].*got int"):
-            netlist.load_verilog(["valid.v", 3])
+            netlist.load_gate_level_verilog(["valid.v", 3])
 
         missing = os.path.join(
             tempfile.gettempdir(), "najaeda-file-that-does-not-exist.v")
         with self.assertRaises(FileNotFoundError) as context:
-            netlist.load_verilog(missing)
+            netlist.load_gate_level_verilog(missing)
         message = str(context.exception)
         self.assertIn(repr(missing), message)
         self.assertIn("files[0]", message)
@@ -111,7 +79,7 @@ class NajaNetlistTestErrors(unittest.TestCase):
             (
                 {"keep_assigns": 1},
                 TypeError,
-                r"VerilogConfig\.keep_assigns must be a bool \(got int\)",
+                r"GateLevelVerilogConfig\.keep_assigns must be a bool \(got int\)",
             ),
             (
                 {"conflicting_design_name_policy": 1},
@@ -132,7 +100,7 @@ class NajaNetlistTestErrors(unittest.TestCase):
         for kwargs, exception_type, message in cases:
             with self.subTest(kwargs=kwargs):
                 with self.assertRaisesRegex(exception_type, message):
-                    netlist.VerilogConfig(**kwargs)
+                    netlist.GateLevelVerilogConfig(**kwargs)
 
     def test_loader_config_and_path_validation_errors(self):
         with self.assertRaisesRegex(
@@ -143,12 +111,12 @@ class NajaNetlistTestErrors(unittest.TestCase):
 
         with self.assertRaisesRegex(
                 ValueError, r"Verilog files\[0\] must not be empty"):
-            netlist.load_verilog([" "])
+            netlist.load_gate_level_verilog([" "])
 
         with self.assertRaisesRegex(
                 TypeError,
-                r"load_verilog config must be a VerilogConfig or None \(got str\)"):
-            netlist.load_verilog([], config="invalid")
+                r"load_gate_level_verilog config must be a GateLevelVerilogConfig or None \(got str\)"):
+            netlist.load_gate_level_verilog([], config="invalid")
 
         with self.assertRaisesRegex(
                 TypeError,
@@ -159,7 +127,7 @@ class NajaNetlistTestErrors(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(
                     ValueError, r"Verilog input path is not a file"):
-                netlist.load_verilog(directory)
+                netlist.load_gate_level_verilog(directory)
 
             config = netlist.SystemVerilogConfig(flist=directory)
             with self.assertRaisesRegex(

@@ -25,7 +25,7 @@ class NajaNetlistTestRename(unittest.TestCase):
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
         primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         netlist.load_liberty(primitives)
-        netlist.load_verilog(design_files)
+        netlist.load_gate_level_verilog(design_files)
         top = netlist.get_top()
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')

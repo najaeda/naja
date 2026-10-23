@@ -648,7 +648,7 @@ python3 regress/sv/pulp_benchmarks.py \
 C910 also runs on every PR, push, and dispatch in an independent `pulp-c910`
 job. It uses the same source-pinned Verilator 5.052 build as ITA and a 600-second
 limit for each load/dump and strict-lint stage. The prepared PULP runner enables
-`VerilogDumpConfig(verilatorSplitPackedSignals=True)` for its dumps. This
+`GateLevelVerilogDumpConfig(verilatorSplitPackedSignals=True)` for its dumps. This
 tracks packed child-module ports and internal buses separately, leaves public
 top-level ports unannotated, and does not suppress combinational-cycle warnings.
 

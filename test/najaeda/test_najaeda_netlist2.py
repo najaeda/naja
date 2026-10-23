@@ -152,9 +152,9 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir, "netlist2_top0.v"))
-        self.assertRaises(ValueError, top.dump_verilog, "netlist")
-        self.assertRaises(FileNotFoundError, top.dump_verilog, os.path.join("non_existing", "netlist2_top0.v"))
+        top.dump_gate_level_verilog(os.path.join(bench_dir, "netlist2_top0.v"))
+        self.assertRaises(ValueError, top.dump_gate_level_verilog, "netlist")
+        self.assertRaises(FileNotFoundError, top.dump_gate_level_verilog, os.path.join("non_existing", "netlist2_top0.v"))
 
         #dump naja if
         netlist.dump_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
@@ -260,7 +260,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir, "netlist2_top1.v"))
+        top.dump_gate_level_verilog(os.path.join(bench_dir, "netlist2_top1.v"))
 
     def test_top2(self):
         def create_top():
@@ -411,7 +411,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir, "netlist2_top2.v"))
+        top.dump_gate_level_verilog(os.path.join(bench_dir, "netlist2_top2.v"))
 
     def test_top3(self):
         def create_top():
@@ -445,7 +445,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir, "netlist2_top3.v"))
+        top.dump_gate_level_verilog(os.path.join(bench_dir, "netlist2_top3.v"))
         netlist.apply_constant_propagation()
         netlist.apply_dle()
         top.dump_full_dot("./netlist2_top3.dot")

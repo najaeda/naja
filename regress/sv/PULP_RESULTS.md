@@ -35,8 +35,8 @@ NVDLA only once.
 C910 now passes the standard prepared-PULP runner, with **load/dump in
 19.72 seconds and strict Verilator 5.052 lint in 149.60 seconds**. The native
 Verilog dumper exposes opt-in `verilatorSplitPackedSignals` through its C++
-configuration, raw `SNLDesign.dumpVerilog` keyword, and high-level
-`VerilogDumpConfig`. The runner enables it for prepared-PULP dumps. Internal
+configuration, raw `SNLDesign.dumpGateLevelVerilog` keyword, and high-level
+`GateLevelVerilogDumpConfig`. The runner enables it for prepared-PULP dumps. Internal
 bus nets and packed child-module ports receive `split_var` comments; public
 top ports are excluded. No logic or warning-suppression flags change.
 Artifacts are under `build/pulp-c910-standard-split/`.

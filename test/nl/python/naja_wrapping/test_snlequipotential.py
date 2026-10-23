@@ -104,7 +104,7 @@ class SNLEquiTest(unittest.TestCase):
         "wire n; assign n = i; assign o = n; endmodule\n")
       source_path = source.name
     try:
-      top = self.db.loadVerilog([source_path])
+      top = self.db.loadGateLevelVerilog([source_path])
       input_term = top.getScalarTerm("i")
       output_term = top.getScalarTerm("o")
 

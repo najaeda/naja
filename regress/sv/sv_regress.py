@@ -440,10 +440,10 @@ if args.logic_cones_config:
     with open(args.logic_cones_output, "w", encoding="utf-8") as stream:
         json.dump({"top": args.top, "cones": signatures}, stream, indent=2, sort_keys=True)
         stream.write("\n")
-dump_config = netlist.VerilogDumpConfig()
+dump_config = netlist.GateLevelVerilogDumpConfig()
 dump_config.dumpRTLInfosAsAttributes = args.rtl_infos_as_attributes
 dump_config.dumpAssignsAsInstances = args.assigns_as_instances
-top.dump_verilog(args.output, config=dump_config)
+top.dump_gate_level_verilog(args.output, config=dump_config)
 with open(args.flist, encoding="utf-8") as source_list:
     source_count = sum(
         1 for line in source_list

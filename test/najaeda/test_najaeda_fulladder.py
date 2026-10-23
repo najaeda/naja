@@ -17,7 +17,7 @@ verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 class NajaNetlistTestGates0(unittest.TestCase):
     def setUp(self):
         design_files = [os.path.join(verilog_benchmarks, "fulladder.v")]
-        netlist.load_verilog(design_files)
+        netlist.load_gate_level_verilog(design_files)
         self.top = netlist.get_top()
 
     def tearDown(self):

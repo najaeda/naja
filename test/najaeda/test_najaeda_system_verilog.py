@@ -78,10 +78,10 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 # Reloading records declarations in the exported structural input.
                 exported = os.path.join(directory, "source.v")
                 for dump_metadata in (False, True):
-                    top.dump_verilog(exported, config=netlist.VerilogDumpConfig(
+                    top.dump_gate_level_verilog(exported, config=netlist.GateLevelVerilogDumpConfig(
                         dumpRTLInfosAsAttributes=dump_metadata))
                     netlist.reset()
-                    reloaded = netlist.load_verilog(exported)
+                    reloaded = netlist.load_gate_level_verilog(exported)
                     for declaration in (
                             reloaded.get_source_declaration(),
                             reloaded.get_net("a").get_source_declaration(),
@@ -425,7 +425,7 @@ endmodule
                     self.assertGreater(top.get_term("a").get_source_range().column, 65535)
                     self.assertGreater(top.get_net("y").get_source_range().column, 65535)
                     dumped = os.path.join(directory, "wide_export.v")
-                    top.dump_verilog(dumped, config=netlist.VerilogDumpConfig(
+                    top.dump_gate_level_verilog(dumped, config=netlist.GateLevelVerilogDumpConfig(
                         dumpRTLInfosAsAttributes=True))
                     with open(dumped, encoding="utf-8") as exported:
                         self.assertIn("70001", exported.read())
@@ -471,22 +471,22 @@ endmodule
         self.assertTrue(os.path.exists(json_path))
         self.assertTrue(os.path.exists(diagnostics_path))
 
-    def test_dump_verilog_with_config(self):
+    def test_dump_gate_level_verilog_with_config(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         top = netlist.load_system_verilog(design_files)
         self.assertIsNotNone(top)
 
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as dump_dir:
             without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
-            top.dump_verilog(without_rtl_infos)
+            top.dump_gate_level_verilog(without_rtl_infos)
             with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
             self.assertNotIn("sv_src_file", dumped_text)
 
             with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_rtl_infos,
-                config=netlist.VerilogDumpConfig(dumpRTLInfosAsAttributes=True),
+                config=netlist.GateLevelVerilogDumpConfig(dumpRTLInfosAsAttributes=True),
             )
             with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
@@ -496,9 +496,9 @@ endmodule
             with_verbose_rtl_infos = os.path.join(
                 dump_dir, "simple_with_verbose_rtl_infos.v"
             )
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_verbose_rtl_infos,
-                config=netlist.VerilogDumpConfig(
+                config=netlist.GateLevelVerilogDumpConfig(
                     dumpRTLInfosAsAttributes=True,
                     rtlInfoDumpMode="VerboseAttributes",
                 ),
@@ -509,15 +509,15 @@ endmodule
             self.assertNotIn('naja_sv_src="', dumped_text)
 
             with_assign_instances = os.path.join(dump_dir, "simple_with_assign_instances.v")
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_assign_instances,
-                config=netlist.VerilogDumpConfig(dumpAssignsAsInstances=True),
+                config=netlist.GateLevelVerilogDumpConfig(dumpAssignsAsInstances=True),
             )
             with open(with_assign_instances, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
             self.assertIn("assign_module", dumped_text)
 
-    def test_dump_verilog_split_packed_signals(self):
+    def test_dump_gate_level_verilog_split_packed_signals(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
             source = os.path.join(directory, "packed.sv")
             with open(source, "w", encoding="utf-8") as stream:
@@ -527,16 +527,16 @@ endmodule
                              "child i(a,y); endmodule\n")
             top = netlist.load_system_verilog([source], config=netlist.SystemVerilogConfig(top="top"))
             path = os.path.join(directory, "split.v")
-            top.dump_verilog(path, config=netlist.VerilogDumpConfig(verilatorSplitPackedSignals=True))
+            top.dump_gate_level_verilog(path, config=netlist.GateLevelVerilogDumpConfig(verilatorSplitPackedSignals=True))
             with open(path, encoding="utf-8") as stream:
                 text = stream.read()
             child_text, top_text = text.split("module top(")
             self.assertIn("split_var", child_text)
             self.assertNotIn("split_var", top_text.split(");", 1)[0])
 
-    def test_dump_verilog_config_rejects_invalid_rtl_info_mode(self):
+    def test_dump_gate_level_verilog_config_rejects_invalid_rtl_info_mode(self):
         with self.assertRaises(ValueError) as context:
-            netlist.VerilogDumpConfig(rtlInfoDumpMode="Invalid")
+            netlist.GateLevelVerilogDumpConfig(rtlInfoDumpMode="Invalid")
         self.assertIn("Invalid rtlInfoDumpMode", str(context.exception))
 
     def test_load_system_verilog_with_flist(self):
