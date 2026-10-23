@@ -5,6 +5,13 @@
 #include "gtest/gtest.h"
 
 #include <filesystem>
+#include <fstream>
+
+#include <capnp/message.h>
+#include <capnp/serialize-packed.h>
+#include <kj/io.h>
+
+#include "naja_nl_implementation.capnp.h"
 
 #include "NLUniverse.h"
 #include "NLDB.h"
@@ -168,6 +175,62 @@ TEST_F(SNLCapnPDB0PrimitivesTest, testRoundTrip) {
   auto tickNet = top->getScalarNet(NLName("tick"));
   ASSERT_NE(nullptr, tickNet);
   EXPECT_EQ(1u, tickNet->getInstTerms().size());  // assign output
+}
+
+TEST_F(SNLCapnPDB0PrimitivesTest, testAbsentInstanceParameters) {
+  auto* library = db_->getTopDesign()->getLibrary();
+  auto* design = SNLDesign::create(library, NLName("empty"));
+  auto* model = NLDB0::getOrCreateDFFRN(3);
+  const auto modelReference = model->getReference();
+  const auto libraryID = library->getID();
+  const auto designID = design->getID();
+
+  // The normal writer initializes even empty parameter lists. Build a message
+  // with the field absent to exercise the reader's optional-field handling.
+  ::capnp::MallocMessageBuilder message;
+  auto db = message.initRoot<DBImplementation>();
+  db.setId(db_->getID());
+  auto libraryImplementation = db.initLibraryImplementations(1)[0];
+  libraryImplementation.setId(libraryID);
+  auto designImplementation = libraryImplementation.initSnlDesignImplementations(1)[0];
+  designImplementation.setId(designID);
+  auto instance = designImplementation.initInstances(1)[0];
+  instance.setId(0);
+  instance.setName("reg");
+  auto reference = instance.initModelReference();
+  reference.setDbID(modelReference.dbID_);
+  reference.setLibraryID(modelReference.getDBDesignReference().libraryID_);
+  reference.setDesignID(modelReference.getDBDesignReference().designID_);
+  ASSERT_FALSE(instance.hasInstParameters());
+
+  const auto outPath = std::filesystem::path(SNL_CAPNP_TEST_PATH)
+    / "absent_instance_parameters";
+  std::filesystem::create_directories(outPath);
+  SNLCapnP::dumpInterface(db_, outPath / SNLCapnP::InterfaceName);
+  kj::VectorOutputStream output;
+  ::capnp::writePackedMessage(output, message);
+  auto bytes = output.getArray();
+  {
+    std::ofstream file(outPath / SNLCapnP::ImplementationName, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(bytes.begin()), bytes.size());
+    ASSERT_TRUE(file.good());
+  }
+
+  // Recreate the universe so resolving the parameter-free model must also
+  // lazily rebuild its canonical DB0 primitive.
+  NLUniverse::get()->destroy();
+  db_ = nullptr;
+  NLUniverse::create();
+  const SNLCapnP::LoadingConfiguration configuration;
+  db_ = SNLCapnP::loadInterface(outPath / SNLCapnP::InterfaceName, configuration);
+  ASSERT_EQ(db_, SNLCapnP::loadImplementation(
+    outPath / SNLCapnP::ImplementationName, configuration));
+  design = db_->getLibrary(libraryID)->getSNLDesign(designID);
+  ASSERT_EQ(1u, design->getInstances().size());
+  auto* loaded = design->getInstance(NLName("reg"));
+  ASSERT_NE(nullptr, loaded);
+  EXPECT_TRUE(loaded->getInstParameters().empty());
+  EXPECT_EQ(NLDB0::getOrCreateDFFRN(3), loaded->getModel());
 }
 
 // Covers the multi-parameter resolver branch: a memory primitive cannot encode

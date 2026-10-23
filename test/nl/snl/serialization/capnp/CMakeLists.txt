@@ -22,6 +22,8 @@ add_executable(snlCapnPTests ${snl_capnp_tests})
 
 target_compile_definitions(snlCapnPTests PRIVATE
     SNL_CAPNP_TEST_PATH="${CMAKE_CURRENT_BINARY_DIR}")
-target_link_libraries(snlCapnPTests naja_nl_dump gmock gtest_main)
+target_include_directories(snlCapnPTests PRIVATE
+    ${PROJECT_BINARY_DIR}/src/nl/netlist/serialization/capnp)
+target_link_libraries(snlCapnPTests naja_nl_dump CapnProto::capnp gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snlCapnPTests)
