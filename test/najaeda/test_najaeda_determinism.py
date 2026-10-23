@@ -116,9 +116,20 @@ VHDL = """
 entity leaf is port(a : in bit_vector(2 downto 0);
                     y : out bit_vector(2 downto 0)); end;
 architecture rtl of leaf is begin y <= not a; end;
+library ieee; use ieee.numeric_std.all;
+entity scale is port(a : in bit; y : out bit); end;
+architecture rtl of scale is begin
+  process(all) variable lane : integer range 0 to 1;
+  begin
+    lane := 0;
+    if a='1' then lane := 1; end if;
+    if lane*10=10 then y <= '1'; else y <= '0'; end if;
+  end process;
+end;
 entity top is port(a : in bit_vector(5 downto 0);
-                   y : out bit_vector(5 downto 0)); end;
+                   y : out bit_vector(5 downto 0); flag : out bit); end;
 architecture rtl of top is begin
+  scalar: entity work.scale port map(a(0),flag);
   lanes: for g in 0 to 1 generate
     u: entity work.leaf port map(a(g*3+2 downto g*3), y(g*3+2 downto g*3));
   end generate;

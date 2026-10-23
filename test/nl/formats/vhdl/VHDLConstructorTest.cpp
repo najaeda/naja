@@ -2286,6 +2286,45 @@ TEST_F(VHDLConstructorTest, NumericVectorIntegerArithmeticOverloads) {
   }
 }
 
+TEST_F(VHDLConstructorTest, NarrowIntegerMultiplicationPreservesScalarConstants) {
+  for (const unsigned limit : {1u, 3u}) for (const unsigned stride : {6u, 10u}) {
+    SCOPED_TRACE(std::to_string(limit) + ':' + std::to_string(stride));
+    const auto width = (limit + 1) * stride;
+    const auto source = std::string("library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all; ") +
+        "entity selection is generic(stride : positive := " + std::to_string(stride) + "); "
+        "port(a : in bit_vector(" + std::to_string(width-1) + " downto 0); "
+        "index : in unsigned(1 downto 0); y : out bit_vector(stride-1 downto 0); "
+        "z, r : out std_logic_vector(7 downto 0)); end; architecture rtl of selection is "
+        "function extract(data : bit_vector; selector : unsigned) return bit_vector is "
+        "variable lane : integer range 0 to " + std::to_string(limit) + "; begin "
+        "lane := to_integer(selector); return data(lane*stride+stride-1 downto lane*stride); end; "
+        "begin y <= extract(a,index); process(all) variable lane : integer range 0 to " +
+        std::to_string(limit) + "; variable scaled, mirrored : integer range 0 to 255; begin lane := to_integer(index); "
+        "scaled := lane*stride; mirrored := stride*lane; "
+        "z <= std_logic_vector(to_unsigned(scaled,8)); "
+        "r <= std_logic_vector(to_unsigned(mirrored,8)); end process; end;";
+    auto* design = VHDLConstructor(library_).construct(source);
+    uint64_t data = 0;
+    for (unsigned lane = 0; lane <= limit; ++lane)
+      data |= uint64_t(lane*7+3) << (lane*stride);
+    for (unsigned index = 0; index <= limit; ++index) {
+      std::unordered_map<SNLBitNet*, bool> values;
+      std::unordered_set<SNLBitNet*> visiting;
+      for (unsigned bit = 0; bit < width; ++bit)
+        values[design->getBusTerm(NLName("a"))->getBit(bit)->getNet()] = (data >> bit) & 1;
+      for (unsigned bit = 0; bit < 2; ++bit)
+        values[design->getBusTerm(NLName("index"))->getBit(bit)->getNet()] = (index >> bit) & 1;
+      for (unsigned bit = 0; bit < stride; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName("y"))->getBit(bit)->getNet(), values, visiting),
+            bool((data >> (index*stride+bit)) & 1));
+      for (const auto* name : {"z", "r"}) for (unsigned bit = 0; bit < 8; ++bit)
+        EXPECT_EQ(evaluateRTL(design->getBusTerm(NLName(name))->getBit(bit)->getNet(), values, visiting),
+            bool(((index*stride) >> bit) & 1));
+    }
+    design->destroy();
+  }
+}
+
 TEST_F(VHDLConstructorTest, NumericOrderingAndScalarComparisonsPreserveFullValues) {
   const std::vector<std::string> operations = {"=", "/=", "<", "<=", ">", ">="};
   const auto compare = [](int left, int right, size_t op) {
