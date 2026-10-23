@@ -249,8 +249,8 @@ class NLDB0 {
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
-    /// \brief Instance parameters (name -> value) carried by a serialized
-    /// instance, used to rebuild multi-parameter primitives on load.
+    /// \brief Canonical model parameters (name -> default value), used to
+    /// rebuild multi-parameter primitives from serialized DB0 interfaces.
     using PrimitiveParameters = std::map<std::string, std::string>;
     /// \brief Resolve, lazily (re)creating if needed, the DB0 primitive a
     /// serialized model reference points to.
@@ -259,8 +259,8 @@ class NLDB0 {
     /// primitive family and \p designID encodes the single size parameter
     /// (gate fan-in/out, mux/dff/divmod/multiply/add/subtract width).
     /// Multi-parameter families (memory, table select, shift) are rebuilt from
-    /// \p parameters (the instance
-    /// parameters, which carry the full signature). Returns nullptr if the
+    /// \p parameters, which must carry the full model signature independently
+    /// of instance overrides. Returns nullptr if the
     /// reference does not designate a known DB0 primitive family.
     static SNLDesign* getOrCreatePrimitive(
       NLID::LibraryID libraryID,

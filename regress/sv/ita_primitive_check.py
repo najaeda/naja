@@ -34,7 +34,7 @@ def main():
                 diagnostics_report_path=str(out / 'diagnostics.log'),
                 blackbox_unknown_modules=False))
         validate_diagnostics((out / 'diagnostics.log').read_text())
-        top.dump_verilog(str(out / 'netlist.v'))
+        top.dump_gate_level_verilog(str(out / 'netlist.v'))
     finally:
         netlist.reset()
     candidate = primitives.read_text()

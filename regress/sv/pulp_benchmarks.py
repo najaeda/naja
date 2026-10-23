@@ -76,7 +76,7 @@ def worker(top_name, artifacts, dump_netlist, default_timescale=None):
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
     if dump_netlist:
         dumping = time.monotonic()
-        top.dump_verilog(str(artifacts / "netlist.v"), config=netlist.VerilogDumpConfig(
+        top.dump_gate_level_verilog(str(artifacts / "netlist.v"), config=netlist.GateLevelVerilogDumpConfig(
             verilatorSplitPackedSignals=True))
         stats["dump_seconds"] = time.monotonic() - dumping
     (artifacts / "design-stats.json").write_text(json.dumps(stats, indent=2) + "\n")

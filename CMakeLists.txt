@@ -20,6 +20,8 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+option(BUILD_NAJA_SERIALIZATION_TESTS
+  "Build native serialization tests alongside the Python package" OFF)
 set(NAJA_EMBEDDED_LIBRARY_TYPE STATIC)
 if(BUILD_NAJA_PYTHON AND WIN32)
   # Put these objects in their owning DLL's input list so CMake's automatic
@@ -183,6 +185,18 @@ if(NOT BUILD_ONLY_DOC)
     target_compile_definitions(naja_fmt INTERFACE SPDLOG_FMT_EXTERNAL)
   endif()
   add_subdirectory(src)
+  if(PROJECT_IS_TOP_LEVEL AND BUILD_NAJA_PYTHON AND BUILD_NAJA_SERIALIZATION_TESTS)
+    enable_testing()
+    add_subdirectory(test/nl/snl/serialization/capnp)
+    # This executable runs from the retained build tree, outside the wheel.
+    set_target_properties(snlCapnPTests PROPERTIES BUILD_WITH_INSTALL_RPATH FALSE)
+    if(WIN32)
+      set_target_properties(snlCapnPTests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "$<TARGET_FILE_DIR:naja_nl>")
+    endif()
+    file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/db0_audit_binary_$<CONFIG>.txt"
+      CONTENT "$<TARGET_FILE:snlCapnPTests>\n")
+  endif()
   if(PROJECT_IS_TOP_LEVEL AND BUILD_BENCHMARKS)
     add_subdirectory(bench)
   endif()

@@ -24,7 +24,7 @@ class NajaEDAUnknownDesignsTest0(unittest.TestCase):
     
     def testWithOption(self):
         design_files = [os.path.join(verilog_benchmarks, "auto_blackbox_test0.v")]
-        netlist.load_verilog(design_files, config=netlist.VerilogConfig(blackbox_unknown_modules=True))
+        netlist.load_gate_level_verilog(design_files, config=netlist.GateLevelVerilogConfig(blackbox_unknown_modules=True))
         top = netlist.get_top()
         self.assertIsNotNone(top)
         #auto_blackbox0 ins0(
@@ -55,16 +55,16 @@ class NajaEDAUnknownDesignsTest0(unittest.TestCase):
         # allow_unknown_designs is a deprecated alias for blackbox_unknown_modules.
         design_files = [os.path.join(verilog_benchmarks, "auto_blackbox_test0.v")]
         with self.assertWarns(DeprecationWarning):
-            config = netlist.VerilogConfig(allow_unknown_designs=True)
+            config = netlist.GateLevelVerilogConfig(allow_unknown_designs=True)
         self.assertTrue(config.blackbox_unknown_modules)
-        netlist.load_verilog(design_files, config=config)
+        netlist.load_gate_level_verilog(design_files, config=config)
         top = netlist.get_top()
         self.assertIsNotNone(top)
         self.assertTrue(top.get_child_instance('ins0').is_blackbox())
 
     def testWithoutOption(self):
         design_files = [os.path.join(verilog_benchmarks, "auto_blackbox_test0.v")]
-        self.assertRaises(Exception, netlist.load_verilog, design_files)
+        self.assertRaises(Exception, netlist.load_gate_level_verilog, design_files)
 
 if __name__ == '__main__':
     faulthandler.enable()

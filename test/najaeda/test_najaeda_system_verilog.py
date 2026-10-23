@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 import faulthandler
+from pathlib import Path
 
 from najaeda import netlist, naja
 
@@ -13,8 +14,8 @@ systemverilog_benchmarks = os.environ.get("SYSTEMVERILOG_BENCHMARKS_PATH")
 if not systemverilog_benchmarks:
     verilog_benchmarks = os.environ.get("VERILOG_BENCHMARKS_PATH")
     if verilog_benchmarks:
-        systemverilog_benchmarks = verilog_benchmarks.replace(
-            "/verilog/benchmarks", "/systemverilog/benchmarks")
+        systemverilog_benchmarks = str(
+            Path(verilog_benchmarks).parent.parent / "systemverilog" / "benchmarks")
 najaeda_test_path = os.environ.get("NAJAEDA_TEST_PATH")
 if not najaeda_test_path:
     najaeda_test_path = os.getcwd()
@@ -78,10 +79,10 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 # Reloading records declarations in the exported structural input.
                 exported = os.path.join(directory, "source.v")
                 for dump_metadata in (False, True):
-                    top.dump_verilog(exported, config=netlist.VerilogDumpConfig(
+                    top.dump_gate_level_verilog(exported, config=netlist.GateLevelVerilogDumpConfig(
                         dumpRTLInfosAsAttributes=dump_metadata))
                     netlist.reset()
-                    reloaded = netlist.load_verilog(exported)
+                    reloaded = netlist.load_gate_level_verilog(exported)
                     for declaration in (
                             reloaded.get_source_declaration(),
                             reloaded.get_net("a").get_source_declaration(),
@@ -318,7 +319,7 @@ endmodule
                              "localparam integer UNIT = 1ns; assign a = (UNIT == 1);\n"
                              "leaf u(b); endmodule\n")
             with open(flist, "w", encoding="utf-8") as output:
-                output.write(path + "\n")
+                output.write(f'"{Path(path).as_posix()}"\n')
             with self.assertRaisesRegex(naja.SystemVerilogSyntaxError, "time scale"):
                 netlist.load_system_verilog(path)
             for use_flist in (False, True):
@@ -347,7 +348,7 @@ endmodule
             netlist.load_system_verilog([], config)
 
     def test_load_system_verilog_cross_file_macros(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(prefix="sv inputs ") as directory:
             defs = os.path.join(directory, "defs.sv")
             use = os.path.join(directory, "use.sv")
             flist_path = os.path.join(directory, "sources.f")
@@ -356,7 +357,7 @@ endmodule
             with open(use, "w", encoding="utf-8") as source:
                 source.write("module macro_top(output logic o); `CHECK(o) endmodule\n")
             with open(flist_path, "w", encoding="utf-8") as flist:
-                flist.write(f"{defs}\n{use}\n")
+                flist.write(f'"{Path(defs).as_posix()}"\n"{Path(use).as_posix()}"\n')
             for use_flist in (False, True):
                 for single_unit in (False, True):
                     for top_name in (None, "macro_top"):
@@ -389,7 +390,7 @@ endmodule
         self.assertEqual(1, top.count_output_terms())
         source_range = top.get_source_range()
         self.assertIsInstance(source_range, netlist.SourceRange)
-        self.assertTrue(source_range.file.endswith(
+        self.assertTrue(Path(source_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
         self.assertGreaterEqual(source_range.line, 1)
         self.assertGreaterEqual(source_range.column, 1)
@@ -398,12 +399,12 @@ endmodule
 
         term_range = top.get_term("a").get_source_range()
         self.assertIsInstance(term_range, netlist.SourceRange)
-        self.assertTrue(term_range.file.endswith(
+        self.assertTrue(Path(term_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
 
         net_range = top.get_net("y").get_source_range()
         self.assertIsInstance(net_range, netlist.SourceRange)
-        self.assertTrue(net_range.file.endswith(
+        self.assertTrue(Path(net_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
 
     def test_source_columns_above_16_bits(self):
@@ -425,7 +426,7 @@ endmodule
                     self.assertGreater(top.get_term("a").get_source_range().column, 65535)
                     self.assertGreater(top.get_net("y").get_source_range().column, 65535)
                     dumped = os.path.join(directory, "wide_export.v")
-                    top.dump_verilog(dumped, config=netlist.VerilogDumpConfig(
+                    top.dump_gate_level_verilog(dumped, config=netlist.GateLevelVerilogDumpConfig(
                         dumpRTLInfosAsAttributes=True))
                     with open(dumped, encoding="utf-8") as exported:
                         self.assertIn("70001", exported.read())
@@ -471,22 +472,22 @@ endmodule
         self.assertTrue(os.path.exists(json_path))
         self.assertTrue(os.path.exists(diagnostics_path))
 
-    def test_dump_verilog_with_config(self):
+    def test_dump_gate_level_verilog_with_config(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         top = netlist.load_system_verilog(design_files)
         self.assertIsNotNone(top)
 
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as dump_dir:
             without_rtl_infos = os.path.join(dump_dir, "simple_default_no_rtl_infos.v")
-            top.dump_verilog(without_rtl_infos)
+            top.dump_gate_level_verilog(without_rtl_infos)
             with open(without_rtl_infos, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
             self.assertNotIn("sv_src_file", dumped_text)
 
             with_rtl_infos = os.path.join(dump_dir, "simple_with_rtl_infos.v")
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_rtl_infos,
-                config=netlist.VerilogDumpConfig(dumpRTLInfosAsAttributes=True),
+                config=netlist.GateLevelVerilogDumpConfig(dumpRTLInfosAsAttributes=True),
             )
             with open(with_rtl_infos, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
@@ -496,9 +497,9 @@ endmodule
             with_verbose_rtl_infos = os.path.join(
                 dump_dir, "simple_with_verbose_rtl_infos.v"
             )
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_verbose_rtl_infos,
-                config=netlist.VerilogDumpConfig(
+                config=netlist.GateLevelVerilogDumpConfig(
                     dumpRTLInfosAsAttributes=True,
                     rtlInfoDumpMode="VerboseAttributes",
                 ),
@@ -509,15 +510,15 @@ endmodule
             self.assertNotIn('naja_sv_src="', dumped_text)
 
             with_assign_instances = os.path.join(dump_dir, "simple_with_assign_instances.v")
-            top.dump_verilog(
+            top.dump_gate_level_verilog(
                 with_assign_instances,
-                config=netlist.VerilogDumpConfig(dumpAssignsAsInstances=True),
+                config=netlist.GateLevelVerilogDumpConfig(dumpAssignsAsInstances=True),
             )
             with open(with_assign_instances, "r", encoding="utf-8") as dumped_file:
                 dumped_text = dumped_file.read()
             self.assertIn("assign_module", dumped_text)
 
-    def test_dump_verilog_split_packed_signals(self):
+    def test_dump_gate_level_verilog_split_packed_signals(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as directory:
             source = os.path.join(directory, "packed.sv")
             with open(source, "w", encoding="utf-8") as stream:
@@ -527,23 +528,23 @@ endmodule
                              "child i(a,y); endmodule\n")
             top = netlist.load_system_verilog([source], config=netlist.SystemVerilogConfig(top="top"))
             path = os.path.join(directory, "split.v")
-            top.dump_verilog(path, config=netlist.VerilogDumpConfig(verilatorSplitPackedSignals=True))
+            top.dump_gate_level_verilog(path, config=netlist.GateLevelVerilogDumpConfig(verilatorSplitPackedSignals=True))
             with open(path, encoding="utf-8") as stream:
                 text = stream.read()
             child_text, top_text = text.split("module top(")
             self.assertIn("split_var", child_text)
             self.assertNotIn("split_var", top_text.split(");", 1)[0])
 
-    def test_dump_verilog_config_rejects_invalid_rtl_info_mode(self):
+    def test_dump_gate_level_verilog_config_rejects_invalid_rtl_info_mode(self):
         with self.assertRaises(ValueError) as context:
-            netlist.VerilogDumpConfig(rtlInfoDumpMode="Invalid")
+            netlist.GateLevelVerilogDumpConfig(rtlInfoDumpMode="Invalid")
         self.assertIn("Invalid rtlInfoDumpMode", str(context.exception))
 
     def test_load_system_verilog_with_flist(self):
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
         flist_path = os.path.join(najaeda_test_path, "simple_najaeda.f")
         with open(flist_path, "w", encoding="utf-8") as flist:
-            flist.write(f"{design_file}\n")
+            flist.write(f'"{Path(design_file).as_posix()}"\n')
         top = netlist.load_system_verilog(
             [],
             config=netlist.SystemVerilogConfig(flist=flist_path),
@@ -709,7 +710,7 @@ endmodule
 
             source_flist = os.path.join(temp_dir, "sources.f")
             with open(source_flist, "w", encoding="utf-8") as flist:
-                flist.write(f"{design_sv}\n")
+                flist.write(f'"{Path(design_sv).as_posix()}"\n')
 
             top = netlist.load_system_verilog(
                 [],
@@ -740,8 +741,8 @@ endmodule
 
             source_flist = os.path.join(temp_dir, "sources.f")
             with open(source_flist, "w", encoding="utf-8") as flist:
-                flist.write(f"{generic_sv}\n")
-                flist.write(f"{top_sv}\n")
+                flist.write(f'"{Path(generic_sv).as_posix()}"\n')
+                flist.write(f'"{Path(top_sv).as_posix()}"\n')
 
             top = netlist.load_system_verilog(
                 [],

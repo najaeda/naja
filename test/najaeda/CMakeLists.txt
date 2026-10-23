@@ -26,7 +26,7 @@ add_test(NAME najaeda-python-tests
 )
 set_tests_properties(najaeda-python-tests PROPERTIES
   FIXTURES_REQUIRED najaeda-test-env
-  ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;SYSTEMVERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/systemverilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_SOURCE_TEST_PATH=${CMAKE_CURRENT_SOURCE_DIR}"
+  ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;SYSTEMVERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/systemverilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJA_DB0_AUDIT_BINARY=$<TARGET_FILE:snlCapnPTests>;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_SOURCE_TEST_PATH=${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 # Keep reproducibility visible as a separately selectable CI contract. The same
@@ -39,6 +39,6 @@ add_test(NAME najaeda-python-determinism-tests
 set_tests_properties(najaeda-python-determinism-tests PROPERTIES
   FIXTURES_REQUIRED najaeda-test-env
   LABELS determinism
-  TIMEOUT 180
-  ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+  TIMEOUT 300
+  ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};NAJA_DB0_AUDIT_BINARY=$<TARGET_FILE:snlCapnPTests>;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )

@@ -151,10 +151,10 @@ def generate_variant_netlist(
         diagnostics_report_path=str(diagnostics_path),
     )
     top = netlist.load_system_verilog([], config=svconfig)
-    dump_config = netlist.VerilogDumpConfig()
+    dump_config = netlist.GateLevelVerilogDumpConfig()
     dump_config.dumpRTLInfosAsAttributes = True
     dump_config.dumpAssignsAsInstances = False
-    top.dump_verilog(str(output_path), config=dump_config)
+    top.dump_gate_level_verilog(str(output_path), config=dump_config)
     netlist.reset()
 
     check_variant_netlist(output_path, variant)

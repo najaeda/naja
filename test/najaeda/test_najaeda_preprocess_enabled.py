@@ -16,11 +16,11 @@ class NajaEDAPreprocessEnabledTest(unittest.TestCase):
 
     def testPreprocessEnabled(self):
         design_files = [os.path.join(verilog_benchmarks, "preprocess_top.v")]
-        self.assertRaises(Exception, netlist.load_verilog, design_files)
+        self.assertRaises(Exception, netlist.load_gate_level_verilog, design_files)
         netlist.reset()
-        top = netlist.load_verilog(
+        top = netlist.load_gate_level_verilog(
             design_files,
-            config=netlist.VerilogConfig(preprocess_enabled=True),
+            config=netlist.GateLevelVerilogConfig(preprocess_enabled=True),
         )
         self.assertIsNotNone(top)
         self.assertEqual("top", top.get_model_name())
@@ -37,13 +37,13 @@ class NajaEDAPreprocessEnabledTest(unittest.TestCase):
     def testPreprocessTimescaleDisabled(self):
         design_files = [os.path.join(verilog_benchmarks, "preprocess_timescale_top.v")]
         with self.assertRaises(Exception):
-            netlist.load_verilog(design_files)
+            netlist.load_gate_level_verilog(design_files)
 
     def testPreprocessTimescaleEnabled(self):
         design_files = [os.path.join(verilog_benchmarks, "preprocess_timescale_top.v")]
-        top = netlist.load_verilog(
+        top = netlist.load_gate_level_verilog(
             design_files,
-            config=netlist.VerilogConfig(preprocess_enabled=True),
+            config=netlist.GateLevelVerilogConfig(preprocess_enabled=True),
         )
         self.assertIsNotNone(top)
         self.assertEqual("timescale_top", top.get_model_name())

@@ -36,9 +36,11 @@ sh_test(
         "test/nl/formats/systemverilog/benchmarks",
         "test/nl/formats/liberty/benchmarks",
     ],
+    env = {"NAJA_DB0_AUDIT_BINARY": "$(rootpath //test/nl/snl/serialization/capnp:snlCapnPTests)"},
     toolchains = ["@rules_python//python:current_py_toolchain"],
     data = [
         ":test_sources",
+        "//test/nl/snl/serialization/capnp:snlCapnPTests",
         "//src/najaeda/najaeda:sources",
         "//src/nl/python/naja_wrapping:naja.so",
         "//src/nl/python/naja_wrapping:naja_runtime",
@@ -65,9 +67,11 @@ sh_test(
         "test/nl/formats/liberty/benchmarks",
         "test_najaeda_determinism.py",
     ],
+    env = {"NAJA_DB0_AUDIT_BINARY": "$(rootpath //test/nl/snl/serialization/capnp:snlCapnPTests)"},
     toolchains = ["@rules_python//python:current_py_toolchain"],
     data = [
         ":test_sources",
+        "//test/nl/snl/serialization/capnp:snlCapnPTests",
         "//src/najaeda/najaeda:sources",
         "//src/nl/python/naja_wrapping:naja.so",
         "//src/nl/python/naja_wrapping:naja_runtime",

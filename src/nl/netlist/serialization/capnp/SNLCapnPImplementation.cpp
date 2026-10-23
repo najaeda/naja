@@ -318,25 +318,15 @@ void loadInstance(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
-  SNLDesign* model = nullptr;
-  if (snlModelReference.dbID_ == NLID::DBID(0)) {
-    //DB0 primitives are canonical and may need lazy (re)creation: resolve the
-    //reference directly (libraryID selects the family, designID the size) instead
-    //of relying on them having been loaded. Multi-parameter primitives (memory,
-    //table select) are rebuilt from the instance parameters, which carry the
-    //full signature.
-    NLDB0::PrimitiveParameters parameters;
-    if (instance.hasInstParameters()) {
-      for (auto instParameter: instance.getInstParameters()) {
-        parameters.emplace(
-          std::string(instParameter.getName()), std::string(instParameter.getValue()));
-      }
-    }
+  // A snapshot restores canonical model definitions before its instances.
+  // Never reinterpret an instance override as the signature of its model.
+  SNLDesign* model = NLUniverse::get()->getSNLDesign(snlModelReference);
+  if (not model && snlModelReference.dbID_ == NLID::DBID(0)) {
+    // Compatibility for callers of the low-level interface/implementation API.
+    // These callers must supply the DB0 interface first for compound models;
+    // otherwise only self-describing references can be resolved faithfully.
     model = NLDB0::getOrCreatePrimitive(
-      snlModelReference.libraryID_, snlModelReference.designID_, parameters);
-  }
-  if (not model) {
-    model = NLUniverse::get()->getSNLDesign(snlModelReference);
+      snlModelReference.libraryID_, snlModelReference.designID_);
   }
   //LCOV_EXCL_START
   if (not model) {
@@ -616,12 +606,12 @@ void SNLCapnP::dumpImplementation(const NLDB* snlDB, const std::filesystem::path
 #ifdef _WIN32
   int fd = _open(
     implementationPath.string().c_str(),
-    _O_CREAT | _O_WRONLY | _O_BINARY,
+    _O_CREAT | _O_TRUNC | _O_WRONLY | _O_BINARY,
     _S_IREAD | _S_IWRITE);
 #else
   int fd = open(
     implementationPath.c_str(),
-    O_CREAT | O_WRONLY,
+    O_CREAT | O_TRUNC | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
   dumpImplementation(snlDB, fd);
@@ -688,7 +678,22 @@ NLDB* SNLCapnP::loadImplementation(
 #else
   int fd = open(implementationPath.c_str(), O_RDONLY);
 #endif
-  return loadImplementation(fd, loadingConfiguration);
+  try {
+    auto* db = loadImplementation(fd, loadingConfiguration);
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+    return db;
+  } catch (...) {
+#ifdef _WIN32
+    _close(fd);
+#else
+    close(fd);
+#endif
+    throw;
+  }
 }
 
 //LCOV_EXCL_START

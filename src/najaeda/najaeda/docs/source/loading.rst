@@ -919,3 +919,27 @@ Verilog output
 Use native dump methods when you need Verilog output from the underlying SNL
 database.  The high-level package currently exposes Naja interchange directly;
 for raw Verilog dump control, see :doc:`raw_api`.
+
+Canonical primitive snapshot round trips
+----------------------------------------
+
+NajaIF snapshots include ``db0_interface.snl``, encoded with the existing
+NajaIF database-interface schema. It preserves the canonical NLDB0 model
+interfaces and parameter defaults independently of explicit instance parameters.
+Loading recreates those models through NLDB0 before restoring instances, so
+inherited memory reset settings, shift dimensions and table-select dimensions
+survive a fresh-universe reload. Initialization data and other explicit instance
+parameters remain attached to their instances; shared models remain shared.
+
+The payload includes unused canonical models already created in DB0, because
+compound-model IDs follow creation order. This retains original IDs even when
+instances first reference models in a different order. The loader validates
+recreated interfaces and rejects conflicting identities in an existing universe;
+use ``netlist.reset()`` before loading an independent snapshot. It also rejects
+missing definitions or incomplete signatures instead of guessing defaults.
+Regenerate snapshots that do not contain the DB0 payload.
+
+C++ callers using the separate interface/implementation operations must dump
+DB0's interface as well as the user database and load DB0's interface first.
+Canonical primitive terminals, timing arcs, roles and sequential/memory modeling
+are reconstructed by Naja's existing primitive constructors.

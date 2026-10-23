@@ -97,7 +97,7 @@ top = netlist.load_system_verilog([], config)
 ports = [[t.get_name(), str(t.get_direction()), t.get_width()] for t in top.get_terms()]
 with open(f"{out_dir}/ports.json", "w") as stream:
     json.dump(ports, stream, indent=1)
-top.dump_verilog(f"{out_dir}/ibex_top_naja.v")
+top.dump_gate_level_verilog(f"{out_dir}/ibex_top_naja.v")
 """
 
 

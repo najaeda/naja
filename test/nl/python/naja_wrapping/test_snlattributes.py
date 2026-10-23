@@ -49,12 +49,12 @@ class SNLAttributesTest(unittest.TestCase):
                      '(* src="rtl.sv:1.70000-2.90000" *) module top(input a, output y);\n'
                      '(* src="rtl.sv:3.1-3.9" *) cell u(a,y); endmodule\n')
       db = self.top.getDB()
-      db.loadVerilog([path], yosys_source_attributes=True)
+      db.loadGateLevelVerilog([path], yosys_source_attributes=True)
       top = db.getTopDesign()
       objects = (top, top.getTerm("a"), top.getNet("a"), top.getInstance("u"))
       before = [(obj.getSourceDeclaration(), obj.getSourceOrigins()) for obj in objects]
       for mode in ("CompactAttribute", "VerboseAttributes"):
-        top.dumpVerilog(directory, "source.v", dumpRTLInfosAsAttributes=True,
+        top.dumpGateLevelVerilog(directory, "source.v", dumpRTLInfosAsAttributes=True,
                         rtlInfoDumpMode=mode)
         with open(os.path.join(directory, "source.v"), encoding="utf-8") as output:
           exported = output.read()
@@ -69,7 +69,7 @@ class SNLAttributesTest(unittest.TestCase):
       with open(path, "w", encoding="utf-8") as output:
         output.write(r'(* src="valid.sv:1|invalid\377.sv:2" *) module cell(); endmodule')
       db = self.top.getDB()
-      db.loadVerilog([path], yosys_source_attributes=True)
+      db.loadGateLevelVerilog([path], yosys_source_attributes=True)
       top = db.getTopDesign()
       # The first origin converts successfully before the second fails.
       for _ in range(2):
@@ -84,7 +84,7 @@ class SNLAttributesTest(unittest.TestCase):
         output.write('(* naja_source_v1=42, src="rtl.sv:3.1-3.9" *) '
                      'module opaque((* naja_port_net_source_v1="arbitrary" *) input a); endmodule')
       db = self.top.getDB()
-      db.loadVerilog([path], yosys_source_attributes=True)
+      db.loadGateLevelVerilog([path], yosys_source_attributes=True)
       top = db.getTopDesign()
       self.assertEqual(1, len(top.getSourceOrigins()))
       self.assertEqual("rtl.sv", top.getSourceOrigins()[0][0][0])
@@ -116,12 +116,12 @@ endmodule
         output.write(text)
       # Unselected generic src attributes stay opaque.
       db = self.top.getDB()
-      db.loadVerilog([path])
+      db.loadGateLevelVerilog([path])
       top = db.getTopDesign()
       self.assertEqual([], top.getInstance("u").getSourceOrigins())
       naja.NLUniverse.get().destroy()
       db = naja.NLDB.create(naja.NLUniverse.create())
-      db.loadVerilog([path], yosys_source_attributes=True)
+      db.loadGateLevelVerilog([path], yosys_source_attributes=True)
       top = db.getTopDesign()
       instance = top.getInstance("u")
       self.assertEqual(expected, instance.getSourceOrigins())
@@ -136,7 +136,7 @@ endmodule
       # NajaIF retains roles; Verilog retains raw src attributes for explicit decoding.
       snapshot = os.path.join(directory, "snapshot")
       db.dumpNajaIF(snapshot)
-      top.dumpVerilog(directory, "roundtrip.v", dumpRTLInfosAsAttributes=True)
+      top.dumpGateLevelVerilog(directory, "roundtrip.v", dumpRTLInfosAsAttributes=True)
       os.unlink(path)
       for kind in ("snapshot", "verilog"):
         naja.NLUniverse.get().destroy()
@@ -144,7 +144,7 @@ endmodule
           db = naja.NLDB.loadNajaIF(snapshot)
         else:
           db = naja.NLDB.create(naja.NLUniverse.create())
-          db.loadVerilog([os.path.join(directory, "roundtrip.v")], yosys_source_attributes=True)
+          db.loadGateLevelVerilog([os.path.join(directory, "roundtrip.v")], yosys_source_attributes=True)
         instance = db.getTopDesign().getInstance("u")
         self.assertEqual(expected, instance.getSourceOrigins())
         if kind == "snapshot":
@@ -160,7 +160,7 @@ endmodule
       with open(path, "w", encoding="utf-8") as output:
         output.write('(* src="rtl.sv:5.1-5.2" *) module expanded(input a); endmodule')
       db = self.top.getDB()
-      db.loadVerilog([path], preprocess_enabled=True, yosys_source_attributes=True)
+      db.loadGateLevelVerilog([path], preprocess_enabled=True, yosys_source_attributes=True)
       top = db.getTopDesign()
       self.assertIsNone(top.getSourceDeclaration())
       self.assertIsNone(top.getTerm("a").getSourceDeclaration())

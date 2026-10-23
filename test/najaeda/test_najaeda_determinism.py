@@ -158,7 +158,7 @@ def dump_state(output):
     output.mkdir()
     (output / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
     top = netlist.get_top()
-    top.dump_verilog(str(output / "design.v"))
+    top.dump_gate_level_verilog(str(output / "design.v"))
     top.dump_full_dot(str(output / "design.dot"))
     netlist.dump_naja_if(str(output / "snapshot"))
 
@@ -173,7 +173,7 @@ def worker(kind, source, output, run):
         netlist.load_system_verilog(source, netlist.SystemVerilogConfig(
             top="top", diagnostics_report_path=None))
     elif kind == "v":
-        netlist.load_verilog(source)
+        netlist.load_gate_level_verilog(source)
         from najaeda import naja
         top = naja.NLUniverse.get().getTopDesign()
         instance = top.getInstance("u0")
@@ -224,7 +224,7 @@ class NajaEDADeterminismTest(unittest.TestCase):
                 f"{name} differs: SHA-256 "
                 f"{hashlib.sha256(expected[name]).hexdigest()} != "
                 f"{hashlib.sha256(actual[name]).hexdigest()}")
-            if name.endswith((".json", ".v", ".dot", ".mf")):
+            if name.endswith((".json", ".txt", ".v", ".dot", ".mf")):
                 message += "\n" + "".join(difflib.unified_diff(
                     expected[name].decode().splitlines(keepends=True),
                     actual[name].decode().splitlines(keepends=True),
@@ -251,15 +251,57 @@ class NajaEDADeterminismTest(unittest.TestCase):
                 self.assertEqual(0, result.returncode, result.stdout + result.stderr)
                 original = artifacts(output / "original")
                 for name in ("state.json", "design.v", "design.dot", "snapshot/snl.mf",
-                             "snapshot/db_implementation.snl", "snapshot/db_interface.snl"):
+                             "snapshot/db_implementation.snl", "snapshot/db_interface.snl",
+                             "snapshot/db0_interface.snl"):
                     self.assertIn(name, original)
                 with self.subTest(language=kind, run=run, phase="snapshot round trip"):
                     self.assert_artifacts_equal(original, artifacts(output / "reloaded"))
+                # Reload in a process which has never elaborated this design.
+                fresh = subprocess.run(
+                    [sys.executable, str(Path(__file__).resolve()), "--load-worker",
+                     str(output / "original" / "snapshot"), str(output / "fresh")],
+                    env=environment, capture_output=True, text=True, timeout=120)
+                self.assertEqual(0, fresh.returncode, fresh.stdout + fresh.stderr)
+                with self.subTest(language=kind, run=run, phase="fresh-process reload"):
+                    self.assert_artifacts_equal(original, artifacts(output / "fresh"))
                 if baseline is None:
                     baseline = original
                 else:
                     with self.subTest(language=kind, run=run, phase="fresh process"):
                         self.assert_artifacts_equal(baseline, original)
+
+    def test_canonical_db0_families(self):
+        binary = os.environ.get("NAJA_DB0_AUDIT_BINARY")
+        self.assertTrue(binary, "Set NAJA_DB0_AUDIT_BINARY to the snlCapnPTests executable")
+        runs = int(os.environ.get("NAJA_DETERMINISM_RUNS", "5"))
+        self.assertGreaterEqual(runs, 5)
+        with tempfile.TemporaryDirectory(dir=os.environ.get("NAJAEDA_TEST_PATH")) as scratch:
+            baseline = None
+            for run in range(runs):
+                output = Path(scratch) / str(run)
+                environment = os.environ.copy()
+                environment.pop("NAJA_DB0_AUDIT_INPUT", None)
+                environment.pop("XML_OUTPUT_FILE", None)
+                environment.pop("GTEST_OUTPUT", None)
+                environment.update(NAJA_DB0_AUDIT_OUTPUT=str(output), NAJA_DB0_AUDIT_RUN=str(run))
+                command = [binary, "--gtest_filter=SNLCapnPPrimitiveIdentityTest.AllFamiliesArtifacts"]
+                result = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=120)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                original = artifacts(output / "original")
+                self.assertIn("state.txt", original)
+                self.assertIn("design.dot", original)
+                self.assertIn("design.v", original)
+                self.assertIn("snapshot/db0_interface.snl", original)
+                self.assert_artifacts_equal(original, artifacts(output / "reloaded"))
+                environment.update(NAJA_DB0_AUDIT_INPUT=str(output / "original" / "snapshot"),
+                                   NAJA_DB0_AUDIT_OUTPUT=str(output / "fresh"))
+                result = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=120)
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assert_artifacts_equal(original, artifacts(output / "fresh"))
+                if baseline is None:
+                    baseline = original
+                else:
+                    self.assert_artifacts_equal(baseline, original)
 
     def test_systemverilog(self):
         self.check_determinism("sv", SYSTEMVERILOG)
@@ -329,6 +371,28 @@ module top(input logic [10:0] a, output wire [10:0] y);
 endmodule
 """)
 
+    def test_vhdl_memory(self):
+        self.check_determinism("vhd", """
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+entity top is port(clk, we : in std_logic;
+  addr : in std_logic_vector(1 downto 0);
+  d : in std_logic_vector(4 downto 0);
+  q : out std_logic_vector(4 downto 0)); end;
+architecture rtl of top is
+  type words is array (0 to 3) of std_logic_vector(4 downto 0);
+  signal storage : words;
+begin
+  process(clk) begin
+    if rising_edge(clk) then
+      if we = '1' then storage(to_integer(unsigned(addr))) <= d; end if;
+    end if;
+  end process;
+  q <= storage(to_integer(unsigned(addr)));
+end;
+""")
+
     def test_vhdl(self):
         self.check_determinism("vhd", VHDL)
 
@@ -336,5 +400,9 @@ endmodule
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--worker":
         worker(*sys.argv[2:])
+    elif len(sys.argv) > 1 and sys.argv[1] == "--load-worker":
+        from najaeda import netlist
+        netlist.load_naja_if(sys.argv[2])
+        dump_state(Path(sys.argv[3]))
     else:
         unittest.main()
