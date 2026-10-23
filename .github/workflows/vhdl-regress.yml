@@ -29,14 +29,14 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          # Upgrade the runner's preinstalled LLVM runtime along with GHDL.
-          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ghdl-llvm libllvm18 verilator
+          # Use GCC to avoid the Ubuntu GHDL LLVM runtime-library mismatch.
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ghdl-gcc verilator
 
       - name: Verify GHDL toolchain
         run: |
           mkdir -p build/vhdl-regress/ghdl-check
           cd build/vhdl-regress/ghdl-check
-          ghdl-llvm --version
+          ghdl-gcc --version
           cat > smoke.vhdl <<'VHDL'
           entity smoke is end entity;
           architecture test of smoke is
@@ -49,8 +49,8 @@ jobs:
             end process;
           end architecture;
           VHDL
-          ghdl-llvm -a --std=08 smoke.vhdl
-          ghdl-llvm -e --std=08 smoke
+          ghdl-gcc -a --std=08 smoke.vhdl
+          ghdl-gcc -e --std=08 smoke
           ./smoke
 
       - name: Set up canonical Linux Release toolchain
@@ -80,7 +80,7 @@ jobs:
           python3 regress/vhdl/microwatt_cosim.py \
             --source build/vhdl-regress/microwatt \
             --output build/vhdl-regress/microwatt-results \
-            --ghdl ghdl-llvm
+            --ghdl ghdl-gcc
 
       - name: Run Microwatt full-core preview console regression
         env:
@@ -89,7 +89,7 @@ jobs:
           python3 -B regress/vhdl/microwatt_core_smoke.py \
             --source build/vhdl-regress/microwatt \
             --output build/vhdl-regress/core-smoke \
-            --preview-dcache-fix --ghdl ghdl-llvm --jobs 4
+            --preview-dcache-fix --ghdl ghdl-gcc --jobs 4
 
       - name: Download and test AES decryption benchmark
         env:
