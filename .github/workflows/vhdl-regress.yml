@@ -29,7 +29,29 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ghdl-llvm verilator
+          # Upgrade the runner's preinstalled LLVM runtime along with GHDL.
+          sudo apt-get install -yq ccache libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev ghdl-llvm libllvm18 verilator
+
+      - name: Verify GHDL toolchain
+        run: |
+          mkdir -p build/vhdl-regress/ghdl-check
+          cd build/vhdl-regress/ghdl-check
+          ghdl-llvm --version
+          cat > smoke.vhdl <<'VHDL'
+          entity smoke is end entity;
+          architecture test of smoke is
+          begin
+            process
+            begin
+              report "GHDL_TOOLCHAIN_OK";
+              std.env.stop;
+              wait;
+            end process;
+          end architecture;
+          VHDL
+          ghdl-llvm -a --std=08 smoke.vhdl
+          ghdl-llvm -e --std=08 smoke
+          ./smoke
 
       - name: Set up canonical Linux Release toolchain
         uses: ./.github/actions/setup-linux-release
