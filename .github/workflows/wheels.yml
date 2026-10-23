@@ -254,6 +254,7 @@ jobs:
               python {project}/ci/check_wheel_import.py
 
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
+              export SYSTEMVERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/systemverilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
               export NAJAEDA_SOURCE_TEST_PATH="{project}/test/najaeda"

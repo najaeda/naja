@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 import faulthandler
+from pathlib import Path
 
 from najaeda import netlist, naja
 
@@ -13,8 +14,8 @@ systemverilog_benchmarks = os.environ.get("SYSTEMVERILOG_BENCHMARKS_PATH")
 if not systemverilog_benchmarks:
     verilog_benchmarks = os.environ.get("VERILOG_BENCHMARKS_PATH")
     if verilog_benchmarks:
-        systemverilog_benchmarks = verilog_benchmarks.replace(
-            "/verilog/benchmarks", "/systemverilog/benchmarks")
+        systemverilog_benchmarks = str(
+            Path(verilog_benchmarks).parent.parent / "systemverilog" / "benchmarks")
 najaeda_test_path = os.environ.get("NAJAEDA_TEST_PATH")
 if not najaeda_test_path:
     najaeda_test_path = os.getcwd()
@@ -318,7 +319,7 @@ endmodule
                              "localparam integer UNIT = 1ns; assign a = (UNIT == 1);\n"
                              "leaf u(b); endmodule\n")
             with open(flist, "w", encoding="utf-8") as output:
-                output.write(path + "\n")
+                output.write(f'"{Path(path).as_posix()}"\n')
             with self.assertRaisesRegex(naja.SystemVerilogSyntaxError, "time scale"):
                 netlist.load_system_verilog(path)
             for use_flist in (False, True):
@@ -347,7 +348,7 @@ endmodule
             netlist.load_system_verilog([], config)
 
     def test_load_system_verilog_cross_file_macros(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(prefix="sv inputs ") as directory:
             defs = os.path.join(directory, "defs.sv")
             use = os.path.join(directory, "use.sv")
             flist_path = os.path.join(directory, "sources.f")
@@ -356,7 +357,7 @@ endmodule
             with open(use, "w", encoding="utf-8") as source:
                 source.write("module macro_top(output logic o); `CHECK(o) endmodule\n")
             with open(flist_path, "w", encoding="utf-8") as flist:
-                flist.write(f"{defs}\n{use}\n")
+                flist.write(f'"{Path(defs).as_posix()}"\n"{Path(use).as_posix()}"\n')
             for use_flist in (False, True):
                 for single_unit in (False, True):
                     for top_name in (None, "macro_top"):
@@ -389,7 +390,7 @@ endmodule
         self.assertEqual(1, top.count_output_terms())
         source_range = top.get_source_range()
         self.assertIsInstance(source_range, netlist.SourceRange)
-        self.assertTrue(source_range.file.endswith(
+        self.assertTrue(Path(source_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
         self.assertGreaterEqual(source_range.line, 1)
         self.assertGreaterEqual(source_range.column, 1)
@@ -398,12 +399,12 @@ endmodule
 
         term_range = top.get_term("a").get_source_range()
         self.assertIsInstance(term_range, netlist.SourceRange)
-        self.assertTrue(term_range.file.endswith(
+        self.assertTrue(Path(term_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
 
         net_range = top.get_net("y").get_source_range()
         self.assertIsInstance(net_range, netlist.SourceRange)
-        self.assertTrue(net_range.file.endswith(
+        self.assertTrue(Path(net_range.file).as_posix().endswith(
             "systemverilog/benchmarks/simple/simple.sv"))
 
     def test_source_columns_above_16_bits(self):
@@ -543,7 +544,7 @@ endmodule
         design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
         flist_path = os.path.join(najaeda_test_path, "simple_najaeda.f")
         with open(flist_path, "w", encoding="utf-8") as flist:
-            flist.write(f"{design_file}\n")
+            flist.write(f'"{Path(design_file).as_posix()}"\n')
         top = netlist.load_system_verilog(
             [],
             config=netlist.SystemVerilogConfig(flist=flist_path),
@@ -709,7 +710,7 @@ endmodule
 
             source_flist = os.path.join(temp_dir, "sources.f")
             with open(source_flist, "w", encoding="utf-8") as flist:
-                flist.write(f"{design_sv}\n")
+                flist.write(f'"{Path(design_sv).as_posix()}"\n')
 
             top = netlist.load_system_verilog(
                 [],
@@ -740,8 +741,8 @@ endmodule
 
             source_flist = os.path.join(temp_dir, "sources.f")
             with open(source_flist, "w", encoding="utf-8") as flist:
-                flist.write(f"{generic_sv}\n")
-                flist.write(f"{top_sv}\n")
+                flist.write(f'"{Path(generic_sv).as_posix()}"\n')
+                flist.write(f'"{Path(top_sv).as_posix()}"\n')
 
             top = netlist.load_system_verilog(
                 [],

@@ -16,6 +16,7 @@ $env:PYTHONPATH = ""
 python "$PSScriptRoot\check_wheel_import.py"
 
 $env:VERILOG_BENCHMARKS_PATH = "$PSScriptRoot\..\test\nl\formats\verilog\benchmarks"
+$env:SYSTEMVERILOG_BENCHMARKS_PATH = "$PSScriptRoot\..\test\nl\formats\systemverilog\benchmarks"
 $env:LIBERTY_BENCHMARKS_PATH = "$PSScriptRoot\..\test\nl\formats\liberty\benchmarks"
 $env:NAJAEDA_TEST_PATH = "$PSScriptRoot\..\test\najaeda"
 $env:NAJAEDA_SOURCE_TEST_PATH = "$PSScriptRoot\..\test\najaeda"
