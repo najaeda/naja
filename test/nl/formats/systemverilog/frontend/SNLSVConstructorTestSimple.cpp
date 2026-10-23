@@ -26394,6 +26394,109 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnArithmeticBinaryOperatorSuppor
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, wildcardComparisonPatternsPreserveSemantics) {
+  const std::string source = R"(module wildcard_patterns(
+  input logic clk,
+  input logic [7:0] a,
+  output wire [11:0] y,
+  output logic branch, seq, guarded
+);
+  localparam logic [7:0] MASK = 8'b1?x01z?0;
+  localparam logic signed [3:0] SIGNED_MASK = 4'b?101;
+  assign y[0] = a ==? MASK;
+  assign y[1] = a !=? MASK;
+  assign y[2] = a ==? 'x;
+  assign y[3] = a !=? 'z;
+  assign y[4] = a ==? 4'b?101;
+  assign y[5] = $signed(a) ==? SIGNED_MASK;
+  assign y[6] = a ==? {2{4'b1?0z}};
+  assign y[7] = a !=? 8'(4'b?101);
+  assign y[8] = (a ==? MASK) ? a[3] : a[6];
+  assign y[9] = a ==? 8'b10100110;
+  assign y[10] = a ==? '1;
+  assign y[11] = a !=? '0;
+  always_comb begin
+    if (a ==? MASK) branch = a[2];
+    else branch = a[5];
+  end
+  always_ff @(posedge clk) begin
+    seq <= a !=? MASK;
+    if (a ==? MASK) guarded <= a[3];
+    else guarded <= a[6];
+  end
+endmodule
+)";
+  const auto sourcePath = writeSVTestFile("wildcard_patterns", source);
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = sourcePath.parent_path() / "diagnostics.log";
+  constructor.construct(sourcePath, options);
+  EXPECT_EQ(std::string::npos,
+    readTextFile(*options.diagnosticsReportPath).find("case_comparison_two_state"));
+  auto* top = library_->getSNLDesign(NLName("wildcard_patterns"));
+  ASSERT_NE(nullptr, top);
+  const auto dumpedPath = dumpTopAndGetVerilogPath(top, "wildcard_patterns_dump");
+  const auto dumped = readTextFile(dumpedPath);
+  // Pattern X/Z bits must never become gate operands.
+  EXPECT_EQ(std::string::npos, dumped.find("1'bz"));
+  EXPECT_EQ(std::string::npos, dumped.find("1'bx"));
+  auto quote = [](const std::filesystem::path& path) {
+    return "\"" + path.string() + "\"";
+  };
+  if (std::system("command -v verilator >/dev/null 2>&1") == 0) {
+    const auto command = "verilator --lint-only --sv --top-module wildcard_patterns " +
+      quote(dumpedPath) + " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(command.c_str()));
+  }
+  if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+      std::system("command -v vvp >/dev/null 2>&1") != 0) {
+    GTEST_SKIP() << "Icarus Verilog is required for four-state wildcard simulation";
+  }
+  auto reference = source;
+  reference.replace(reference.find("module wildcard_patterns"),
+    std::string("module wildcard_patterns").size(), "module wildcard_reference");
+  const auto referencePath = writeSVTestFile("wildcard_reference", reference);
+  const auto tbPath = dumpedPath.parent_path() / "tb.sv";
+  std::ofstream tb(tbPath);
+  tb << R"(module tb;
+  reg clk = 0;
+  reg [7:0] a;
+  wire [11:0] y, expected;
+  wire branch, seq, guarded, ref_branch, ref_seq, ref_guarded;
+  wildcard_patterns dut(.*);
+  wildcard_reference ref_dut(.clk(clk), .a(a), .y(expected),
+    .branch(ref_branch), .seq(ref_seq), .guarded(ref_guarded));
+  task check;
+    begin
+      #1;
+      if ({y, branch} !== {expected, ref_branch}) $fatal(1, "combinational mismatch a=%b", a);
+      clk = 1; #1;
+      if (seq !== ref_seq) $fatal(1, "sequential comparison mismatch a=%b", a);
+      if (!$isunknown(a) && guarded !== ref_guarded) $fatal(1, "guard mismatch a=%b", a);
+      clk = 0;
+    end
+  endtask
+  integer i;
+  initial begin
+    for (i = 0; i < 256; i = i + 1) begin a = i; check; end
+    a = 8'b1xz01zx0; check;
+    a = 8'bxx101101; check;
+    a = 8'bzz101101; check;
+    a = 8'bxxxxxxxx; check;
+    a = 8'bzzzzzzzz; check;
+    $finish;
+  end
+endmodule
+)";
+  tb.close();
+  const auto executable = dumpedPath.parent_path() / "simulation.vvp";
+  const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+    " " + quote(tbPath) + " " + quote(referencePath) + " " + quote(dumpedPath) +
+    " " + quote(dumpedPath.parent_path() / "naja_primitives.v");
+  ASSERT_EQ(0, std::system(compile.c_str()));
+  ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsExtendedSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -40286,6 +40389,102 @@ TEST_F(SNLSVConstructorTestSimple, primMubiPackageFunctionsExhaustive) {
         EXPECT_EQ(bool((expected >> bit->getBit()) & 1u),
           evaluateFunctionResultBit(top, bit->getNet(), input, 0, &memo))
           << "input=" << input << " bit=" << bit->getBit();
+      }
+    }
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, dynamicPackedFieldAssignmentOwnership) {
+  for (const auto* mode : {"element", "ascending", "nested"}) {
+    for (bool asyncReset : {false, true}) {
+      const auto name = std::string("field_ownership_") + mode + (asyncReset ? "_reset" : "");
+      SCOPED_TRACE(name);
+      const auto directory = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) / name;
+      std::filesystem::create_directories(directory);
+      const auto path = directory / "source.sv";
+      const bool nested = std::string(mode) == "nested";
+      const bool ascending = std::string(mode) == "ascending";
+      std::ofstream source(path);
+      source << "package " << name << "_types;\n";
+      if (nested) {
+        source << "typedef struct packed {logic keep; logic [2:0] data;} lane_t;\n"
+               << "typedef struct packed {logic head; lane_t [1:0] lanes; logic tail;} state_t;\n";
+      } else {
+        source << "typedef struct packed {logic [1:0] head; logic "
+               << (ascending ? "[0:4]" : "[4:0]") << " data; logic tail;} state_t;\n";
+      }
+      source << "endpackage\nmodule " << name << " import " << name << "_types::*;\n"
+             << "(input logic clk, rst, input logic [7:0] a, output state_t q);\n";
+      source << "always_ff @(posedge clk) q.head <= " << (nested ? "a[7]" : "a[7:6]") << ";\n"
+             << "always_ff @(posedge clk) q.tail <= a[5];\n";
+      if (nested) {
+        source << "always_ff @(posedge clk) q.lanes[0].keep <= a[6];\n"
+               << "always_ff @(posedge clk) q.lanes[1].keep <= a[7];\n";
+      }
+      source << "always_ff @(posedge clk" << (asyncReset ? " or posedge rst" : "") << ") begin\n";
+      if (asyncReset) {
+        source << "if (rst) ";
+        if (nested) source << "begin q.lanes[0].data <= 0; q.lanes[1].data <= 0; end\n";
+        else source << "q.data <= 0;\n";
+        source << "else ";
+      }
+      if (nested) source << "q.lanes[a[0]].data <= a[3:1];\n";
+      else source << "q.data[a[2:0]] <= a[3];\n";
+      source << "end\nendmodule\n";
+      source.close();
+      SNLSVConstructor constructor(library_);
+      ASSERT_NO_THROW(constructor.construct(path));
+      auto* top = library_->getSNLDesign(NLName(name));
+      ASSERT_NE(nullptr, top);
+      auto* q = top->getBusNet(NLName("q"));
+      ASSERT_NE(nullptr, q);
+      const unsigned width = nested ? 10 : 8;
+      std::vector<SNLBitNet*> inputs;
+      for (unsigned bit = 0; bit < width; ++bit) {
+        SNLInstTerm* driver = nullptr;
+        for (auto* term : q->getBit(bit)->getInstTerms()) {
+          if (term->getDirection() == SNLTerm::Direction::Output) {
+            ASSERT_EQ(nullptr, driver) << "Multiple drivers on bit " << bit;
+            driver = term;
+          }
+        }
+        ASSERT_NE(nullptr, driver) << "Undriven bit " << bit;
+        auto* model = driver->getInstance()->getModel();
+        ASSERT_TRUE(NLDB0::isDFF(model) || NLDB0::isDFFR(model) || NLDB0::isDFFRN(model));
+        auto* d = model->getTerm(NLName("D"));
+        ASSERT_NE(nullptr, d);
+        auto* dBit = dynamic_cast<SNLBitTerm*>(d);
+        if (auto* bus = dynamic_cast<SNLBusTerm*>(d)) {
+          dBit = bus->getBit(driver->getBitTerm()->getBit());
+        }
+        ASSERT_NE(nullptr, dBit);
+        inputs.push_back(driver->getInstance()->getInstTerm(dBit)->getNet());
+      }
+      for (unsigned input = 0; input < 256; ++input) {
+        for (unsigned prior : {0u, 0x155u, 0x2aau, 0x3ffu}) {
+          std::unordered_map<SNLBitNet*, std::optional<bool>> memo;
+          for (unsigned bit = 0; bit < width; ++bit) memo[q->getBit(bit)] = bool((prior >> bit) & 1u);
+          memo[top->getScalarNet(NLName("rst"))] = false;
+          unsigned expected = prior;
+          if (nested) {
+            expected = (expected & 0xeeu) | ((input & 0x80u) << 2) |
+              ((input & 0x80u) << 1) | ((input & 0x40u) >> 2) | ((input & 0x20u) >> 5);
+            const unsigned offset = 1 + 4 * (input & 1u);
+            expected = (expected & ~(7u << offset)) | (((input >> 1) & 7u) << offset);
+          } else {
+            expected = (expected & 0x3eu) | (input & 0xc0u) | ((input >> 5) & 1u);
+            const unsigned selected = input & 7u;
+            if (selected < 5) {
+              const unsigned bit = 1 + (ascending ? 4 - selected : selected);
+              expected = (expected & ~(1u << bit)) | (((input >> 3) & 1u) << bit);
+            }
+          }
+          for (unsigned bit = 0; bit < width; ++bit) {
+            EXPECT_EQ(bool((expected >> bit) & 1u),
+              evaluateFunctionResultBit(top, inputs[bit], input, 0, &memo))
+              << "input=" << input << " prior=" << prior << " bit=" << bit;
+          }
+        }
       }
     }
   }

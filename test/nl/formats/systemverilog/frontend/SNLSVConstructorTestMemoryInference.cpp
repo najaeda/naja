@@ -8882,20 +8882,23 @@ endmodule
   EXPECT_EQ("1", wrPortsParam->getValue());
 }
 
-TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFailureFallback) {
-  SNLSVConstructor constructor(library_);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "qd_next_local_commit_equality_rhs_failure_fallback";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
+TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityOperandFailureFallback) {
+  for (const auto* side : {"lhs", "rhs"}) {
+    SCOPED_TRACE(side);
+    auto* library = NLLibrary::create(library_->getDB(), NLName(side));
+    SNLSVConstructor constructor(library);
+    std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+    outPath = outPath / (std::string("qd_next_local_commit_equality_failure_") + side);
+    if (std::filesystem::exists(outPath)) {
+      std::filesystem::remove_all(outPath);
+    }
+    std::filesystem::create_directory(outPath);
 
-  const auto svPath = outPath / "qd_next_local_commit_equality_rhs_failure_fallback.sv";
-  std::ofstream svFile(svPath);
-  ASSERT_TRUE(svFile.good());
-  svFile
-    << R"(module qd_next_local_commit_equality_rhs_failure_fallback(
+    const auto svPath = outPath / "qd_next_local_commit_equality_operand_failure_fallback.sv";
+    std::ofstream svFile(svPath);
+    ASSERT_TRUE(svFile.good());
+    svFile
+      << R"(module qd_next_local_commit_equality_operand_failure_fallback(
   input  logic       clk_i,
   input  logic [1:0] addr_i,
   input  logic       bit_i,
@@ -8913,7 +8916,9 @@ TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFai
   always_comb begin
     for (int i = 0; i < 4; i++) begin
       mem_next[i] = mem_d[i];
-      if (mem_d[i][0] == mem_d[0][0]) begin
+      if ()" << (std::string(side) == "lhs"
+        ? "mem_d[0][0] == mem_d[i][0]"
+        : "mem_d[i][0] == mem_d[0][0]") << R"() begin
         mem_next[i] = mem_q[i];
       end
     end
@@ -8926,12 +8931,13 @@ TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitEqualityRhsFai
   assign data_o = mem_q[addr_i];
 endmodule
 )";
-  svFile.close();
+    svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"unsupported statement pattern for sequential lowering"});
+    expectUnsupportedConstruct(
+      constructor,
+      svPath,
+      {"unsupported statement pattern for sequential lowering"});
+  }
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextLocalCommitLogicalAndSupported) {
@@ -9101,6 +9107,102 @@ endmodule
     constructor,
     svPath,
     {"unsupported statement pattern for sequential lowering"});
+}
+
+TEST_F(SNLSVConstructorTestMemoryInference, wildcardLocalConditionsKeepMemoryInference) {
+  for (const auto* variant : {"eq", "ne", "signed_eq", "signed_ne"}) {
+    SCOPED_TRACE(variant);
+    const bool isSigned = std::string(variant).find("signed_") == 0;
+    const auto* op = std::string(variant).find("eq") != std::string::npos ? "==?" : "!=?";
+    auto* library = NLLibrary::create(library_->getDB(), NLName(variant));
+    SNLSVConstructor constructor(library);
+    const auto outPath = std::filesystem::path(SNL_SV_DUMPER_TEST_PATH) /
+      (std::string("wildcard_memory_") + variant);
+    std::filesystem::create_directories(outPath);
+    const auto svPath = outPath / "input.sv";
+    std::ofstream source(svPath);
+    source << R"(module wildcard_memory(
+  input logic clk,
+  input logic [1:0] addr,
+  input logic [6:0] data,
+  output wire [6:0] result
+);
+  logic )" << (isSigned ? "signed " : "") << R"([6:0] current [0:3], updated [0:3], next_value [0:3];
+  always_comb begin
+    updated = current;
+    updated[addr] = data;
+  end
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      next_value[i] = updated[i];
+      if ((updated[i] )" << op << (isSigned ? " 7'sb1?x0z?1" : " 7'b1?x0z?1") << R"() && (updated[i] ==? 'z))
+        next_value[i] = current[i];
+    end
+  end
+  always_ff @(posedge clk) current <= next_value;
+  assign result = current[addr];
+endmodule
+)";
+    source.close();
+    constructor.construct(svPath);
+    auto* top = library->getSNLDesign(NLName("wildcard_memory"));
+    ASSERT_NE(nullptr, top);
+    size_t memories = 0;
+    for (auto* instance : top->getInstances()) {
+      memories += NLDB0::isMemory(instance->getModel());
+    }
+    EXPECT_EQ(1u, memories);
+    SNLVRLDumper dumper;
+    dumper.setTopFileName("netlist.v");
+    dumper.dumpDesign(top, outPath);
+    ASSERT_TRUE(std::filesystem::exists(outPath / "netlist.v"));
+    const auto text = readTextFile(outPath / "netlist.v");
+    EXPECT_EQ(std::string::npos, text.find("1'bz"));
+    EXPECT_EQ(std::string::npos, text.find("1'bx"));
+    if (std::system("command -v iverilog >/dev/null 2>&1") != 0 ||
+        std::system("command -v vvp >/dev/null 2>&1") != 0) {
+      continue;
+    }
+    auto reference = readTextFile(svPath);
+    reference.replace(reference.find("module wildcard_memory"),
+      std::string("module wildcard_memory").size(), "module memory_reference");
+    // Icarus requires element-wise copies for unpacked arrays.
+    const std::string copy = "updated = current;";
+    reference.replace(reference.find(copy), copy.size(),
+      "for (int k = 0; k < 4; k++) updated[k] = current[k];");
+    const std::string commit = "current <= next_value;";
+    reference.replace(reference.find(commit), commit.size(),
+      "for (int k = 0; k < 4; k++) current[k] <= next_value[k];");
+    std::ofstream(outPath / "reference.sv") << reference;
+    std::ofstream(outPath / "tb.sv") << R"(module tb;
+  reg clk = 0;
+  reg [1:0] addr;
+  reg [6:0] data;
+  wire [6:0] result, expected;
+  wildcard_memory dut(.*);
+  memory_reference ref_dut(.clk(clk), .addr(addr), .data(data), .result(expected));
+  integer i;
+  initial begin
+    for (i = 0; i < 256; i = i + 1) begin
+      addr = i % 4; data = i % 128;
+      #1; clk = 1; #1;
+      if (result !== expected) $fatal(1, "memory mismatch data=%b", data);
+      clk = 0;
+    end
+    $finish;
+  end
+endmodule
+)";
+    auto quote = [](const std::filesystem::path& path) {
+      return "\"" + path.string() + "\"";
+    };
+    const auto executable = outPath / "simulation.vvp";
+    const auto compile = "iverilog -g2012 -s tb -o " + quote(executable) +
+      " " + quote(outPath / "tb.sv") + " " + quote(outPath / "reference.sv") +
+      " " + quote(outPath / "netlist.v") + " " + quote(outPath / "naja_primitives.v");
+    ASSERT_EQ(0, std::system(compile.c_str()));
+    ASSERT_EQ(0, std::system(("vvp " + quote(executable)).c_str()));
+  }
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference, parseQDNextIndexedCommitUnaryLocalConditionSupported) {
@@ -11887,7 +11989,7 @@ endmodule
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
-       parseDirectMemoryTwoDynamicPackedSelectorsFallback) {
+       parseDirectMemoryTwoDynamicPackedSelectorsUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "direct_memory_two_dynamic_packed_selectors_fallback";
@@ -11912,16 +12014,12 @@ endmodule
 )";
   svFile.close();
 
-  constructor.construct(svPath);
-
-  auto* top = library_->getSNLDesign(
-    NLName("direct_memory_two_dynamic_packed_selectors_fallback"));
-  ASSERT_NE(nullptr, top);
-  EXPECT_EQ(0u, countMemoryInstances(top));
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported dynamic sequential assignment LHS"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,
-       parseDirectMemoryDynamicSystemCallSelectorFallback) {
+       parseDirectMemoryDynamicSystemCallSelectorUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= "direct_memory_dynamic_system_call_selector_fallback";
@@ -11944,12 +12042,8 @@ endmodule
 )";
   svFile.close();
 
-  constructor.construct(svPath);
-
-  auto* top = library_->getSNLDesign(
-    NLName("direct_memory_dynamic_system_call_selector_fallback"));
-  ASSERT_NE(nullptr, top);
-  EXPECT_EQ(0u, countMemoryInstances(top));
+  expectUnsupportedConstruct(
+    constructor, svPath, {"unsupported dynamic sequential assignment LHS"});
 }
 
 TEST_F(SNLSVConstructorTestMemoryInference,

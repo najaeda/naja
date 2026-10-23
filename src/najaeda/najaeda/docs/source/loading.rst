@@ -178,6 +178,12 @@ before the statement, including when the index is variable. Combinational cycles
 in the logic emitted for a single ``always_comb`` or ``always @*`` block are
 rejected with a ``combinational cycle inside procedural block`` diagnostic.
 
+Sequential dynamic writes to packed struct fields drive only the selected
+field's bits; independent processes may drive disjoint fields. This also applies
+to fields inside dynamically selected packed array elements. Dynamic sequential
+selections without a supported lowering, including unsupported nested memory
+selectors, raise an unsupported-construct diagnostic rather than dropping the write.
+
 Each source file is a separate compilation unit by default
 (``SystemVerilogConfig.single_unit=False``). If sources rely on macros defined
 in earlier files without including their definitions, set ``single_unit=True``.
@@ -261,6 +267,13 @@ and concatenated arguments. Wildcard patterns use
 the frontend's two-state matching behavior; overlapping items retain source-order
 priority. A result must be defined for every selector value; functions with an
 uncovered path are rejected.
+
+Wildcard equality (``==?``) and inequality (``!=?``) ignore ``X``, ``Z``, and
+``?`` bits in constant right-hand patterns after operand sizing and extension.
+This includes parameter, concatenation, replication, and cast expressions in
+assignments and conditions. Left-hand unknown bits remain comparison inputs.
+Runtime four-state right-hand patterns retain the frontend's two-state
+comparison limitation and emit ``case_comparison_two_state``.
 
 Combinational function input arguments can include fixed-size unpacked arrays
 of integral elements. Actuals may be local or package parameters, or unpacked
@@ -889,7 +902,16 @@ Naja interchange
    netlist.dump_naja_if("roundtrip.naja")
 
 Naja interchange preserves the SNL database more directly than Verilog and is
-useful for round-tripping internal analyses and transformations.
+useful for round-tripping internal analyses and transformations. Schema 0.3.0
+preserves attributes on designs, scalar/bus ports and nets, individual bus bits,
+instances, and instance terminals, including attribute order, duplicate names,
+and string/number value types. This also preserves the attributes returned by
+``get_attributes()`` after a dump/load round trip.
+
+Snapshots written with older schema revisions must be regenerated from the
+original input. Older dumps omitted attributes; upgrading cannot recover them.
+The loader checks the schema revision and producer identity before reading the
+payloads.
 
 Verilog output
 --------------

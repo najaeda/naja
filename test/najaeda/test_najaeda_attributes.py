@@ -5,6 +5,7 @@
 import os
 import unittest
 import faulthandler
+import tempfile
 from najaeda import netlist
 from najaeda import naja
 
@@ -26,6 +27,24 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def tearDown(self):
         netlist.reset()
     
+    def test_snapshot_attributes(self):
+        def attributes():
+            top = netlist.get_top()
+            objects = [top, top.get_child_instance("and2_inst"),
+                       top.get_term("a"), top.get_net("and_wire")]
+            return [[(attribute.get_name(), attribute.get_value(), attribute.has_value())
+                     for attribute in obj.get_attributes()] for obj in objects]
+
+        before = attributes()
+        self.assertTrue(all(before))
+        with tempfile.TemporaryDirectory() as directory:
+            snapshot = os.path.join(directory, "snapshot")
+            netlist.dump_naja_if(snapshot)
+            netlist.reset()
+            netlist.load_naja_if(snapshot)
+            self.assertEqual(before, attributes())
+            self.assertEqual((0, 3, 0), naja.snapshotManifest(snapshot)["schema_version"])
+
     def test_source_references(self):
         top = netlist.get_top()
         child = top.get_child_instance("and2_inst")

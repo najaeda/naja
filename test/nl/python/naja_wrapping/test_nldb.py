@@ -686,14 +686,14 @@ architecture rtl of unsupported is begin y <= a and missing; end;
     naja_dir = os.path.join(naja_path, "test.naja")
     db.dumpNajaIF(naja_dir)
     manifest = naja.snapshotManifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 2, 0))
+    self.assertEqual(manifest["schema_version"], (0, 3, 0))
     self.assertEqual(manifest["producer_version"], naja.getVersion())
     self.assertEqual(manifest["producer_git_hash"], naja.getGitHash())
     #destroy everything
     naja.NLUniverse.get().destroy()
 
     manifest = naja.snapshotManifest(naja_dir)
-    self.assertEqual(manifest["schema_version"], (0, 2, 0))
+    self.assertEqual(manifest["schema_version"], (0, 3, 0))
     self.assertIsNone(naja.NLUniverse.get())
 
     #load NajaIF

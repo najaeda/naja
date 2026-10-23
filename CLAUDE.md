@@ -365,4 +365,19 @@ established. Permission to analyze an input is not permission to publish it.
 
 ## Git
 
-- Default/PR base branch: `main`. Don't commit or push unless asked; if on `main`, branch first.
+- Default/PR base branch: `main`. Don't commit or push unless asked. Use a
+  feature branch and PR by default, including when starting on `main`.
+- When the user explicitly requests a direct commit or push to `main`, routine
+  maintenance such as README/documentation edits and version updates may bypass
+  the PR workflow using the repository administrator bypass. Keep the change
+  scoped to the requested maintenance and run the applicable checks. This
+  exception does not authorize unrelated changes or force pushes.
+- Create feature branches with `git switch --no-track -c <branch> origin/main`.
+  Never configure a feature branch to track `origin/main`.
+- Before pushing, verify the current branch and its configured upstream. Push
+  feature branches to an explicit destination, for example
+  `git push -u origin HEAD:refs/heads/<branch>`, and confirm that the destination
+  is the intended feature branch. Never push a feature branch to `main`.
+- For an explicitly requested direct maintenance push, verify that the current
+  branch is `main`, check its upstream, and push to the explicit destination
+  `git push origin HEAD:refs/heads/main`.

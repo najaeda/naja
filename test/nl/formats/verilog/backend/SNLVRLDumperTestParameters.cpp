@@ -976,6 +976,9 @@ TEST_F(SNLVRLDumperTestParameters, testVerilatorSplitPackedSignalsScope) {
   auto* childInput = SNLBusTerm::create(model_, SNLTerm::Direction::Input, 3, 0, NLName("data_i"));
   SNLBusTerm::create(model_, SNLTerm::Direction::Output, 0, 3, NLName("data_o"));
   SNLScalarTerm::create(model_, SNLTerm::Direction::Input, NLName("enable"));
+  SNLBusTerm::create(model_, SNLTerm::Direction::Input, 4, 4, NLName("single_i"));
+  SNLBusTerm::create(model_, SNLTerm::Direction::Output, -2, -2, NLName("single_o"));
+  SNLBusNet::create(model_, 0, 0, NLName("single_bus"));
   SNLBusNet::create(model_, 3, 0, NLName("internal_bus"));
   auto* input = SNLBusTerm::create(top_, SNLTerm::Direction::Input, 3, 0, NLName("data_i"));
   auto* bus = SNLBusNet::create(top_, 3, 0, NLName("top_bus"));
@@ -1000,6 +1003,12 @@ TEST_F(SNLVRLDumperTestParameters, testVerilatorSplitPackedSignalsScope) {
   ASSERT_NE(std::string::npos, topStart);
   EXPECT_EQ(std::string::npos, text.substr(topStart, text.find(");", topStart) - topStart).find("split_var"));
   EXPECT_EQ(std::string::npos, text.find("enable /* verilator split_var */"));
+  EXPECT_NE(std::string::npos, text.find("input [4:4] single_i"));
+  EXPECT_NE(std::string::npos, text.find("output [-2:-2] single_o"));
+  EXPECT_NE(std::string::npos, text.find("wire [0:0] single_bus;"));
+  for (const auto* name : {"single_i", "single_o", "single_bus"}) {
+    EXPECT_EQ(std::string::npos, text.find(std::string(name) + " /* verilator split_var */"));
+  }
   const auto directory = std::filesystem::path(SNL_VRL_DUMPER_TEST_PATH) / "split_packed_multi_file";
   std::filesystem::create_directories(directory);
   dumper.setSingleFile(false);

@@ -1100,6 +1100,17 @@ must belong to the same design.  Clock names are unique within a design.
    :undoc-members:
    :inherited-members:
 
+Attributes
+~~~~~~~~~~
+
+NajaIF schema 0.3.0 preserves ``SNLAttribute`` values on designs, terms, nets,
+bus bits, instances, and instance terminals. Attribute order, duplicate names,
+and string/number types survive ``NLDB.dumpNajaIF()`` / ``NLDB.loadNajaIF()``.
+As in the live SNL model, empty string values and valueless attributes both have
+``hasValue() == False``. Use the existing high-level ``get_attributes()`` methods
+for routine queries; no raw API calls are needed to retain attributes in a
+snapshot. Older snapshots must be regenerated from their original inputs.
+
 .. autoclass:: najaeda.naja.SNLAttribute
    :members:
    :undoc-members:
@@ -1334,7 +1345,7 @@ columns; their Python tuple shapes are unchanged. Native C++ consumers must
 rebuild for the widened ``SNLSourceLoc`` layout. SystemVerilog loading and
 legacy source-location Verilog export preserve columns above 65,535.
 
-NajaIF schema 0.2.0 preserves the full coordinate width using additive fields;
+NajaIF schemas since 0.2.0 preserve the full coordinate width;
 the original 16-bit fields retain their wire types. The manifest revision is
 now sourced from naja-if. Snapshot loading still requires an exact schema and
 producer match, so snapshots from earlier revisions must be regenerated.

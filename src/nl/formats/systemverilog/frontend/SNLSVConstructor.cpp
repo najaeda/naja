@@ -8655,8 +8655,22 @@ endmodule
                 shadowBits,
                 compareWidth,
                 leftBits,
-                failureReason) ||
-              !resolveInferredMemoryLocalBits(
+                failureReason)) {
+            return nullptr;
+          }
+          const bool wildcardRhs =
+            binaryExpr.op == slang::ast::BinaryOperator::WildcardEquality ||
+            binaryExpr.op == slang::ast::BinaryOperator::WildcardInequality;
+          std::vector<slang::logic_t> patternBits;
+          const bool signExtend =
+            binaryExpr.left().type->getCanonicalType().isSigned() &&
+            binaryExpr.right().type->getCanonicalType().isSigned();
+          if (wildcardRhs && resolveWildcardCaseItemPattern(
+                binaryExpr.right(), compareWidth, signExtend, patternBits)) {
+            for (const auto bit : patternBits) {
+              rightBits.push_back(getConstNet(design, bit));
+            }
+          } else if (!resolveInferredMemoryLocalBits(
                 design,
                 binaryExpr.right(),
                 selectorIndex,
@@ -8672,6 +8686,10 @@ endmodule
           std::vector<SNLNet*> xnorBits;
           xnorBits.reserve(compareWidth);
           for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
+            if (wildcardRhs &&
+                (rightBits[bitIndex]->isConstantX() || rightBits[bitIndex]->isConstantZ())) {
+              continue;
+            }
             auto* xnorBit = SNLScalarNet::create(design);
             annotateSourceInfo(xnorBit, sourceRange);
             auto* xnorOut = createBinaryGate(
@@ -8691,7 +8709,9 @@ endmodule
           }
 
           SNLBitNet* eqBit = nullptr;
-          if (xnorBits.size() == 1) {
+          if (xnorBits.empty()) {
+            eqBit = static_cast<SNLBitNet*>(getConstNet(design, true));
+          } else if (xnorBits.size() == 1) {
             eqBit = getSingleBitNet(xnorBits.front());
           } else {
             auto* eqNet = SNLScalarNet::create(design);
@@ -15175,22 +15195,15 @@ endmodule
         }
         if (isEqualityBinaryOp(binaryExpr.op) || isInequalityBinaryOp(binaryExpr.op)) {
           auto binarySourceRange = getSourceRange(*stripped);
-          reportCaseComparison2StateWarning(binaryExpr.op, binarySourceRange);
           auto* compareBit = SNLScalarNet::create(design);
           annotateSourceInfo(compareBit, binarySourceRange);
-          const bool ok = isInequalityBinaryOp(binaryExpr.op)
-            ? createInequalityAssign(
-                design,
-                compareBit,
-                binaryExpr.left(),
-                binaryExpr.right(),
-                binarySourceRange)
-            : createEqualityAssign(
-                design,
-                compareBit,
-                binaryExpr.left(),
-                binaryExpr.right(),
-                binarySourceRange);
+          const bool ok = createComparisonAssign(
+            design,
+            compareBit,
+            binaryExpr.left(),
+            binaryExpr.right(),
+            binaryExpr.op,
+            binarySourceRange);
           if (!ok) {
             return false; // LCOV_EXCL_LINE
           }
@@ -17242,12 +17255,36 @@ endmodule
       return createAddSubInstance(design, leftBits, rightBits, lhsBits, true, sourceRange);
     }
 
+    bool createComparisonAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      slang::ast::BinaryOperator op,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const bool wildcardRhs =
+        op == slang::ast::BinaryOperator::WildcardEquality ||
+        op == slang::ast::BinaryOperator::WildcardInequality;
+      std::vector<slang::logic_t> patternBits;
+      auto rightWidth = getIntegralExpressionBitWidth(rightExpr);
+      // Constant wildcard patterns are represented exactly. Runtime four-state
+      // comparison retains the existing two-state limitation diagnostic.
+      if (!wildcardRhs || !rightWidth ||
+          !resolveWildcardCaseItemPattern(rightExpr, *rightWidth, false, patternBits)) {
+        reportCaseComparison2StateWarning(op, sourceRange);
+      }
+      return isInequalityBinaryOp(op)
+        ? createInequalityAssign(design, lhsNet, leftExpr, rightExpr, sourceRange, wildcardRhs)
+        : createEqualityAssign(design, lhsNet, leftExpr, rightExpr, sourceRange, wildcardRhs);
+    }
+
     bool createEqualityAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
       const Expression& leftExpr,
       const Expression& rightExpr,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      bool wildcardRhs = false) {
       auto* lhsBit = getSingleBitNet(lhsNet);
       if (!lhsBit) {
         return false;
@@ -17349,6 +17386,11 @@ endmodule
       std::vector<SNLNet*> bitEquals;
       bitEquals.reserve(compareWidth);
       for (size_t bitIndex = 0; bitIndex < compareWidth; ++bitIndex) {
+        // Only RHS X/Z bits are wildcards, after operand sizing and extension.
+        if (wildcardRhs &&
+            (rightBits[bitIndex]->isConstantX() || rightBits[bitIndex]->isConstantZ())) {
+          continue;
+        }
         auto* bitEqualsNet = makeBitEquals(leftBits[bitIndex], rightBits[bitIndex]);
         if (!bitEqualsNet) {
           return false; // LCOV_EXCL_LINE
@@ -17389,7 +17431,8 @@ endmodule
       SNLNet* lhsNet,
       const Expression& leftExpr,
       const Expression& rightExpr,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      bool wildcardRhs = false) {
       auto* lhsBit = getSingleBitNet(lhsNet);
       if (!lhsBit) {
         return false;
@@ -17397,7 +17440,7 @@ endmodule
 
       auto* eqBit = SNLScalarNet::create(design);
       annotateSourceInfo(eqBit, sourceRange);
-      if (!createEqualityAssign(design, eqBit, leftExpr, rightExpr, sourceRange)) {
+      if (!createEqualityAssign(design, eqBit, leftExpr, rightExpr, sourceRange, wildcardRhs)) {
         return false;
       }
       if (!createUnaryGate(
@@ -18431,20 +18474,13 @@ endmodule
             auto* compareBit = SNLScalarNet::create(design);
             auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
             annotateSourceInfo(compareBit, compareSourceRange);
-            reportCaseComparison2StateWarning(binaryExpr.op, compareSourceRange);
-            const bool ok = isInequalityBinaryOp(binaryExpr.op)
-              ? createInequalityAssign(
-                  design,
-                  compareBit,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  compareSourceRange)
-              : createEqualityAssign(
-                  design,
-                  compareBit,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  compareSourceRange);
+            const bool ok = createComparisonAssign(
+              design,
+              compareBit,
+              binaryExpr.left(),
+              binaryExpr.right(),
+              binaryExpr.op,
+              compareSourceRange);
             if (!ok) {
               return nullptr;
             }
@@ -24449,7 +24485,9 @@ endmodule
         if (!sameLhs(assignedLHS, &lhsExpr)) {
           const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
           if (hasDynamicLHSSelection(*assignedLHS) &&
-              strippedAssignedLHS->kind != slang::ast::ExpressionKind::ElementSelect &&
+              (strippedAssignedLHS->kind != slang::ast::ExpressionKind::ElementSelect ||
+               !sameLhs(&strippedAssignedLHS->as<slang::ast::ElementSelectExpression>().value(),
+                        &lhsExpr)) &&
               isTrackedSelectionSubLhsOf(assignedLHS, &lhsExpr)) {
             bool handled = false;
             if (!tryApplyCombinationalDynamicElementSubAssignmentForLhs(
@@ -25478,20 +25516,13 @@ endmodule
               }
               return outBit;
             }
-            reportCaseComparison2StateWarning(binaryExpr.op, binarySourceRange);
-            const bool ok = isInequalityBinaryOp(binaryExpr.op)
-              ? createInequalityAssign(
-                  design,
-                  outBit,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  binarySourceRange)
-              : createEqualityAssign(
-                  design,
-                  outBit,
-                  binaryExpr.left(),
-                  binaryExpr.right(),
-                  binarySourceRange);
+            const bool ok = createComparisonAssign(
+              design,
+              outBit,
+              binaryExpr.left(),
+              binaryExpr.right(),
+              binaryExpr.op,
+              binarySourceRange);
             return ok ? outBit : nullptr;
           }
         }
@@ -29577,6 +29608,61 @@ endmodule
       return false; // LCOV_EXCL_LINE
     }
 
+    bool collectProceduralAssignmentOffsets(
+      const Expression& assignedExpr,
+      const Expression& lhsExpr,
+      size_t lhsWidth,
+      std::vector<size_t>& assignedOffsets) {
+      std::vector<CombinationalSelectionStep> steps;
+      if (!collectCombinationalSelectionStepsFromTrackedLhs(
+            assignedExpr, lhsExpr, steps)) {
+        return false; // LCOV_EXCL_LINE: The caller verifies the tracked root; a dynamic selected LHS supplies at least one selection step.
+      }
+      std::vector<std::vector<size_t>> candidates(1);
+      for (size_t bit = 0; bit < lhsWidth; ++bit) {
+        candidates.front().push_back(bit);
+      }
+      for (const auto& step : steps) {
+        std::vector<std::vector<size_t>> nextCandidates;
+        for (const auto& offsets : candidates) {
+          int32_t index = 0;
+          if (step.element && !getConstantInt32(step.element->selector(), index)) {
+            const auto width = getElementSelectionWidth(*step.element, offsets.size());
+            if (!width || !*width || offsets.size() % *width) {
+              return false; // LCOV_EXCL_LINE: Slang fixed-range array elements have positive widths dividing their resolved parent width.
+            }
+            for (size_t offset = 0; offset < offsets.size(); offset += *width) {
+              nextCandidates.emplace_back(
+                offsets.begin() + offset, offsets.begin() + offset + *width);
+            }
+          } else if (step.range && !getConstantInt32(step.range->left(), index)) {
+            int32_t width = 0;
+            if (step.range->getSelectionKind() == slang::ast::RangeSelectionKind::Simple ||
+                !getConstantInt32(step.range->right(), width) || width <= 0) {
+              return false; // LCOV_EXCL_LINE: Slang requires constant simple-range bounds and positive constant indexed-range widths.
+            }
+            // Every bit in the selected base can be reached by an indexed
+            // part-select, including selections partially outside its bounds.
+            if (&step != &steps.back()) {
+              return false; // LCOV_EXCL_LINE: Slang rejects chained selections after a range select.
+            }
+            assignedOffsets.insert(assignedOffsets.end(), offsets.begin(), offsets.end());
+          } else {
+            std::vector<size_t> selected;
+            if (!applyStaticCombinationalSelectionStepOffsets(step, offsets, selected)) {
+              return false;
+            }
+            nextCandidates.push_back(std::move(selected));
+          }
+        }
+        candidates = std::move(nextCandidates);
+      }
+      for (const auto& offsets : candidates) {
+        assignedOffsets.insert(assignedOffsets.end(), offsets.begin(), offsets.end());
+      }
+      return true;
+    }
+
     std::vector<bool> makeProceduralAssignedBitMask(
       SNLDesign* design,
       const Statement& stmt,
@@ -29717,9 +29803,17 @@ endmodule
         if (hasDynamicSelectionInLHS(*assignedExpr)) {
           if (targetsTrackedLhs) {
             if (!requireDefiniteAssignment) {
-              std::fill(assignedMask.begin(), assignedMask.end(), true);
+              std::vector<size_t> assignedOffsets;
+              if (collectProceduralAssignmentOffsets(
+                    *assignedExpr, lhsExpr, lhsBits.size(), assignedOffsets)) {
+                for (const auto offset : assignedOffsets) {
+                  assignedMask[offset] = true;
+                }
+              } else {
+                std::fill(assignedMask.begin(), assignedMask.end(), true);
+              }
             }
-            return assignedMask;
+            continue;
           }
           continue; // LCOV_EXCL_LINE: Unrelated scalar targets are skipped above; dynamic concatenation targets are rejected before masking.
         }
@@ -35189,12 +35283,12 @@ endmodule
               continue;
             }
             if (isEqualityBinaryOp(binaryExpr.op)) {
-              reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
-              const bool equalityAssigned = createEqualityAssign(
+              const bool equalityAssigned = createComparisonAssign(
                 design,
                 lhsNet,
                 binaryExpr.left(),
                 binaryExpr.right(),
+                binaryExpr.op,
                 assignSourceRange);
               if (equalityAssigned) {
                 recordEqualitySelectorNet(lhsNet, *rhs);
@@ -35207,12 +35301,12 @@ endmodule
               continue;
             }
             if (isInequalityBinaryOp(binaryExpr.op)) {
-              reportCaseComparison2StateWarning(binaryExpr.op, assignSourceRange);
-              if (!createInequalityAssign(
+              if (!createComparisonAssign(
                     design,
                     lhsNet,
                     binaryExpr.left(),
                     binaryExpr.right(),
+                    binaryExpr.op,
                     assignSourceRange) &&
                   !tryAssignResolvedRhsBits(*rhs)) {
                 std::ostringstream reason;

@@ -28,6 +28,7 @@
 #include "SNLDesignObject.h"
 #include "SNLRTLInfos.h"
 #include "SNLCapnPRTLInfos.h"
+#include "SNLCapnPAttributes.h"
 #include "SNLScalarTerm.h"
 #include "SNLBundleTerm.h"
 #include "SNLBusTerm.h"
@@ -109,6 +110,7 @@ void dumpScalarTerm(
     scalarTermBuilder.setName(scalarTerm->getName().getString());
   }
   scalarTermBuilder.setDirection(SNLtoCapnPDirection(scalarTerm->getDirection()));
+  dumpAttributes(scalarTermBuilder, scalarTerm);
   if (scalarTerm->hasRTLInfos()) {
     dumpRTLInfos(scalarTermBuilder.initRtlInfos(), scalarTerm->getRTLInfos());
   }
@@ -125,21 +127,25 @@ void dumpBusTerm(
   busTermBuilder.setMsb(busTerm->getMSB());
   busTermBuilder.setLsb(busTerm->getLSB());
   busTermBuilder.setDirection(SNLtoCapnPDirection(busTerm->getDirection()));
+  dumpAttributes(busTermBuilder, busTerm);
   if (busTerm->hasRTLInfos()) {
     dumpRTLInfos(busTermBuilder.initRtlInfos(), busTerm->getRTLInfos());
   }
   size_t count = 0;
   for (auto bit: busTerm->getBits()) {
-    if (bit->hasRTLInfos()) ++count;
+    if (bit->hasRTLInfos() or not SNLAttributes::getAttributes(bit).empty()) ++count;
   }
   if (count) {
     auto bitInfos = busTermBuilder.initBitInfos(count);
     size_t id = 0;
     for (auto bit: busTerm->getBits()) {
-      if (bit->hasRTLInfos()) {
+      if (bit->hasRTLInfos() or not SNLAttributes::getAttributes(bit).empty()) {
         auto builder = bitInfos[id++];
         builder.setBit(static_cast<const SNLBusTermBit*>(bit)->getBit());
-        dumpRTLInfos(builder.initRtlInfos(), bit->getRTLInfos());
+        dumpAttributes(builder, bit);
+        if (bit->hasRTLInfos()) {
+          dumpRTLInfos(builder.initRtlInfos(), bit->getRTLInfos());
+        }
       }
     }
   }
@@ -178,6 +184,7 @@ void dumpDesignInterface(
     designInterface.setName(snlDesign->getName().getString());
   }
   designInterface.setType(SNLtoCapNpDesignType(snlDesign->getType()));
+  dumpAttributes(designInterface, snlDesign);
   if (snlDesign->hasRTLInfos()) {
     dumpRTLInfos(designInterface.initRtlInfos(), snlDesign->getRTLInfos());
   }
@@ -332,6 +339,7 @@ void loadScalarTerm(
     snlName = NLName(term.getName());
   }
   auto scalarTerm = SNLScalarTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), snlName);
+  loadAttributes(term, scalarTerm);
   if (term.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(scalarTerm), term.getRtlInfos());
   }
@@ -349,6 +357,7 @@ void loadBusTerm(
     snlName = NLName(term.getName());
   }
   auto busTerm = SNLBusTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
+  loadAttributes(term, busTerm);
   if (term.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(busTerm), term.getRtlInfos());
   }
@@ -358,7 +367,10 @@ void loadBusTerm(
       // Malformed input only: the serializer emits metadata for existing bits.
       throw NLException("cannot deserialize bus term metadata: bit not found"); // LCOV_EXCL_LINE
     }
-    loadRTLInfos(SNLRTLInfos::create(bit), bitInfo.getRtlInfos());
+    loadAttributes(bitInfo, bit);
+    if (bitInfo.hasRtlInfos()) {
+      loadRTLInfos(SNLRTLInfos::create(bit), bitInfo.getRtlInfos());
+    }
   }
 }
 
@@ -384,6 +396,7 @@ void loadDesignInterface(
     snlName = NLName(designInterface.getName());
   }
   SNLDesign* snlDesign = SNLDesign::create(library, NLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
+  loadAttributes(designInterface, snlDesign);
   if (designInterface.hasRtlInfos()) {
     loadRTLInfos(SNLRTLInfos::create(snlDesign), designInterface.getRtlInfos());
   }

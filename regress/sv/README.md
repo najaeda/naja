@@ -601,7 +601,7 @@ release's `targets.mk` top and its variant-local `filelist.f`, including the
 supplied wrappers, include directories, defines, and memory stubs.
 
 ```sh
-# PR tier: CV32E40P, FP32 FMA, minimal Ibex, SPI host, and NVDLA.
+# PR tier: CV32E40P, FP32 FMA, minimal Ibex, SPI host, NVDLA, and minimal Snitch cluster.
 # Downloads the pinned release unless --archive supplies a local copy.
 python3 regress/sv/pulp_benchmarks.py --lint-runner local
 
@@ -659,11 +659,11 @@ Every consumer checks the restored native runtime before running a benchmark.
 There is no workflow `max-parallel` cap; GitHub schedules jobs according to the
 account's available runner concurrency.
 
-Regular runs fan out into **11 independent verification jobs**: five complete
+Regular runs fan out into **12 independent verification jobs**: six complete
 smoke checks, four larger-design elaboration checks, C910 strict lint, and ITA
 functional validation. A nightly run at 02:23 UTC or manual `survey=true` adds
-17 further complete-check jobs, covering **all 23 release variants** together
-with the six regular full checks. That produces **28 independent verification
+16 further complete-check jobs, covering **all 23 release variants** together
+with the seven regular full checks. That produces **28 independent verification
 jobs**, including the four elaboration checks and ITA. Each additional survey
 variant has its own 600-second limit per load/dump and per lint, matching C910.
 Frontend matrix jobs have a 30-minute overall limit to allow both stages,
@@ -671,7 +671,9 @@ setup, container cleanup, and artifact publication. Known failures fail only the
 Matrix fail-fast is disabled, so other variants finish and retain reports.
 No complete-check case is duplicated between regular and survey jobs.
 The regular smoke set includes `nvdla.top` alongside CV32E40P, FP32 FMA,
-minimal Ibex, and SPI host. NVDLA uses `default_timescale="1ns/1ps"` for
+minimal Ibex, SPI host, and `snitch_cluster.minimal`. The Snitch cluster check
+loads, dumps, and lints the complete design on every regular run.
+NVDLA uses `default_timescale="1ns/1ps"` for
 modules without an explicit time scale; source time scales still take precedence.
 The runner records this fallback in each case's `summary.json`.
 
