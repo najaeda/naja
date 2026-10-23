@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792689986975,
+  "lastUpdate": 1792774164285,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -18666,6 +18666,108 @@ window.BENCHMARK_DATA = {
             "value": 221437.8565094429,
             "unit": "ns/iter",
             "extra": "iterations: 3157\ncpu: 221287.1960722023 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "noam.chn1@gmail.com",
+            "name": "Noam Cohen",
+            "username": "nanocoh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e324572976662742e4faa034c92cd74bdbe86a3",
+          "message": "functionallity for new naja primitives  (#493)\n\n* Liberty: model ff_bank multibit registers\n\nThe structural Liberty parse kept only `ff` and `latch` groups, so an\n`ff_bank (IQ, IQN, N)` cell loaded with no sequential model and its bundle\noutputs had no truth table. Formal checks then treated every multibit flop\n(for example the asap7 DFFHQNV2X/DFFHQNH2V2X trays created by multibit\nclustering) as opaque.\n\n- YosysLibertyParser: keep `ff_bank` and `latch_bank` groups, their\n  clocked_on/next_state/clear/preset children, and `function` under\n  `bundle` in structural mode.\n- SNLLibertyConstructor: classify `ff_bank` cells as sequential, apply a\n  bundle-level `function` to each member, and expand a bank into N states\n  where bit i reads bundle member i (`D` -> `D<i>`) and output member i maps\n  to state i. Banks that cannot be modeled log a warning and stay loadable.\n- SNLBooleanTree: optional name-to-term aliases so bundle names resolve per\n  bit inside expressions.\n- Test: ff_bank.lib fixture and SNLLibertyConstructorTest1.testFFBank.\n\n* Liberty: cover malformed ff_bank groups\n\nAdd a fixture with a bank that has too few arguments, a non-numeric width,\na zero width, and a next_state that does not resolve. Each cell must stay\nloadable with no sequential model attached.\n\n* Liberty: model latch groups as level-sensitive sequential models\n\nA `latch` group now builds a SequentialModel of kind Latch, with\n`enable` as the control expression and `data_in` as the next state,\nso latch cells carry a model instead of being skipped. Cells that mix\nflip-flop and latch state, or use `latch_bank`, stay loadable without\na model as before.\n\n* Truth tables: describe add/sub, multiply and shift primitives\n\nThe word-level arithmetic primitives had no truth table, so a consumer\nthat expands primitives through tables saw them as opaque cells. Like\nDIVMOD, each output bit now gets a generic table carrying only metadata:\nthe operand width, the output bit, and for shifts the count width and\ndirection. Dependencies list the first operand then the second, most\nsignificant bit first, as the primitive declares them.\n\ngetTruthTable(design, term) returns the table and getTruthTableCount\ncounts one per output bit; the whole-design table stays empty, as for\nDIVMOD. Validation rejects an arithmetic left shift, as the primitive\nfactory does.\n\n* Truth tables: describe read-only memories as ROM lookups\n\nA memory primitive without write ports is a constant table: its read data\nis a pure function of the read address and the INIT contents. Expose it as\na generic ROM truth table per read-data bit (address bits as dependencies,\nthe bit's column as metadata) through the instance-level getTruthTable,\nso consumers model it like a table select with constant rows instead of\ntreating the output as opaque. Contents with x/z digits or disabled INIT\nkeep no table.\n\n* Truth tables: cover ROM literal decoding, ordering and word table misuse\n\nExercise the INIT literal decoder on digit separators, hex letters, the\nprimitive's default contents, and the four malformed forms it rejects; a\ndepth the address bits cannot reach; ROM table ordering; and the word\narithmetic table errors for a non-word design, an input bit, and a Word\nfactory call with another generic type. Mark the two guards no netlist can\nreach, a bus wider than the metadata holds and ROM metadata on another type,\nas excluded from coverage.",
+          "timestamp": "2026-10-23T18:23:22+02:00",
+          "tree_id": "224a7138b5b67841a98ebe7d1776e3da34344c83",
+          "url": "https://github.com/najaeda/naja/commit/4e324572976662742e4faa034c92cd74bdbe86a3"
+        },
+        "date": 1792774162986,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 114393.22647247219,
+            "unit": "ns/iter",
+            "extra": "iterations: 6248\ncpu: 114322.61379641485 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 165958.376157683,
+            "unit": "ns/iter",
+            "extra": "iterations: 4211\ncpu: 165890.75896461649 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 948058.7768240356,
+            "unit": "ns/iter",
+            "extra": "iterations: 699\ncpu: 948016.1201716735 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 10962028.630769266,
+            "unit": "ns/iter",
+            "extra": "iterations: 65\ncpu: 10959615.430769231 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 627.9691208682038,
+            "unit": "ns/iter",
+            "extra": "iterations: 1118069\ncpu: 627.9264204624225 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 6239.487965987472,
+            "unit": "ns/iter",
+            "extra": "iterations: 109606\ncpu: 6238.659726657307 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 68206.53978767886,
+            "unit": "ns/iter",
+            "extra": "iterations: 11021\ncpu: 68199.09790400148 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 249208.78534213195,
+            "unit": "ns/iter",
+            "extra": "iterations: 2879\ncpu: 249177.29454671752 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 224049.1953175186,
+            "unit": "ns/iter",
+            "extra": "iterations: 3118\ncpu: 224029.50096215535 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 182857.98061305258,
+            "unit": "ns/iter",
+            "extra": "iterations: 3817\ncpu: 182845.5189939744 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 41041446.53846202,
+            "unit": "ns/iter",
+            "extra": "iterations: 13\ncpu: 41030916.76923071 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 12645.310202624256,
+            "unit": "ns/iter",
+            "extra": "iterations: 56015\ncpu: 12644.414549674222 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 233558.2664424166,
+            "unit": "ns/iter",
+            "extra": "iterations: 2980\ncpu: 233421.8667785773 ns\nthreads: 1"
           }
         ]
       }
