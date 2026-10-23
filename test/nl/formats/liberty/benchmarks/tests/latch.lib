@@ -1,0 +1,22 @@
+library (latch_test) {
+  cell (DLATCH_LOW) {
+    latch (IQ,IQN) {
+      enable : "!CLK";
+      data_in : "D";
+    }
+    pin (CLK) {
+      direction : input;
+    }
+    pin (D) {
+      direction : input;
+    }
+    pin (Q) {
+      direction : output;
+      function : "IQ";
+    }
+    pin (QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+}

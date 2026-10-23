@@ -2258,11 +2258,24 @@ TEST_F(NLDB0Test, CanonicalShiftsRetainSignatureAndCombinationalArcs) {
     EXPECT_EQ(model->getLibrary()->getID(), 10u);
     EXPECT_EQ(NLDB0::getShiftData(model)->getWidth(), signature.width);
     EXPECT_EQ(NLDB0::getShiftCount(model)->getWidth(), signature.countWidth);
-    for (auto* output : NLDB0::getShiftOutput(model)->getBits())
+    for (auto* output : NLDB0::getShiftOutput(model)->getBits()) {
       EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(output).size(),
           signature.width + signature.countWidth);
+      const auto table = SNLDesignModeling::getTruthTable(model, output->getOrderID());
+      EXPECT_EQ(SNLTruthTable::GenericType::SHIFT, table.getGenericType());
+      EXPECT_EQ(signature.width + signature.countWidth, table.size());
+      const auto& word = table.getWordMetadata();
+      EXPECT_EQ(signature.width, word.width);
+      EXPECT_EQ(signature.countWidth, word.countWidth);
+      EXPECT_EQ(signature.right, word.right);
+      EXPECT_EQ(signature.arithmetic, word.arithmetic);
+      EXPECT_EQ(static_cast<uint32_t>(output->getBit()), word.outputBit);
+    }
     EXPECT_FALSE(SNLDesignModeling::hasMemoryInterface(model));
-    EXPECT_EQ(SNLDesignModeling::getTruthTableCount(model), 0u);
+    EXPECT_EQ(SNLDesignModeling::getTruthTableCount(model), signature.width);
+    EXPECT_FALSE(SNLDesignModeling::getTruthTable(model).isInitialized());
+    EXPECT_THROW(SNLDesignModeling::getTruthTable(
+        model, NLDB0::getShiftCount(model)->getBit(0)->getOrderID()), NLException);
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(model), NLException);
     NLDB0::PrimitiveParameters parameters{
         {"WIDTH", std::to_string(signature.width)}, {"COUNT_WIDTH", std::to_string(signature.countWidth)},
@@ -2301,9 +2314,13 @@ TEST_F(NLDB0Test, CanonicalMultiplyWidthIdentityAndDependencies) {
     EXPECT_EQ(width, NLDB0::getMultiplyInputB(model)->getWidth());
     for (auto* output : NLDB0::getMultiplyOutput(model)->getBits()) {
       EXPECT_EQ(2 * width, SNLDesignModeling::getCombinatorialInputs(output).size());
-      EXPECT_FALSE(SNLDesignModeling::getTruthTable(model, output->getOrderID()).isInitialized());
+      const auto table = SNLDesignModeling::getTruthTable(model, output->getOrderID());
+      EXPECT_EQ(SNLTruthTable::GenericType::MULTIPLY, table.getGenericType());
+      EXPECT_EQ(2 * width, table.size());
+      EXPECT_EQ(width, table.getWordMetadata().width);
+      EXPECT_EQ(static_cast<uint32_t>(output->getBit()), table.getWordMetadata().outputBit);
     }
-    EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(model));
+    EXPECT_EQ(width, SNLDesignModeling::getTruthTableCount(model));
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(model), NLException);
   }
   EXPECT_THROW(NLDB0::getOrCreateMultiply(0), NLException);
@@ -2337,12 +2354,42 @@ TEST_F(NLDB0Test, CanonicalAddSubWidthIdentityAndDependencies) {
       EXPECT_EQ(width, NLDB0::getAddSubInputB(model)->getWidth());
       for (auto* output : NLDB0::getAddSubOutput(model)->getBits()) {
         EXPECT_EQ(2 * width, SNLDesignModeling::getCombinatorialInputs(output).size());
-        EXPECT_FALSE(SNLDesignModeling::getTruthTable(model, output->getOrderID()).isInitialized());
+        const auto table = SNLDesignModeling::getTruthTable(model, output->getOrderID());
+        EXPECT_EQ(SNLTruthTable::GenericType::ADD_SUB, table.getGenericType());
+        EXPECT_EQ(2 * width, table.size());
+        EXPECT_EQ(subtract, table.getWordMetadata().subtract);
+        EXPECT_EQ(static_cast<uint32_t>(output->getBit()), table.getWordMetadata().outputBit);
       }
-      EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(model));
+      EXPECT_EQ(width, SNLDesignModeling::getTruthTableCount(model));
       EXPECT_THROW(NLDB0::getPrimitiveTruthTable(model), NLException);
     }
   }
+  // Dependencies list A then B, most significant bit first, so a consumer
+  // can address operand bits by position.
+  auto* add = NLDB0::getOrCreateAddSub(3, false);
+  const auto table = SNLDesignModeling::getTruthTable(
+      add, NLDB0::getAddSubOutput(add)->getBit(1)->getOrderID());
+  std::vector<size_t> expected;
+  for (auto* operand : {NLDB0::getAddSubInputA(add), NLDB0::getAddSubInputB(add)}) {
+    for (auto* bit : operand->getBits()) {
+      expected.push_back(bit->getOrderID());
+    }
+  }
+  EXPECT_EQ(NLBitDependencies::encodeBits(expected), table.getDependencies());
+  EXPECT_EQ(1u, table.getWordMetadata().outputBit);
+  EXPECT_THROW(table.getDivModWidth(), NLException);
+  EXPECT_THROW(SNLDesignModeling::getTruthTable(
+      add, NLDB0::getAddSubInputB(add)->getBit(0)->getOrderID()), NLException);
+  EXPECT_THROW(SNLTruthTable::AddSub(3, false, 3, table.getDependencies()), NLException);
+  EXPECT_THROW(SNLTruthTable::Multiply(3, 0, SNLTruthTable::fullDependencies(5)), NLException);
+  EXPECT_THROW(SNLTruthTable::Shift(3, 0, true, false, 0, SNLTruthTable::fullDependencies(3)), NLException);
+  EXPECT_THROW(SNLTruthTable::Shift(3, 2, false, true, 0, SNLTruthTable::fullDependencies(5)), NLException);
+  EXPECT_THROW(SNLTruthTable::Word(SNLTruthTable::GenericType::MULTIPLY,
+      {3, 0, 0, true, false, false}, SNLTruthTable::fullDependencies(6)), NLException);
+  EXPECT_NE(SNLTruthTable::Shift(3, 2, true, true, 2, SNLTruthTable::fullDependencies(5)),
+            SNLTruthTable::Shift(3, 2, true, false, 2, SNLTruthTable::fullDependencies(5)));
+  EXPECT_LT(SNLTruthTable::AddSub(3, false, 0, SNLTruthTable::fullDependencies(6)),
+            SNLTruthTable::AddSub(3, true, 0, SNLTruthTable::fullDependencies(6)));
   EXPECT_THROW(NLDB0::getOrCreateAddSub(0, false), NLException);
   EXPECT_THROW(NLDB0::getOrCreateAddSub(std::numeric_limits<size_t>::max(), true), NLException);
   EXPECT_THROW(NLDB0::getAddSubWidth(static_cast<SNLDesign*>(nullptr)), NLException);
@@ -2401,4 +2448,136 @@ TEST_F(NLDB0Test, CanonicalLibraryGroupsEndWithGateFamilies) {
     EXPECT_EQ(model, NLDB0::getOrCreatePrimitive(
       model->getLibrary()->getID(), model->getID()));
   }
+}
+
+TEST_F(NLDB0Test, ReadOnlyMemoryExposesRomTruthTables) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* top = SNLDesign::create(NLLibrary::create(db, NLName("designs")), NLName("top"));
+  // Three 2-bit rows in a 2-bit address space: {2'b10, 2'b01, 2'b11},
+  // packed least significant row first.
+  auto* rom = NLDB0::getOrCreateMemory({2, 3, 2, 1, 0});
+  ASSERT_NE(nullptr, rom);
+  EXPECT_FALSE(SNLDesignModeling::isSequential(rom));
+  auto* instance = SNLInstance::create(top, rom, NLName("rom0"));
+  SNLInstParameter::create(instance, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(instance, rom->getParameter(NLName("INIT")), "6'h36");
+  auto* rdata = NLDB0::getMemoryReadData(rom);
+  auto* raddr = NLDB0::getMemoryReadAddress(rom);
+  EXPECT_EQ(2u, SNLDesignModeling::getTruthTableCount(rom));
+  EXPECT_TRUE(SNLDesignModeling::hasTruthTableFromParameter(rom, rdata->getBit(0)->getOrderID()));
+  // The design alone has no contents.
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(rom, rdata->getBit(0)->getOrderID()).isInitialized());
+  const std::vector<std::vector<bool>> columns{{false, true, true}, {true, false, true}};
+  std::vector<size_t> expectedDependencies;
+  for (auto* bit : raddr->getBits()) {
+    expectedDependencies.push_back(bit->getOrderID());
+  }
+  for (size_t lane = 0; lane < 2; ++lane) {
+    const auto table = SNLDesignModeling::getTruthTable(instance, rdata->getBit(lane)->getOrderID());
+    ASSERT_TRUE(table.isInitialized());
+    EXPECT_EQ(SNLTruthTable::GenericType::ROM, table.getGenericType());
+    EXPECT_TRUE(table.isRom());
+    EXPECT_EQ(2u, table.size());
+    EXPECT_EQ(2u, table.getRomMetadata().addressSize);
+    EXPECT_EQ(3u, table.getRomMetadata().depth);
+    EXPECT_EQ(columns[lane], table.getRomMetadata().column);
+    EXPECT_EQ(NLBitDependencies::encodeBits(expectedDependencies), table.getDependencies());
+    EXPECT_THROW(table.getWordMetadata(), NLException);
+    EXPECT_THROW(table.getReducedWithConstants({{0, true}}), NLException);
+  }
+  EXPECT_THROW(NLDB0::getRomTruthTable(instance, raddr->getBit(0)->getOrderID()), NLException);
+  EXPECT_THROW(SNLTruthTable().getRomMetadata(), NLException);
+  // x/z contents and disabled INIT have no binary table.
+  auto* xrom = SNLInstance::create(top, rom, NLName("rom1"));
+  SNLInstParameter::create(xrom, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(xrom, rom->getParameter(NLName("INIT")), "6'b1101x0");
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(xrom, rdata->getBit(0)->getOrderID()).isInitialized());
+  auto* blank = SNLInstance::create(top, rom, NLName("rom2"));
+  EXPECT_FALSE(SNLDesignModeling::getTruthTable(blank, rdata->getBit(0)->getOrderID()).isInitialized());
+  // Contents wider than the memory are rejected; writable memories keep no table.
+  auto* bad = SNLInstance::create(top, rom, NLName("rom3"));
+  SNLInstParameter::create(bad, rom->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(bad, rom->getParameter(NLName("INIT")), "6'h136");
+  EXPECT_THROW(SNLDesignModeling::getTruthTable(bad, rdata->getBit(0)->getOrderID()), NLException);
+  auto* ram = NLDB0::getOrCreateMemory({2, 3, 2, 1, 1});
+  EXPECT_EQ(0u, SNLDesignModeling::getTruthTableCount(ram));
+  EXPECT_FALSE(SNLDesignModeling::hasTruthTableFromParameter(
+      ram, NLDB0::getMemoryReadData(ram)->getBit(0)->getOrderID()));
+  EXPECT_THROW(NLDB0::getRomTruthTable(SNLInstance::create(top, ram, NLName("ram0")),
+      NLDB0::getMemoryReadData(ram)->getBit(0)->getOrderID()), NLException);
+  // Factory validation.
+  const SNLTruthTable::RomMetadata metadata{2, 3, {true, false, true}};
+  EXPECT_NO_THROW(SNLTruthTable::Rom(metadata, NLBitDependencies::encodeBits({0, 1})));
+  EXPECT_THROW(SNLTruthTable::Rom(metadata, NLBitDependencies::encodeBits({0})), NLException);
+  EXPECT_THROW(SNLTruthTable::Rom({2, 5, {true, false, true, true, false}},
+      NLBitDependencies::encodeBits({0, 1})), NLException);
+  EXPECT_THROW(SNLTruthTable::Rom({2, 3, {true}}, NLBitDependencies::encodeBits({0, 1})), NLException);
+}
+
+TEST_F(NLDB0Test, ReadOnlyMemoryInitLiteralsAndOrdering) {
+  NLUniverse::create();
+  auto* db = NLDB::create(NLUniverse::get());
+  auto* top = SNLDesign::create(NLLibrary::create(db, NLName("designs")), NLName("top"));
+  auto* rom = NLDB0::getOrCreateMemory({2, 3, 2, 1, 0});
+  auto* rdata = NLDB0::getMemoryReadData(rom);
+  const auto lane0 = rdata->getBit(0)->getOrderID();
+  const auto lane1 = rdata->getBit(1)->getOrderID();
+  auto* initEnable = rom->getParameter(NLName("INIT_ENABLE"));
+  auto* init = rom->getParameter(NLName("INIT"));
+  const auto make = [&](const char* name, const char* literal) {
+    auto* instance = SNLInstance::create(top, rom, NLName(name));
+    SNLInstParameter::create(instance, initEnable, "1");
+    if (literal) {
+      SNLInstParameter::create(instance, init, literal);
+    }
+    return instance;
+  };
+  // Digit separators and hex letters in either case decode like plain digits.
+  auto* reference = make("rom_ref", "6'h36");
+  auto* separated = make("rom_sep", "6'b11_0110");
+  for (auto lane : {lane0, lane1}) {
+    EXPECT_EQ(SNLDesignModeling::getTruthTable(reference, lane),
+              SNLDesignModeling::getTruthTable(separated, lane));
+  }
+  auto* letters = make("rom_hex", "6'h2A");
+  EXPECT_EQ(std::vector<bool>({false, false, false}),
+            SNLDesignModeling::getTruthTable(letters, lane0).getRomMetadata().column);
+  EXPECT_EQ(std::vector<bool>({true, true, true}),
+            SNLDesignModeling::getTruthTable(letters, lane1).getRomMetadata().column);
+  // Without an instance INIT the primitive's default contents, all zero, apply.
+  auto* defaulted = make("rom_default", nullptr);
+  const auto zeros = SNLDesignModeling::getTruthTable(defaulted, lane1);
+  ASSERT_TRUE(zeros.isInitialized());
+  EXPECT_EQ(std::vector<bool>({false, false, false}), zeros.getRomMetadata().column);
+  // Literals without a base, with an unsupported base, a non-digit, or a
+  // digit beyond the base are rejected.
+  for (const char* literal : {"36", "6'd36", "6'hg6", "6'b12"}) {
+    EXPECT_THROW(SNLDesignModeling::getTruthTable(make(literal, literal), lane0), NLException)
+        << literal;
+  }
+  // A depth the address bits cannot reach has no table.
+  auto* deep = NLDB0::getOrCreateMemory({2, 5, 1, 1, 0});
+  auto* deepInstance = SNLInstance::create(top, deep, NLName("rom_deep"));
+  SNLInstParameter::create(deepInstance, deep->getParameter(NLName("INIT_ENABLE")), "1");
+  SNLInstParameter::create(deepInstance, deep->getParameter(NLName("INIT")), "5'h1f");
+  EXPECT_THROW(NLDB0::getRomTruthTable(deepInstance,
+      NLDB0::getMemoryReadData(deep)->getBit(0)->getOrderID()), NLException);
+  // ROM tables order by their metadata once size and type agree.
+  const auto first = SNLDesignModeling::getTruthTable(reference, lane0);
+  const auto second = SNLDesignModeling::getTruthTable(reference, lane1);
+  EXPECT_FALSE(first < first);
+  EXPECT_NE(first < second, second < first);
+  const auto deps = NLBitDependencies::encodeBits({0, 1});
+  const auto shallow = SNLTruthTable::Rom({2, 2, {true, false}}, deps);
+  const auto full = SNLTruthTable::Rom({2, 3, {true, false, true}}, deps);
+  EXPECT_TRUE(shallow < full);
+  EXPECT_FALSE(full < shallow);
+  // Word arithmetic tables are only for word primitives and their outputs.
+  EXPECT_THROW(NLDB0::getWordTruthTable(rom, lane0), NLException);
+  auto* adder = NLDB0::getOrCreateAddSub(4, false);
+  EXPECT_THROW(NLDB0::getWordTruthTable(adder,
+      NLDB0::getAddSubInputA(adder)->getBit(0)->getOrderID()), NLException);
+  EXPECT_THROW(SNLTruthTable::Word(SNLTruthTable::GenericType::AND,
+      {1, 0, 0, false, false, false}, deps), NLException);
 }

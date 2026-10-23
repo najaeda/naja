@@ -228,6 +228,17 @@ class NLDB0 {
     static SNLTruthTable getDivModTruthTable(
       const SNLDesign* design,
       size_t flatTermID);
+    /// Generic truth table of one output bit of an add/subtract, multiply
+    /// or shift primitive; flatTermID is that bit's order ID.
+    static SNLTruthTable getWordTruthTable(
+      const SNLDesign* design,
+      size_t flatTermID);
+    /// Generic ROM truth table of one read-data bit of a read-only memory
+    /// (no write ports); the instance INIT parameter supplies the contents.
+    /// Uninitialized when INIT is disabled or holds x/z digits.
+    static SNLTruthTable getRomTruthTable(
+      const SNLInstance* instance,
+      size_t flatTermID);
     static bool isTableSelect(const SNLDesign* design);
     static TableSelectSignature getTableSelectSignature(const SNLDesign* design);
     static TableSelectSignature getTableSelectSignature(const SNLInstance* instance);

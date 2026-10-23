@@ -992,6 +992,47 @@ TEST_F(SNLLibertyConstructorTest1, testMultipleFFGroups) {
       }));
 }
 
+TEST_F(SNLLibertyConstructorTest1, testLatch) {
+  using Operator = SNLDesignModeling::BooleanExpression::Operator;
+  SNLLibertyConstructor constructor(library_);
+  const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
+      "benchmarks" / "tests" / "latch.lib";
+
+  EXPECT_NO_THROW(constructor.construct(testPath));
+  auto* latch = library_->getSNLDesign(NLName("DLATCH_LOW"));
+  ASSERT_NE(nullptr, latch);
+  ASSERT_TRUE(SNLDesignModeling::hasSequentialModel(latch));
+  const auto& model = SNLDesignModeling::getSequentialModel(latch);
+  EXPECT_EQ(SNLDesignModeling::SequentialModel::Kind::Latch, model.kind);
+  ASSERT_EQ(1u, model.states.size());
+  ASSERT_EQ(2u, model.outputs.size());
+
+  // `enable : "!CLK"` is the control expression, `data_in : "D"` the data.
+  auto* clk = latch->getScalarTerm(NLName("CLK"));
+  auto* d = latch->getScalarTerm(NLName("D"));
+  ASSERT_NE(nullptr, clk);
+  ASSERT_NE(nullptr, d);
+  const auto& enableRoot = model.clockedOn.nodes.at(model.clockedOn.root);
+  EXPECT_EQ(Operator::Not, enableRoot.operation);
+  EXPECT_TRUE(std::any_of(
+      model.clockedOn.nodes.begin(), model.clockedOn.nodes.end(),
+      [clk](const auto& node) {
+        return node.operation == Operator::Term && node.term == clk;
+      }));
+  const auto& dataRoot =
+      model.states[0].nextState.nodes.at(model.states[0].nextState.root);
+  EXPECT_EQ(Operator::Term, dataRoot.operation);
+  EXPECT_EQ(d, dataRoot.term);
+  auto* qn = latch->getScalarTerm(NLName("QN"));
+  ASSERT_NE(nullptr, qn);
+  const auto outputIt = std::find_if(
+      model.outputs.begin(), model.outputs.end(),
+      [qn](const auto& output) { return output.term == qn; });
+  ASSERT_NE(model.outputs.end(), outputIt);
+  EXPECT_EQ(Operator::Not,
+            outputIt->function.nodes.at(outputIt->function.root).operation);
+}
+
 TEST_F(SNLLibertyConstructorTest1, testFFBank) {
   SNLLibertyConstructor constructor(library_);
   const auto testPath = std::filesystem::path(SNL_LIBERTY_BENCHMARKS) /
