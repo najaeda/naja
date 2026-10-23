@@ -9,6 +9,11 @@
 #include <functional>
 #include <sstream>
 
+#include <capnp/message.h>
+#include <capnp/serialize-packed.h>
+#include <kj/io.h>
+#include "naja_nl_interface.capnp.h"
+
 #include "gtest/gtest.h"
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -23,6 +28,7 @@
 #include "SNLParameter.h"
 #include "SNLScalarNet.h"
 #include "SNLCapnP.h"
+#include "SNLDumpException.h"
 
 using namespace naja::NL;
 
@@ -362,6 +368,21 @@ TEST_F(SNLCapnPPrimitiveIdentityTest, MissingDB0DefinitionsAreRejected) {
   EXPECT_EQ(nullptr, NLUniverse::get());
 }
 
+TEST_F(SNLCapnPPrimitiveIdentityTest, UserDatabaseInterfaceCannotReplaceDB0Definitions) {
+  auto* top = createTop();
+  const auto path = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "invalid_db0_database_id";
+  SNLCapnP::dump(top->getDB(), path);
+  std::filesystem::copy_file(path / SNLCapnP::InterfaceName, path / SNLCapnP::DB0InterfaceName,
+      std::filesystem::copy_options::overwrite_existing);
+  NLUniverse::get()->destroy();
+  try {
+    SNLCapnP::load(path);
+    FAIL() << "The DB0 sidecar must contain database ID 0";
+  } catch (const SNLDumpException& error) {
+    EXPECT_STREQ("Invalid snapshot DB0 model definitions: expected database ID 0", error.what());
+  }
+}
+
 TEST_F(SNLCapnPPrimitiveIdentityTest, ConflictingExistingDB0IdentityIsRejected) {
   auto* top = createTop();
   add(top, NLDB0::getOrCreateShift({3, 2, false, false}), "used");
@@ -389,6 +410,105 @@ TEST_F(SNLCapnPPrimitiveIdentityTest, SeparateInterfaceAndImplementationRoundTri
   SNLCapnP::loadInterface(path / "interface", configuration);
   auto* db = SNLCapnP::loadImplementation(path / "implementation", configuration);
   EXPECT_EQ(expected, state(db->getTopDesign()));
+}
+
+TEST_F(SNLCapnPPrimitiveIdentityTest, SelfDescribingModelsLoadWithoutDB0Interface) {
+  auto* top = createTop();
+  auto* gate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 3);
+  auto* flop = NLDB0::getOrCreateDFF(5);
+  const auto gateReference = gate->getReference();
+  const auto flopReference = flop->getReference();
+  add(top, gate, "gate0");
+  add(top, gate, "gate1");
+  add(top, flop, "flop");
+  const auto expected = state(top);
+  const auto path = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "self_describing_db0_models";
+  std::filesystem::create_directories(path);
+  SNLCapnP::dumpInterface(top->getDB(), path / "interface");
+  SNLCapnP::dumpImplementation(top->getDB(), path / "implementation");
+  NLUniverse::get()->destroy();
+
+  SNLCapnP::LoadingConfiguration configuration;
+  auto* db = SNLCapnP::loadInterface(path / "interface", configuration);
+  EXPECT_EQ(nullptr, NLUniverse::get()->getSNLDesign(gateReference));
+  EXPECT_EQ(nullptr, NLUniverse::get()->getSNLDesign(flopReference));
+  ASSERT_EQ(db, SNLCapnP::loadImplementation(path / "implementation", configuration));
+  top = db->getTopDesign();
+  EXPECT_EQ(expected, state(top));
+  EXPECT_EQ(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 3),
+      top->getInstance(NLName("gate0"))->getModel());
+  EXPECT_EQ(top->getInstance(NLName("gate0"))->getModel(),
+      top->getInstance(NLName("gate1"))->getModel());
+  EXPECT_EQ(NLDB0::getOrCreateDFF(5), top->getInstance(NLName("flop"))->getModel());
+}
+
+TEST_F(SNLCapnPPrimitiveIdentityTest, CompoundModelRequiresDB0InterfaceBeforeImplementation) {
+  auto* top = createTop();
+  add(top, NLDB0::getOrCreateMemory({3, 3, 2, 1, 1}), "used", true, true);
+  const auto expected = state(top);
+  const auto path = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "required_db0_interface";
+  std::filesystem::create_directories(path);
+  SNLCapnP::dumpInterface(NLDB0::getDB0(), path / "db0");
+  SNLCapnP::dumpInterface(top->getDB(), path / "interface");
+  SNLCapnP::dumpImplementation(top->getDB(), path / "implementation");
+  NLUniverse::get()->destroy();
+
+  SNLCapnP::LoadingConfiguration configuration;
+  auto* db = SNLCapnP::loadInterface(path / "interface", configuration);
+  try {
+    SNLCapnP::loadImplementation(path / "implementation", configuration);
+    FAIL() << "Compound model metadata must come from its DB0 interface";
+  } catch (const NLException& error) {
+    EXPECT_NE(std::string::npos, std::string(error.what()).find("missing parameter WIDTH"));
+  }
+  // In particular, Windows cannot rename this file if the failed load left it open.
+  std::filesystem::remove(path / "retry");
+  ASSERT_NO_THROW(std::filesystem::rename(path / "implementation", path / "retry"));
+  SNLCapnP::loadInterface(path / "db0", configuration);
+  ASSERT_EQ(db, SNLCapnP::loadImplementation(path / "retry", configuration));
+  EXPECT_EQ(expected, state(db->getTopDesign()));
+}
+
+TEST_F(SNLCapnPPrimitiveIdentityTest, MalformedDB0ParameterRecordsAreRejected) {
+  createTop();
+  const auto reference = NLDB0::getOrCreateDFF(5)->getReference();
+  NLUniverse::get()->destroy();
+  const auto path = std::filesystem::path(SNL_CAPNP_TEST_PATH) / "malformed_db0_parameters";
+  std::filesystem::create_directories(path);
+  for (bool duplicate : {false, true}) {
+    SCOPED_TRACE(duplicate ? "duplicate parameter" : "missing default");
+    ::capnp::MallocMessageBuilder message;
+    auto db = message.initRoot<DBInterface>();
+    db.setId(0);
+    auto library = db.initLibraryInterfaces(1)[0];
+    library.setId(reference.libraryID_);
+    auto definition = library.initSnlDesignInterfaces(1)[0];
+    definition.setId(reference.designID_);
+    auto parameters = definition.initParameters(duplicate ? 2 : 1);
+    for (auto parameter : parameters) {
+      parameter.setName("WIDTH");
+      parameter.setType(SNLDesignInterface::ParameterType::DECIMAL);
+      if (duplicate) parameter.setValue("5");
+    }
+    ::kj::VectorOutputStream packed;
+    ::capnp::writePackedMessage(packed, message);
+    const auto file = path / (duplicate ? "duplicate" : "missing");
+    {
+      std::ofstream output(file, std::ios::binary);
+      auto data = packed.getArray();
+      output.write(reinterpret_cast<const char*>(data.begin()), data.size());
+      ASSERT_TRUE(output.good());
+    }
+    try {
+      SNLCapnP::loadInterface(file, SNLCapnP::LoadingConfiguration());
+      FAIL() << "Malformed DB0 parameter records must be rejected";
+    } catch (const NLException& error) {
+      EXPECT_STREQ("Cannot load DB0 model: missing default or duplicate parameter", error.what());
+    }
+    ASSERT_NE(nullptr, NLUniverse::get());
+    EXPECT_EQ(nullptr, NLUniverse::get()->getSNLDesign(reference));
+    NLUniverse::get()->destroy();
+  }
 }
 
 TEST_F(SNLCapnPPrimitiveIdentityTest, IncompleteModelSignatureIsRejected) {
