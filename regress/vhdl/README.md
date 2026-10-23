@@ -75,6 +75,10 @@ The defaults cover all 16 upstream noninteractive console programs, containing
 checked-in `.console_out` byte for byte. Reaching the simulation time limit is a
 failure, even if partial console output matches.
 
+Use `--build-timeout` to set the GHDL and Verilator build timeout in seconds
+(default: 600). CI allows 1,800 seconds for the full-core build. Each program
+retains its 300-second simulation timeout.
+
 | Programs | Reported checks |
 | --- | ---: |
 | `test_branch_alias`, `test_misc`, `test_prefix` | 13 |

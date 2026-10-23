@@ -98,7 +98,7 @@ def build_soc(args, source, backend, objects):
     unisim = work / "unisim"
     unisim.mkdir(exist_ok=True)
     def run(command, stage):
-        bridge.run(command, work, work / (stage + ".log"), timeout=600)
+        bridge.run(command, work, work / (stage + ".log"), timeout=args.build_timeout)
     run([args.ghdl, "-i", "--std=08", "--work=unisim", "--workdir=" + str(unisim),
          *[source / "sim-unisim" / n for n in ("BSCANE2.vhdl", "BUFG.vhdl", "unisim_vcomponents.vhdl")]], "unisim")
     flags = ["--std=08", "-P" + str(unisim)]
@@ -155,7 +155,7 @@ def export_core(args, source):
     bridge.run([args.verilator, "--cc", "--build", "-j", str(args.jobs), "--output-split", "20000",
                 "--top-module", "naja_bridge", "--prefix", "Vnaja_bridge", "--Mdir", obj,
                 "-Wno-fatal", "-CFLAGS", "-fPIC", work / "adapter.sv",
-                *sorted(export.glob("*.v")), work / "bridge.cpp"], work, work / "verilator.log", timeout=600)
+                *sorted(export.glob("*.v")), work / "bridge.cpp"], work, work / "verilator.log", timeout=args.build_timeout)
     include = Path(subprocess.check_output([args.verilator, "--getenv", "VERILATOR_ROOT"], text=True).strip()) / "include"
     objects = [obj / "bridge.o", obj / "Vnaja_bridge__ALL.a"]
     for name in ("verilated", "verilated_threads"):
@@ -206,6 +206,8 @@ def main():
     parser.add_argument("--preview-dcache-fix", action="store_true")
     parser.add_argument("--stop-time", default="2ms")
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--build-timeout", type=int, default=600,
+                        help="GHDL and Verilator build timeout in seconds (default: 600)")
     for tool, default in (("ghdl", "ghdl"), ("verilator", "verilator"), ("cc", "cc"), ("cxx", "c++")):
         parser.add_argument("--" + tool, default=default)
     args = parser.parse_args()
@@ -216,6 +218,8 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     if args.jobs < 1:
         parser.error("--jobs must be positive")
+    if args.build_timeout < 1:
+        parser.error("--build-timeout must be positive")
     for tool in ("ghdl", "verilator", "cc", "cxx"):
         path = shutil.which(getattr(args, tool))
         if not path:

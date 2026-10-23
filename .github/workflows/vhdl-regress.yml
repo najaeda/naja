@@ -20,7 +20,7 @@ concurrency:
 jobs:
   vhdl-regress:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
@@ -89,7 +89,7 @@ jobs:
           python3 -B regress/vhdl/microwatt_core_smoke.py \
             --source build/vhdl-regress/microwatt \
             --output build/vhdl-regress/core-smoke \
-            --preview-dcache-fix --ghdl ghdl-gcc --jobs 4
+            --preview-dcache-fix --ghdl ghdl-gcc --jobs 4 --build-timeout 1800
 
       - name: Download and test AES decryption benchmark
         env:
