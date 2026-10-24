@@ -905,10 +905,13 @@ SNLDesign* VHDLConstructor::constructInputs(
         return requestedOutput;
       }
       if (expression.kind == vhdl::Expression::Kind::CharacterLiteral) {
-        auto* constant = requestedOutput
-            ? requestedOutput : SNLScalarNet::create(design);
+        auto* constant = SNLScalarNet::create(design);
         constant->setType(expression.text == "'1'"
             ? SNLNet::Type::Assign1 : SNLNet::Type::Assign0);
+        if (requestedOutput) {
+          SNLRTLPrimitives::createAssign(design, constant, requestedOutput);
+          return requestedOutput;
+        }
         return constant;
       }
       if (expression.kind == vhdl::Expression::Kind::Unary) {
