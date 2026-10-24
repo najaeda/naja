@@ -2759,7 +2759,9 @@ class RTLConstructor {
   }
   SNLBitNet* cachedGate(const std::string& op, Bits inputs) {
     // All supported multi-input gates are commutative.
-    std::sort(inputs.begin(), inputs.end(), std::less<SNLBitNet*>{});
+    std::sort(inputs.begin(), inputs.end(), [](const auto* left, const auto* right) {
+      return left->getNLID() < right->getNLID();
+    });
     const auto cacheKey = std::make_pair(op, inputs);
     if (const auto found = gates_.find(cacheKey); found != gates_.end()) return found->second;
     using Gate = SNLRTLPrimitives::GateKind;
@@ -3816,7 +3818,8 @@ class RTLConstructor {
         else {
           if (leftInteger) left = expression(*expr.left, state, numericOperation || comparison ? nullptr : expected, operandDemand);
           if (rightInteger) right = expression(*expr.right, state,
-              ((leftNumeric || leftSigned) && !rightLiteral) || ((arithmetic || comparison) && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
+              ((leftNumeric || leftSigned) && !rightLiteral) ||
+              ((arithmetic || comparison || expr.text == "*") && left.shape.integerWidth) ? nullptr : &left.shape, operandDemand);
         }
         if (arithmetic && numeric_) {
           const auto scalarOperand = [&](Value& scalar, const Value& vector) {
