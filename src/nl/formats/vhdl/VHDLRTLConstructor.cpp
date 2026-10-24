@@ -4025,7 +4025,11 @@ class RTLConstructor {
 
   void drive(SNLBitNet* target, SNLBitNet* source) {
     if (!drivers_.insert(target).second) fail("multiple drivers for one signal bit");
-    if (source->isConstant())
+    const auto terms = target->getBitTerms();
+    const bool drivesPort = std::any_of(terms.begin(), terms.end(), [](auto* term) {
+      return term->getDirection() != SNLTerm::Direction::Input;
+    });
+    if (source->isConstant() && !drivesPort)
       target->setType(source->getType());
     else SNLRTLPrimitives::createAssign(design_, source, target);
   }
